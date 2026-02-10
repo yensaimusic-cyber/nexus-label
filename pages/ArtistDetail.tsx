@@ -1,506 +1,263 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Instagram, Music2, Users, Disc, FileText, BarChart3, Download, Mail, 
-  MoreVertical, ExternalLink, Plus, ArrowLeft, ChevronRight, Camera, 
-  Sparkles, Layers, Video, Trash2, Loader2, Save
+  MoreVertical, Plus, ArrowLeft, ChevronRight, Camera, Trash2, Loader2, Save, File, X
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
 import { uploadFile, deleteFileByUrl } from '../lib/storage';
-import { Artist, Project, TeamMember, Asset, ProjectType, ArtistStatus } from '../types';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-const STATS_DATA = [
-  { date: '2024-01', listeners: 120000, streams: 450000 },
-  { date: '2024-02', listeners: 145000, streams: 510000 },
-  { date: '2024-03', listeners: 138000, streams: 490000 },
-  { date: '2024-04', listeners: 190000, streams: 720000 },
-  { date: '2024-05', listeners: 250000, streams: 1100000 },
-  { date: '2024-06', listeners: 320000, streams: 1500000 },
-];
-
-const PROJECT_TEMPLATES = [
-  { id: 'ep_3_tracks', name: 'EP 3 Tracks', type: 'ep' as ProjectType, description: 'Auto-create 3 tracks + recording tasks', icon: <Layers size={20} />, defaultBudget: 4500 },
-  { id: 'single_video', name: 'Single + Video', type: 'single' as ProjectType, description: 'Track + Music Video production workflow', icon: <Video size={20} />, defaultBudget: 6000 }
-];
-
-type TabType = 'projects' | 'team' | 'assets' | 'stats';
+import { Artist, Project, ArtistAsset, TeamMember } from '../types';
 
 export const ArtistDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [artist, setArtist] = useState<Artist | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [assets, setAssets] = useState<ArtistAsset[]>([]);
+  const [artistTeam, setArtistTeam] = useState<any[]>([]);
+  const [allProfiles, setAllProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabType>('projects');
+  const [activeTab, setActiveTab] = useState<'projets' | 'equipe' | 'assets' | 'stats'>('projets');
   
-  // Edit State
-  const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState<Partial<Artist>>({});
-  const [isSaving, setIsSaving] = useState(false);
-
-  // New Project Modal
-  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
-  const [isCreatingProject, setIsCreatingProject] = useState(false);
-  const [projectSource, setProjectSource] = useState<'manual' | 'template'>('manual');
-  const [newProject, setNewProject] = useState<Partial<Project>>({
-    title: '',
-    type: 'single',
-    release_date: '',
-    budget: 0,
-    status: 'idea'
-  });
-  const [projectCoverFile, setProjectCoverFile] = useState<File | null>(null);
-
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const coverInputRef = useRef<HTMLInputElement>(null);
+  // Modals
+  const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Inputs
+  const [newAsset, setNewAsset] = useState({ name: '', file: null as File | null });
+  const [newTeamMember, setNewTeamMember] = useState({ profile_id: '', role: '' });
 
   useEffect(() => {
-    if (id) fetchArtistData();
+    if (id) fetchData();
   }, [id]);
 
-  const fetchArtistData = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const { data: artistData, error: artistError } = await supabase
-        .from('artists')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const [artistRes, projectsRes, assetsRes, teamRes, profilesRes] = await Promise.all([
+        supabase.from('artists').select('*').eq('id', id).single(),
+        supabase.from('projects').select('*').eq('artist_id', id).order('release_date', { ascending: false }),
+        supabase.from('artist_assets').select('*').eq('artist_id', id).order('created_at', { ascending: false }),
+        supabase.from('artist_team_members').select('*, profile:profiles(*)').eq('artist_id', id),
+        supabase.from('profiles').select('*').order('full_name')
+      ]);
 
-      if (artistError) throw artistError;
-      setArtist(artistData);
-      setEditData(artistData);
-
-      const { data: projectsData, error: projectsError } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('artist_id', id)
-        .order('release_date', { ascending: false });
-
-      if (projectsError) throw projectsError;
-      setProjects(projectsData);
+      setArtist(artistRes.data);
+      setProjects(projectsRes.data || []);
+      setAssets(assetsRes.data || []);
+      setArtistTeam(teamRes.data || []);
+      setAllProfiles(profilesRes.data || []);
     } catch (err: any) {
-      alert("Error fetching artist: " + err.message);
-      navigate('/artists');
+      alert("Erreur chargement : " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateArtist = async () => {
+  const handleUpdateStats = async (field: string, value: number) => {
     if (!artist) return;
     try {
-      setIsSaving(true);
-      const { error } = await supabase
-        .from('artists')
-        .update(editData)
-        .eq('id', artist.id);
-
+      const { error } = await supabase.from('artists').update({ [field]: value }).eq('id', artist.id);
       if (error) throw error;
-      setArtist({ ...artist, ...editData });
-      setIsEditing(false);
-      alert("Artist updated successfully!");
+      setArtist({ ...artist, [field]: value });
     } catch (err: any) {
-      alert("Error updating artist: " + err.message);
-    } finally {
-      setIsSaving(false);
+      alert("Erreur stats : " + err.message);
     }
   };
 
-  const handleDeleteArtist = async () => {
-    if (!artist) return;
-    if (!confirm(`Are you sure you want to delete ${artist.stage_name}? All associated projects and data will be lost.`)) return;
-
-    try {
-      // 1. Delete Storage assets if they exist
-      if (artist.avatar_url) await deleteFileByUrl(artist.avatar_url, 'avatars');
-      if (artist.cover_url) await deleteFileByUrl(artist.cover_url, 'covers');
-
-      // 2. Delete database entry (cascade will handle projects)
-      const { error } = await supabase
-        .from('artists')
-        .delete()
-        .eq('id', artist.id);
-
-      if (error) throw error;
-      navigate('/artists');
-      alert("Artist removed from roster.");
-    } catch (err: any) {
-      alert("Error deleting artist: " + err.message);
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, bucket: 'avatars' | 'covers') => {
-    const file = e.target.files?.[0];
-    if (!file || !artist) return;
-
-    try {
-      setLoading(true);
-      const url = await uploadFile(file, bucket, `artist-${bucket}`);
-      
-      // Delete old file if exists
-      const oldUrl = bucket === 'avatars' ? artist.avatar_url : artist.cover_url;
-      if (oldUrl) await deleteFileByUrl(oldUrl, bucket);
-
-      const updates = bucket === 'avatars' ? { avatar_url: url } : { cover_url: url };
-      const { error } = await supabase
-        .from('artists')
-        .update(updates)
-        .eq('id', artist.id);
-
-      if (error) throw error;
-      setArtist({ ...artist, ...updates });
-      alert(`${bucket === 'avatars' ? 'Avatar' : 'Cover'} updated!`);
-    } catch (err: any) {
-      alert("Upload failed: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreateProject = async (e: React.FormEvent) => {
+  const handleUploadAsset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id || !newProject.title) return;
-
+    if (!newAsset.file || !newAsset.name || !id) return;
     try {
-      setIsCreatingProject(true);
-      let coverUrl = '';
-      if (projectCoverFile) {
-        coverUrl = await uploadFile(projectCoverFile, 'covers', 'project-covers');
-      }
-
-      const { data, error } = await supabase
-        .from('projects')
-        .insert([{
-          ...newProject,
-          artist_id: id,
-          cover_url: coverUrl
-        }])
-        .select()
-        .single();
-
+      setIsSubmitting(true);
+      const url = await uploadFile(newAsset.file, 'covers', 'assets'); // Utilise Bucket 'covers' par défaut ou crée un bucket 'assets'
+      const { data, error } = await supabase.from('artist_assets').insert([{
+        artist_id: id,
+        name: newAsset.name,
+        file_url: url,
+        file_type: newAsset.file.type,
+        file_size: newAsset.file.size
+      }]).select().single();
       if (error) throw error;
-      setProjects([data, ...projects]);
-      setIsNewProjectModalOpen(false);
-      resetProjectForm();
-      alert("Project created!");
+      setAssets([data, ...assets]);
+      setIsAssetModalOpen(false);
+      setNewAsset({ name: '', file: null });
     } catch (err: any) {
-      alert("Error creating project: " + err.message);
+      alert("Échec upload : " + err.message);
     } finally {
-      setIsCreatingProject(false);
+      setIsSubmitting(false);
     }
   };
 
-  const resetProjectForm = () => {
-    setNewProject({ title: '', type: 'single', release_date: '', budget: 0, status: 'idea' });
-    setProjectCoverFile(null);
-    setProjectSource('manual');
+  const handleAddTeamMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTeamMember.profile_id || !id) return;
+    try {
+      setIsSubmitting(true);
+      const { data, error } = await supabase.from('artist_team_members').insert([{
+        artist_id: id,
+        profile_id: newTeamMember.profile_id,
+        role: newTeamMember.role
+      }]).select('*, profile:profiles(*)').single();
+      if (error) throw error;
+      setArtistTeam([...artistTeam, data]);
+      setIsTeamModalOpen(false);
+    } catch (err: any) {
+      alert("Échec ajout membre : " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  if (loading && !artist) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center">
-        <Loader2 className="text-nexus-purple animate-spin" size={48} />
-        <p className="mt-4 text-white/40 font-mono tracking-widest uppercase">Fetching Talent Profile...</p>
-      </div>
-    );
+  if (loading || !artist) {
+    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-nexus-purple" size={48} /></div>;
   }
-
-  if (!artist) return null;
 
   return (
     <div className="flex flex-col min-h-screen">
-      <input type="file" ref={avatarInputRef} onChange={(e) => handleFileUpload(e, 'avatars')} className="hidden" accept="image/*" />
-      <input type="file" ref={coverInputRef} onChange={(e) => handleFileUpload(e, 'covers')} className="hidden" accept="image/*" />
-
-      {/* Hero Header */}
-      <div className="relative h-[350px] w-full overflow-hidden">
-        <img 
-          src={artist.cover_url || "https://picsum.photos/seed/placeholder/1200/400"} 
-          alt="Cover" 
-          className="w-full h-full object-cover brightness-[0.4]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-nexus-dark via-nexus-dark/40 to-transparent" />
-        
-        <div className="absolute top-8 left-8 flex items-center gap-4">
-          <Link to="/artists">
-            <Button variant="ghost" size="sm" className="gap-2 backdrop-blur-md bg-white/5 border border-white/10">
-              <ArrowLeft size={16} />
-              <span>Roster</span>
-            </Button>
-          </Link>
-          <Button variant="ghost" size="sm" onClick={() => coverInputRef.current?.click()} className="gap-2 backdrop-blur-md bg-white/5 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Camera size={16} />
-            <span>Change Cover</span>
-          </Button>
-        </div>
-
-        <div className="absolute bottom-0 left-0 w-full p-8 flex flex-col md:flex-row items-end gap-6">
-          <div className="relative group shrink-0 z-10">
-            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-36 h-36 rounded-[32px] overflow-hidden border-4 border-nexus-surface shadow-2xl bg-nexus-surface">
-              <img src={artist.avatar_url || `https://picsum.photos/seed/${artist.id}/200`} alt={artist.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-            </motion.div>
-            <button onClick={() => avatarInputRef.current?.click()} className="absolute -bottom-2 -right-2 p-3 rounded-2xl nexus-gradient text-white shadow-xl opacity-0 group-hover:opacity-100 transition-all">
-              <Camera size={18} />
-            </button>
+      {/* Hero simple avec stats manuelles */}
+      <div className="h-[300px] relative overflow-hidden">
+        <img src={artist.cover_url || "https://picsum.photos/seed/bg/1200/400"} className="w-full h-full object-cover brightness-[0.3]" />
+        <div className="absolute bottom-0 left-0 p-8 flex items-end gap-6">
+          <div className="w-32 h-32 rounded-3xl border-4 border-nexus-surface overflow-hidden shadow-2xl">
+            <img src={artist.avatar_url} className="w-full h-full object-cover" />
           </div>
-          
-          <div className="flex-1 space-y-2 z-10">
-            {isEditing ? (
-              <div className="space-y-3 max-w-xl">
-                <input 
-                  type="text" 
-                  value={editData.stage_name} 
-                  onChange={(e) => setEditData({...editData, stage_name: e.target.value})}
-                  className="bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-2xl font-bold text-white w-full outline-none focus:border-nexus-purple"
-                />
-                <textarea 
-                  value={editData.bio} 
-                  onChange={(e) => setEditData({...editData, bio: e.target.value})}
-                  className="bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-sm text-nexus-lightGray w-full outline-none focus:border-nexus-purple resize-none h-20"
-                />
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-4xl lg:text-5xl font-heading font-extrabold text-white tracking-tighter">{artist.stage_name}</h1>
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono uppercase font-bold border ${
-                    artist.status === 'active' ? 'bg-nexus-green/20 text-nexus-green border-nexus-green/30' : 'bg-nexus-orange/20 text-nexus-orange border-nexus-orange/30'
-                  }`}>
-                    {artist.status}
-                  </span>
-                </div>
-                <p className="text-nexus-lightGray max-w-2xl text-sm leading-relaxed">{artist.bio || "No biography provided yet."}</p>
-              </>
-            )}
-            
-            <div className="flex items-center gap-4 pt-2">
-              <div className="flex items-center gap-1.5 text-nexus-pink text-xs font-bold">
-                <Instagram size={14} />
-                {isEditing ? (
-                  <input value={editData.instagram_handle} onChange={e => setEditData({...editData, instagram_handle: e.target.value})} className="bg-white/5 border-b border-white/10 outline-none w-32" />
-                ) : artist.instagram_handle || '@official'}
-              </div>
-              <div className="flex items-center gap-1.5 text-nexus-green text-xs font-bold">
-                <Music2 size={14} />
-                Spotify
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-3 z-10">
-            {isEditing ? (
-              <>
-                <Button variant="ghost" onClick={() => { setIsEditing(false); setEditData(artist); }} className="h-11">Cancel</Button>
-                <Button variant="primary" onClick={handleUpdateArtist} isLoading={isSaving} className="h-11 gap-2"><Save size={18} /> Save</Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" onClick={() => setIsEditing(true)} className="h-11 gap-2 border-white/10 hover:border-white/30"><MoreVertical size={18} /> Edit Profile</Button>
-                <Button variant="danger" onClick={handleDeleteArtist} className="h-11 px-4"><Trash2 size={18} /></Button>
-              </>
-            )}
+          <div className="mb-2">
+            <h1 className="text-5xl font-heading font-extrabold text-white">{artist.stage_name}</h1>
+            <p className="text-nexus-cyan font-mono uppercase tracking-widest text-xs mt-2">{artist.status}</p>
           </div>
         </div>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="px-8 mt-8 sticky top-20 z-30">
-        <div className="glass p-1 rounded-2xl flex w-fit shadow-xl">
-          {(['projects', 'team', 'assets', 'stats'] as TabType[]).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`relative flex items-center gap-2 px-6 py-3 rounded-xl transition-all duration-300 text-sm font-bold uppercase tracking-widest ${
-                activeTab === tab ? 'text-white' : 'text-nexus-lightGray hover:text-white'
-              }`}
-            >
-              {activeTab === tab && (
-                <motion.div layoutId="activeTabBg" className="absolute inset-0 bg-white/10 rounded-xl" transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }} />
-              )}
-              {tab}
-            </button>
+      <div className="p-8 space-y-8">
+        <div className="flex gap-2 p-1 glass rounded-2xl w-fit">
+          {['projets', 'equipe', 'assets', 'stats'].map((tab: any) => (
+            <button key={tab} onClick={() => setActiveTab(tab)} className={`px-6 py-2.5 rounded-xl text-sm font-bold uppercase tracking-widest transition-all ${activeTab === tab ? 'bg-nexus-purple text-white shadow-xl' : 'text-white/40 hover:text-white'}`}>{tab}</button>
           ))}
         </div>
-      </div>
 
-      {/* Tab Content */}
-      <div className="p-8 pb-24 max-w-[1400px]">
         <AnimatePresence mode="wait">
-          <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
-            {activeTab === 'projects' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {projects.map((project) => (
-                  <Card key={project.id} className="hover:border-nexus-purple/40 transition-all group overflow-hidden flex flex-col h-full border-white/5">
-                    <div className="flex items-start gap-4 mb-4">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden shadow-xl border border-white/5 shrink-0 bg-nexus-surface">
-                        <img src={project.cover_url || `https://picsum.photos/seed/${project.id}/100`} className="w-full h-full object-cover group-hover:scale-110 transition-transform" alt="" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-lg truncate text-white">{project.title}</h4>
-                        <p className="text-[10px] text-nexus-cyan font-mono uppercase tracking-[0.2em]">{project.type}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex-1 space-y-4">
-                      <div className="flex justify-between items-center text-[10px] text-white/40 uppercase font-mono tracking-widest">
-                        <span>Readiness</span>
-                        <span className="text-white font-bold">Active</span>
-                      </div>
-                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                        <motion.div initial={{ width: 0 }} animate={{ width: `45%` }} className="h-full nexus-gradient shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
-                      </div>
-                    </div>
+          {activeTab === 'projets' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {projects.map(p => (
+                <Card key={p.id} className="hover:border-nexus-purple/40">
+                  <h3 className="font-bold text-lg">{p.title}</h3>
+                  <p className="text-[10px] text-nexus-cyan font-mono uppercase">{p.type}</p>
+                  <Link to={`/projects/${p.id}`} className="mt-4 block"><Button variant="outline" size="sm" className="w-full">Ouvrir</Button></Link>
+                </Card>
+              ))}
+              <Link to="/projects">
+                <div className="border-2 border-dashed border-white/10 rounded-2xl h-full flex flex-col items-center justify-center p-8 hover:bg-white/5 transition-all cursor-pointer">
+                  <Plus className="text-white/20 mb-2" />
+                  <span className="text-xs font-bold text-white/20 uppercase">Nouveau Projet</span>
+                </div>
+              </Link>
+            </div>
+          )}
 
-                    <div className="flex justify-between items-center pt-4 mt-6 border-t border-white/5">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] text-white/30 uppercase font-mono font-bold tracking-tighter">Release Date</span>
-                        <span className="text-xs font-bold text-white/70">{project.release_date || 'TBD'}</span>
-                      </div>
-                      <Link to={`/projects/${project.id}`}>
-                        <Button variant="ghost" size="sm" className="gap-2 text-[10px] uppercase font-black bg-white/5 hover:bg-white/10 px-4">
-                          Dashboard <ChevronRight size={14} className="text-nexus-purple" />
-                        </Button>
-                      </Link>
+          {activeTab === 'stats' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <Card className="p-8">
+                <h3 className="text-xl font-heading font-bold mb-6">Stats Spotify (Saisie manuelle)</h3>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-mono uppercase text-white/40">Auditeurs Mensuels</label>
+                    <div className="flex gap-4">
+                      <input type="number" defaultValue={artist.monthly_listeners} onBlur={(e) => handleUpdateStats('monthly_listeners', parseInt(e.target.value))} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white" />
+                      <div className="p-4 rounded-xl bg-nexus-purple/10 text-nexus-purple font-bold">{(artist.monthly_listeners || 0).toLocaleString()}</div>
                     </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-mono uppercase text-white/40">Total Streams</label>
+                    <input type="number" defaultValue={artist.total_streams} onBlur={(e) => handleUpdateStats('total_streams', parseInt(e.target.value))} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white" />
+                  </div>
+                </div>
+              </Card>
+              <div className="flex flex-col justify-center items-center opacity-30">
+                <Music2 size={80} className="mb-4" />
+                <p className="text-center text-sm max-w-xs italic">Connectez votre compte Spotify for Artists dans une future version pour l'automatisation.</p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'assets' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-heading font-bold">Documents & Médias</h3>
+                <Button variant="primary" size="sm" onClick={() => setIsAssetModalOpen(true)}><Plus size={18} className="mr-2" /> Ajouter un Asset</Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {assets.map(asset => (
+                  <div key={asset.id} className="glass p-4 rounded-2xl flex items-center justify-between group hover:border-nexus-purple/20 transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-xl bg-white/5 text-nexus-purple"><FileText size={20} /></div>
+                      <div>
+                        <p className="font-bold text-sm">{asset.name}</p>
+                        <p className="text-[9px] font-mono text-white/30 uppercase">{(asset.file_size / 1024 / 1024).toFixed(2)} MB</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <a href={asset.file_url} target="_blank" download className="p-2 hover:bg-white/10 rounded-lg text-nexus-cyan"><Download size={18} /></a>
+                      <button onClick={async () => { await supabase.from('artist_assets').delete().eq('id', asset.id); setAssets(assets.filter(a => a.id !== asset.id)); }} className="p-2 hover:bg-nexus-red/10 rounded-lg text-nexus-red"><Trash2 size={18} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'equipe' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-heading font-bold">Équipe Dédiée</h3>
+                <Button variant="primary" size="sm" onClick={() => setIsTeamModalOpen(true)}><Plus size={18} className="mr-2" /> Assigner un Membre</Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {artistTeam.map(at => (
+                  <Card key={at.id} className="text-center p-6 border-white/5 hover:border-nexus-cyan/30">
+                    <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-4 border border-white/10">
+                      <img src={at.profile?.avatar_url} className="w-full h-full object-cover" />
+                    </div>
+                    <p className="font-bold text-white truncate">{at.profile?.full_name}</p>
+                    <p className="text-[10px] text-nexus-cyan font-mono uppercase mt-1">{at.role || 'Collaborateur'}</p>
+                    <button onClick={async () => { await supabase.from('artist_team_members').delete().eq('id', at.id); setArtistTeam(artistTeam.filter(t => t.id !== at.id)); }} className="mt-4 text-[10px] text-nexus-red hover:underline uppercase font-bold">Retirer</button>
                   </Card>
                 ))}
-                
-                <motion.div 
-                  whileHover={{ scale: 1.02, y: -4 }}
-                  onClick={() => { resetProjectForm(); setIsNewProjectModalOpen(true); }}
-                  className="border-2 border-dashed border-white/5 rounded-[32px] flex flex-col items-center justify-center p-8 hover:border-nexus-purple/40 hover:bg-nexus-purple/5 transition-all cursor-pointer group min-h-[220px]"
-                >
-                  <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center mb-4 group-hover:bg-nexus-purple/20 group-hover:scale-110 transition-all">
-                    <Plus className="text-white/20 group-hover:text-nexus-purple" />
-                  </div>
-                  <p className="text-xs font-bold text-white/20 group-hover:text-white/40 uppercase tracking-[0.2em]">New Project</p>
-                </motion.div>
               </div>
-            )}
-
-            {/* Other tabs remain largely skeletal or can be filled with real data as needed */}
-            {activeTab === 'team' && (
-              <div className="glass p-12 rounded-[40px] text-center flex flex-col items-center justify-center border-white/5">
-                <Users className="text-nexus-purple/20 mb-6" size={64} />
-                <h3 className="text-2xl font-heading font-extrabold mb-2">Internal Team Only</h3>
-                <p className="text-nexus-lightGray max-w-md mx-auto mb-8">This roster is currently managed by the Label Admins. Contact management to add collaborators.</p>
-                <Button variant="outline" className="gap-2"><Mail size={18} /> Contact Admin</Button>
-              </div>
-            )}
-
-            {activeTab === 'assets' && (
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 {[1,2,3].map(i => (
-                   <div key={i} className="glass p-4 rounded-2xl flex items-center justify-between group hover:border-nexus-purple/20 transition-all">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-xl bg-nexus-purple/10 text-nexus-purple">
-                          <FileText size={20} />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-sm">Asset_Release_v{i}.pdf</h4>
-                          <p className="text-[9px] font-mono text-white/30">EPK / PRESS KIT • 1.4 MB</p>
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="sm" className="p-2 opacity-0 group-hover:opacity-100 transition-opacity"><Download size={18} /></Button>
-                   </div>
-                 ))}
-               </div>
-            )}
-
-            {activeTab === 'stats' && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card className="min-h-[350px] p-8">
-                    <div className="flex items-center justify-between mb-8">
-                      <h3 className="font-heading font-bold text-lg">Listeners (30D)</h3>
-                      <span className="text-nexus-green text-[10px] font-mono font-bold uppercase tracking-widest bg-nexus-green/10 px-2 py-1 rounded">+24% ↑</span>
-                    </div>
-                    <div className="h-[200px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={STATS_DATA}>
-                          <defs>
-                            <linearGradient id="colorListeners" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
-                          <Tooltip contentStyle={{ backgroundColor: '#0F0F15', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }} />
-                          <Area type="monotone" dataKey="listeners" stroke="#8B5CF6" fillOpacity={1} fill="url(#colorListeners)" strokeWidth={3} />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-            )}
-          </motion.div>
+            </div>
+          )}
         </AnimatePresence>
       </div>
 
-      {/* New Project Modal */}
-      <Modal isOpen={isNewProjectModalOpen} onClose={() => setIsNewProjectModalOpen(false)} title="Initialize Project">
-        <div className="space-y-6">
-          <div className="flex glass p-1 rounded-xl">
-            <button onClick={() => setProjectSource('manual')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${projectSource === 'manual' ? 'bg-nexus-purple text-white shadow-lg' : 'text-white/40 hover:text-white'}`}>Custom Flow</button>
-            <button onClick={() => setProjectSource('template')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${projectSource === 'template' ? 'bg-nexus-purple text-white shadow-lg' : 'text-white/40 hover:text-white'}`}>Templates</button>
+      {/* Asset Modal */}
+      <Modal isOpen={isAssetModalOpen} onClose={() => setIsAssetModalOpen(false)} title="Nouvel Asset">
+        <form onSubmit={handleUploadAsset} className="space-y-4">
+          <input required type="text" placeholder="Nom du fichier (ex: Dossier de presse)" value={newAsset.name} onChange={e => setNewAsset({...newAsset, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
+          <div className="border-2 border-dashed border-white/10 p-8 rounded-2xl text-center hover:bg-white/5 cursor-pointer relative">
+            <Plus className="mx-auto mb-2 text-white/20" />
+            <p className="text-xs text-white/40">{newAsset.file ? newAsset.file.name : "Cliquez pour sélectionner un fichier"}</p>
+            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => setNewAsset({...newAsset, file: e.target.files?.[0] || null})} />
           </div>
+          <Button type="submit" variant="primary" className="w-full" isLoading={isSubmitting}>Uploader</Button>
+        </form>
+      </Modal>
 
-          <form onSubmit={handleCreateProject} className="space-y-5">
-            <div className="space-y-4">
-              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Project Media</label>
-              <div className="w-full h-32 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center relative group cursor-pointer overflow-hidden hover:border-nexus-purple transition-all">
-                {projectCoverFile ? (
-                  <img src={URL.createObjectURL(projectCoverFile)} className="w-full h-full object-cover" alt="Preview" />
-                ) : (
-                  <div className="flex flex-col items-center gap-1 text-white/20 group-hover:text-nexus-purple">
-                    <Camera size={24} />
-                    <span className="text-[9px] font-mono uppercase">Upload Artwork</span>
-                  </div>
-                )}
-                <input type="file" accept="image/*" onChange={e => setProjectCoverFile(e.target.files?.[0] || null)} className="absolute inset-0 opacity-0 cursor-pointer" />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Title</label>
-              <input required type="text" value={newProject.title} onChange={e => setNewProject({...newProject, title: e.target.value})} placeholder="Project name..." className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-nexus-purple" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Type</label>
-                <select value={newProject.type} onChange={e => setNewProject({...newProject, type: e.target.value as ProjectType})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none focus:border-nexus-purple">
-                  <option value="single">Single</option>
-                  <option value="ep">EP</option>
-                  <option value="album">Album</option>
-                  <option value="mixtape">Mixtape</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Release Date</label>
-                <input required type="date" value={newProject.release_date} onChange={e => setNewProject({...newProject, release_date: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-nexus-purple [color-scheme:dark]" />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Global Budget (€)</label>
-              <input type="number" value={newProject.budget} onChange={e => setNewProject({...newProject, budget: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-nexus-purple" />
-            </div>
-
-            <div className="flex gap-3 pt-6">
-              <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsNewProjectModalOpen(false)}>Cancel</Button>
-              <Button type="submit" variant="primary" className="flex-1" isLoading={isCreatingProject}>Initialize</Button>
-            </div>
-          </form>
-        </div>
+      {/* Team Modal */}
+      <Modal isOpen={isTeamModalOpen} onClose={() => setIsTeamModalOpen(false)} title="Assigner un Membre">
+        <form onSubmit={handleAddTeamMember} className="space-y-4">
+          <select required className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" value={newTeamMember.profile_id} onChange={e => setNewTeamMember({...newTeamMember, profile_id: e.target.value})}>
+            <option value="">Sélectionner un membre...</option>
+            {allProfiles.map(p => <option key={p.id} value={p.id} className="bg-nexus-surface">{p.full_name}</option>)}
+          </select>
+          <input type="text" placeholder="Rôle pour cet artiste (ex: Manager de tournée)" value={newTeamMember.role} onChange={e => setNewTeamMember({...newTeamMember, role: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
+          <Button type="submit" variant="primary" className="w-full" isLoading={isSubmitting}>Assigner</Button>
+        </form>
       </Modal>
     </div>
   );

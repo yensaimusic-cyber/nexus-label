@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Disc, CheckSquare, Users, MessageSquare, Settings, 
   Play, Pause, Download, MoreVertical, Plus, Clock, DollarSign, 
-  Share2, Instagram, Youtube, Music, Trash2, Camera, Loader2, Save, FileAudio
+  Share2, Instagram, Youtube, Music, Trash2, Camera, Loader2, Save, FileAudio, Check, Square, X
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -13,33 +13,24 @@ import { Modal } from '../components/ui/Modal';
 import { Waveform } from '../components/features/Waveform';
 import { supabase } from '../lib/supabase';
 import { uploadFile, deleteFileByUrl } from '../lib/storage';
-import { Project, Track, TrackStatus } from '../types';
+import { Project, Track, TrackStatus, STATUS_LABELS, ProjectStatus, CampaignTask, ProjectCollaborator } from '../types';
 
 export const ProjectDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState<any>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [campaignTasks, setCampaignTasks] = useState<CampaignTask[]>([]);
+  const [collaborators, setCollaborators] = useState<ProjectCollaborator[]>([]);
+  const [allProfiles, setAllProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'tracks' | 'tasks' | 'content' | 'team'>('tracks');
+  const [activeTab, setActiveTab] = useState<'tracks' | 'campaign' | 'collaboration' | 'config'>('tracks');
   
-  // Audio Player
-  const [currentPlayingTrack, setCurrentPlayingTrack] = useState<string | null>(null);
-
-  // Modals
-  const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
-  const [isSubmittingTrack, setIsSubmittingTrack] = useState(false);
-  const [newTrack, setNewTrack] = useState<Partial<Track>>({
-    title: '',
-    status: 'demo',
-    bpm: 120,
-    key: 'C'
-  });
-  const [audioFile, setAudioFile] = useState<File | null>(null);
-
-  // Editing Project
-  const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState<any>(null);
+  // States
+  const [isCollabModalOpen, setIsCollabModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newCollab, setNewCollab] = useState({ profile_id: '', role: '' });
+  const [newTaskText, setNewTaskText] = useState('');
 
   useEffect(() => {
     if (id) fetchProjectData();
@@ -48,379 +39,214 @@ export const ProjectDetail: React.FC = () => {
   const fetchProjectData = async () => {
     try {
       setLoading(true);
-      const { data: projData, error: projError } = await supabase
-        .from('projects')
-        .select('*, artist:artists(stage_name, name, avatar_url)')
-        .eq('id', id)
-        .single();
+      const [projRes, tracksRes, tasksRes, collabRes, profilesRes] = await Promise.all([
+        supabase.from('projects').select('*, artist:artists(*)').eq('id', id).single(),
+        supabase.from('tracks').select('*').eq('project_id', id).order('created_at'),
+        supabase.from('campaign_tasks').select('*').eq('project_id', id).order('order_index'),
+        supabase.from('project_collaborators').select('*, profile:profiles(*)').eq('project_id', id),
+        supabase.from('profiles').select('*').order('full_name')
+      ]);
 
-      if (projError) throw projError;
-      setProject(projData);
-      setEditData(projData);
-
-      const { data: tracksData, error: tracksError } = await supabase
-        .from('tracks')
-        .select('*')
-        .eq('project_id', id)
-        .order('created_at', { ascending: true });
-
-      if (tracksError) throw tracksError;
-      setTracks(tracksData);
+      setProject(projRes.data);
+      setTracks(tracksRes.data || []);
+      setCampaignTasks(tasksRes.data || []);
+      setCollaborators(collabRes.data || []);
+      setAllProfiles(profilesRes.data || []);
     } catch (err: any) {
-      alert("Error fetching project: " + err.message);
+      alert("Erreur : " + err.message);
       navigate('/projects');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateProject = async () => {
+  const handleUpdateStatus = async (newStatus: ProjectStatus) => {
     try {
-      const { error } = await supabase
-        .from('projects')
-        .update(editData)
-        .eq('id', project.id);
+      const { error } = await supabase.from('projects').update({ status: newStatus }).eq('id', id);
       if (error) throw error;
-      setProject(editData);
-      setIsEditing(false);
-      alert("Project updated!");
+      setProject({ ...project, status: newStatus });
+      alert("Statut mis à jour !");
     } catch (err: any) {
-      alert("Update failed: " + err.message);
+      alert("Échec : " + err.message);
     }
   };
 
-  const handleAddTrack = async (e: React.FormEvent) => {
+  const handleAddTask = async () => {
+    if (!newTaskText) return;
+    try {
+      const { data, error } = await supabase.from('campaign_tasks').insert([{
+        project_id: id,
+        task_text: newTaskText,
+        order_index: campaignTasks.length
+      }]).select().single();
+      if (error) throw error;
+      setCampaignTasks([...campaignTasks, data]);
+      setNewTaskText('');
+    } catch (err: any) {
+      alert("Erreur task : " + err.message);
+    }
+  };
+
+  const handleToggleTask = async (taskId: string, current: boolean) => {
+    try {
+      const { error } = await supabase.from('campaign_tasks').update({ is_completed: !current }).eq('id', taskId);
+      if (error) throw error;
+      setCampaignTasks(campaignTasks.map(t => t.id === taskId ? { ...t, is_completed: !current } : t));
+    } catch (err: any) {
+      alert("Erreur update task : " + err.message);
+    }
+  };
+
+  const handleAddCollaborator = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newCollab.profile_id) return;
     try {
-      setIsSubmittingTrack(true);
-      let audioUrl = '';
-      if (audioFile) {
-        audioUrl = await uploadFile(audioFile, 'audio', 'track-audio');
-      }
-
-      const { data, error } = await supabase
-        .from('tracks')
-        .insert([{
-          ...newTrack,
-          project_id: id,
-          audio_file_url: audioUrl,
-          duration: 0 // Ideally we'd calculate this from audio metadata
-        }])
-        .select()
-        .single();
-
+      setIsSubmitting(true);
+      const { data, error } = await supabase.from('project_collaborators').insert([{
+        project_id: id,
+        profile_id: newCollab.profile_id,
+        role: newCollab.role
+      }]).select('*, profile:profiles(*)').single();
       if (error) throw error;
-      setTracks([...tracks, data]);
-      setIsTrackModalOpen(false);
-      setNewTrack({ title: '', status: 'demo', bpm: 120, key: 'C' });
-      setAudioFile(null);
-      alert("Track added to project!");
+      setCollaborators([...collaborators, data]);
+      setIsCollabModalOpen(false);
     } catch (err: any) {
-      alert("Error adding track: " + err.message);
+      alert("Erreur collab : " + err.message);
     } finally {
-      setIsSubmittingTrack(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleDeleteTrack = async (trackId: string, audioUrl?: string) => {
-    if (!confirm("Remove this track?")) return;
-    try {
-      if (audioUrl) await deleteFileByUrl(audioUrl, 'audio');
-      const { error } = await supabase.from('tracks').delete().eq('id', trackId);
-      if (error) throw error;
-      setTracks(tracks.filter(t => t.id !== trackId));
-    } catch (err: any) {
-      alert("Delete failed: " + err.message);
-    }
-  };
-
-  const togglePlay = (trackId: string) => {
-    setCurrentPlayingTrack(currentPlayingTrack === trackId ? null : trackId);
-  };
-
-  if (loading && !project) {
-    return (
-      <div className="min-h-[80vh] flex flex-col items-center justify-center">
-        <Loader2 className="animate-spin text-nexus-purple mb-4" size={48} />
-        <p className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/40">Accessing Data Cluster...</p>
-      </div>
-    );
-  }
-
-  const tabs = [
-    { id: 'tracks', label: 'Tracklist', icon: <Music size={16} /> },
-    { id: 'tasks', label: 'Production Tasks', icon: <CheckSquare size={16} /> },
-    { id: 'content', label: 'Campaigns', icon: <Share2 size={16} /> },
-    { id: 'team', label: 'Collaborators', icon: <Users size={16} /> },
-  ];
+  if (loading || !project) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-nexus-purple" size={48} /></div>;
 
   return (
     <div className="p-4 lg:p-8 space-y-8 max-w-[1400px] mx-auto min-h-screen">
       <header className="flex flex-col gap-6">
-        <Link to="/projects" className="flex items-center gap-2 text-white/30 hover:text-white transition-all w-fit group">
-          <div className="p-1 rounded-lg bg-white/5 group-hover:bg-nexus-purple/20">
-            <ArrowLeft size={14} />
-          </div>
-          <span className="text-[10px] font-black uppercase tracking-widest font-mono">Back to Global Pipeline</span>
+        <Link to="/projects" className="flex items-center gap-2 text-white/30 hover:text-white transition-all w-fit">
+          <ArrowLeft size={14} />
+          <span className="text-[10px] font-black uppercase tracking-widest font-mono">Retour au Pipeline</span>
         </Link>
 
-        <div className="relative group rounded-[40px] overflow-hidden glass border-white/10 p-8 flex flex-col lg:flex-row gap-8 shadow-2xl">
-          <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
-            <Disc size={300} className="animate-[spin_20s_linear_infinite]" />
+        <div className="glass p-8 rounded-[40px] border-white/10 flex flex-col lg:flex-row gap-8 relative overflow-hidden">
+          <div className="w-48 h-48 rounded-3xl overflow-hidden border border-white/10 shrink-0">
+            <img src={project.cover_url || "https://picsum.photos/seed/project/400"} className="w-full h-full object-cover" />
           </div>
-
-          <div className="w-48 h-48 lg:w-56 lg:h-56 rounded-3xl overflow-hidden shadow-2xl border border-white/10 relative z-10 shrink-0 bg-nexus-surface">
-            <img src={project.cover_url || `https://picsum.photos/seed/${project.id}/400`} alt="Cover" className="w-full h-full object-cover" />
-            <button className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white backdrop-blur-sm">
-               <Camera size={24} />
-            </button>
-          </div>
-
-          <div className="flex-1 space-y-6 relative z-10">
-            <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-3 py-1 rounded-lg bg-nexus-purple/20 text-nexus-purple text-[10px] font-black uppercase tracking-widest border border-nexus-purple/30">
-                    {project.type}
-                  </span>
-                  <span className="px-3 py-1 rounded-lg bg-nexus-cyan/20 text-nexus-cyan text-[10px] font-black uppercase tracking-widest border border-nexus-cyan/30">
-                    {project.status.replace('_', ' ')}
-                  </span>
+          <div className="flex-1 space-y-6">
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="px-3 py-1 rounded-lg bg-nexus-purple/20 text-nexus-purple text-[10px] font-black uppercase border border-nexus-purple/30">{project.type}</span>
+                  <select 
+                    value={project.status} 
+                    onChange={(e) => handleUpdateStatus(e.target.value as ProjectStatus)}
+                    className="bg-nexus-surface border border-white/10 rounded-lg px-2 py-1 text-[10px] font-bold text-nexus-cyan outline-none"
+                  >
+                    {Object.entries(STATUS_LABELS).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
+                  </select>
                 </div>
-                {isEditing ? (
-                   <input value={editData.title} onChange={e => setEditData({...editData, title: e.target.value})} className="text-4xl font-heading font-extrabold text-white bg-white/5 border-b-2 border-nexus-purple outline-none w-full" />
-                ) : (
-                   <h2 className="text-4xl lg:text-5xl font-heading font-extrabold text-white tracking-tighter">{project.title}</h2>
-                )}
-                <p className="text-nexus-lightGray font-medium">By <Link to={`/artists/${project.artist_id}`} className="text-nexus-cyan hover:underline">{project.artist?.stage_name}</Link></p>
-              </div>
-              
-              <div className="flex gap-2">
-                {isEditing ? (
-                  <>
-                    <Button variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
-                    <Button variant="primary" onClick={handleUpdateProject} className="gap-2"><Save size={18} /> Sync</Button>
-                  </>
-                ) : (
-                  <>
-                    <Button variant="outline" onClick={() => setIsEditing(true)} className="gap-2 border-white/10"><Settings size={18} /> Configure</Button>
-                    <Button variant="primary" className="gap-2 shadow-lg"><Share2 size={18} /> Promote</Button>
-                  </>
-                )}
+                <h2 className="text-4xl font-heading font-extrabold text-white">{project.title}</h2>
+                <p className="text-nexus-lightGray">Par <Link to={`/artists/${project.artist_id}`} className="text-nexus-cyan hover:underline">{project.artist?.stage_name}</Link></p>
               </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-[10px] uppercase font-mono tracking-[0.2em] text-white/30">
-                  <span>Production Status</span>
-                  <span className="text-nexus-purple">Active</span>
-                </div>
-                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                  <motion.div initial={{ width: 0 }} animate={{ width: `45%` }} className="h-full nexus-gradient" />
-                </div>
-              </div>
-              <div className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/5">
-                <div className="p-2.5 rounded-xl bg-nexus-green/10 text-nexus-green"><DollarSign size={20} /></div>
-                <div>
-                  <p className="text-[10px] uppercase font-mono tracking-widest text-white/30 leading-none">Remaining Funds</p>
-                  <p className="text-lg font-bold font-heading text-white">€{project.budget - project.spent}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/5">
-                <div className="p-2.5 rounded-xl bg-nexus-cyan/10 text-nexus-cyan"><Clock size={20} /></div>
-                <div>
-                  <p className="text-[10px] uppercase font-mono tracking-widest text-white/30 leading-none">Release Target</p>
-                  <p className="text-sm font-bold font-heading text-white">{project.release_date || 'TBD'}</p>
-                </div>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+               <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                 <p className="text-[9px] font-mono text-white/30 uppercase tracking-widest">Budget Restant</p>
+                 <p className="text-xl font-bold font-heading">€{project.budget - project.spent}</p>
+               </div>
+               <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                 <p className="text-[9px] font-mono text-white/30 uppercase tracking-widest">Sortie prévue</p>
+                 <p className="text-xl font-bold font-heading">{project.release_date || 'TBD'}</p>
+               </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Tabs Navigation */}
-      <div className="flex gap-1 p-1 glass rounded-2xl w-fit shadow-lg">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold uppercase tracking-widest transition-all ${
-              activeTab === tab.id ? 'bg-nexus-purple text-white shadow-xl' : 'text-white/40 hover:text-white'
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
+      <div className="flex gap-2 p-1 glass rounded-2xl w-fit">
+        {[
+          { id: 'tracks', label: 'Tracks', icon: <Music size={16} /> },
+          { id: 'campaign', label: 'Campagne (To-Do)', icon: <CheckSquare size={16} /> },
+          { id: 'collaboration', label: 'Collaborateurs', icon: <Users size={16} /> }
+        ].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold uppercase transition-all ${activeTab === tab.id ? 'bg-nexus-purple text-white shadow-xl' : 'text-white/40 hover:text-white'}`}>
+            {tab.icon} {tab.label}
           </button>
         ))}
       </div>
 
       <AnimatePresence mode="wait">
-        <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-          {activeTab === 'tracks' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center px-2">
-                <h3 className="font-heading font-extrabold text-2xl">Project Tracks</h3>
-                <Button variant="outline" size="sm" onClick={() => setIsTrackModalOpen(true)} className="gap-2 bg-nexus-purple/5 border-nexus-purple/20 text-nexus-purple hover:bg-nexus-purple hover:text-white"><Plus size={18} /> Register Track</Button>
-              </div>
-
-              <div className="space-y-4">
-                {tracks.map((track, i) => (
-                  <Card key={track.id} className="hover:border-nexus-purple/40 transition-all border-white/5 group">
-                    <div className="flex flex-col md:flex-row items-center gap-6">
-                      <button 
-                        onClick={() => togglePlay(track.id)}
-                        className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-2xl transition-all ${
-                          currentPlayingTrack === track.id ? 'bg-nexus-cyan scale-110 shadow-cyan-500/20' : 'bg-white/5 hover:bg-nexus-purple'
-                        }`}
-                      >
-                        {currentPlayingTrack === track.id ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
-                      </button>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="text-white/20 font-mono text-[10px] font-bold tracking-tighter">TRACK_{String(i + 1).padStart(2, '0')}</span>
-                          <h4 className="font-bold text-white text-xl truncate group-hover:text-nexus-cyan transition-colors">{track.title}</h4>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3 text-[10px] text-white/30 uppercase font-mono font-bold tracking-widest">
-                          <span className={`px-2 py-0.5 rounded bg-white/5 border border-white/10 ${track.status === 'mix_approved' ? 'text-nexus-green border-nexus-green/30' : ''}`}>
-                            {track.status.replace('_', ' ')}
-                          </span>
-                          <span>{track.bpm} BPM</span>
-                          <span>KEY: {track.key}</span>
-                        </div>
-                      </div>
-
-                      <div className="hidden xl:block w-72 h-14 opacity-40">
-                        <Waveform isPlaying={currentPlayingTrack === track.id} color={currentPlayingTrack === track.id ? '#06B6D4' : '#ffffff10'} bars={40} />
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {track.audio_file_url && (
-                          <a href={track.audio_file_url} target="_blank" rel="noreferrer">
-                            <Button variant="ghost" size="sm" className="p-3"><Download size={20} /></Button>
-                          </a>
-                        )}
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteTrack(track.id, track.audio_file_url)} className="p-3 hover:text-nexus-red"><Trash2 size={20} /></Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-                
-                {tracks.length === 0 && (
-                  <div className="py-24 text-center glass rounded-[40px] border-dashed border-white/10 flex flex-col items-center justify-center opacity-30">
-                     <FileAudio size={64} className="mb-4" />
-                     <p className="text-lg font-heading font-bold">Project has no tracks yet</p>
-                     <p className="text-xs uppercase tracking-[0.2em] mt-2">Upload your first demo to begin tracking</p>
-                  </div>
-                )}
-              </div>
+        {activeTab === 'tracks' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-heading font-bold">Tracklist</h3>
+              <Button variant="outline" size="sm" className="gap-2"><Plus size={18} /> Ajouter une track</Button>
             </div>
-          )}
-
-          {activeTab === 'tasks' && (
-             <div className="glass p-16 rounded-[48px] text-center border-white/5 flex flex-col items-center justify-center">
-                <div className="p-6 rounded-[24px] bg-nexus-purple/10 text-nexus-purple mb-6 shadow-xl shadow-purple-500/10">
-                   <CheckSquare size={56} />
+            {tracks.map((track, i) => (
+              <Card key={track.id} className="p-4 flex items-center gap-4 group">
+                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center font-mono text-xs text-white/20">{(i+1).toString().padStart(2, '0')}</div>
+                <div className="flex-1">
+                  <p className="font-bold text-white">{track.title}</p>
+                  <p className="text-[10px] font-mono text-white/30 uppercase">{track.status}</p>
                 </div>
-                <h3 className="text-3xl font-heading font-extrabold mb-3">Workflow Management</h3>
-                <p className="text-nexus-lightGray max-w-lg mb-8">Access the global Kanban to manage cross-project deadlines or create tasks specifically for this project.</p>
-                <Link to="/tasks">
-                   <Button variant="primary" className="h-14 px-10 rounded-2xl shadow-2xl">Open Global Board</Button>
-                </Link>
-             </div>
-          )}
+                <button className="p-3 bg-nexus-purple/10 text-nexus-purple rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"><Play size={18} /></button>
+              </Card>
+            ))}
+          </div>
+        )}
 
-          {activeTab === 'content' && (
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[1,2].map(i => (
-                  <Card key={i} className="flex flex-col gap-6 p-8 border-white/5">
-                     <div className="flex justify-between">
-                        <div className="p-4 rounded-2xl bg-white/5 text-nexus-pink">
-                           {i === 1 ? <Instagram size={28} /> : <Youtube size={28} />}
-                        </div>
-                        <span className="px-2 py-1 rounded-lg bg-nexus-purple/10 text-nexus-purple font-mono text-[9px] font-bold uppercase h-fit tracking-widest">Scheduled</span>
-                     </div>
-                     <div>
-                        <h4 className="font-heading font-bold text-lg mb-2">Campaign Draft #{i}</h4>
-                        <p className="text-xs text-white/40 uppercase font-mono tracking-widest">Oct 24, 2024</p>
-                     </div>
-                     <Button variant="outline" className="w-full mt-4">Manage Strategy</Button>
-                  </Card>
-                ))}
-             </div>
-          )}
+        {activeTab === 'campaign' && (
+          <div className="space-y-6 max-w-2xl">
+            <h3 className="text-xl font-heading font-bold">Tâches de Campagne</h3>
+            <div className="flex gap-2">
+              <input type="text" placeholder="Nouvelle tâche de promo..." value={newTaskText} onChange={e => setNewTaskText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddTask()} className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm" />
+              <Button variant="primary" onClick={handleAddTask}><Plus size={20} /></Button>
+            </div>
+            <div className="space-y-2">
+              {campaignTasks.map(task => (
+                <div key={task.id} className="flex items-center gap-3 p-4 glass rounded-2xl hover:border-nexus-purple/30 transition-all">
+                  <button onClick={() => handleToggleTask(task.id, task.is_completed)} className={`text-nexus-cyan transition-colors ${task.is_completed ? 'opacity-40' : ''}`}>
+                    {task.is_completed ? <Check size={20} className="text-nexus-green" /> : <Square size={20} />}
+                  </button>
+                  <span className={`flex-1 text-sm ${task.is_completed ? 'line-through text-white/20' : 'text-white/80'}`}>{task.task_text}</span>
+                  <button onClick={async () => { await supabase.from('campaign_tasks').delete().eq('id', task.id); setCampaignTasks(campaignTasks.filter(t => t.id !== task.id)); }} className="p-2 text-white/10 hover:text-nexus-red transition-colors"><X size={16} /></button>
+                </div>
+              ))}
+              {campaignTasks.length === 0 && <p className="text-center text-white/20 py-12 italic">Aucune tâche planifiée.</p>}
+            </div>
+          </div>
+        )}
 
-          {activeTab === 'team' && (
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {['Alex Rivera', 'Sarah Chen'].map(name => (
-                  <Card key={name} className="flex items-center gap-4 p-5 border-white/5 hover:border-nexus-cyan/20">
-                     <div className="w-12 h-12 rounded-2xl overflow-hidden border border-white/10 bg-nexus-surface shrink-0">
-                        <img src={`https://picsum.photos/seed/${name}/100`} alt="" className="w-full h-full object-cover" />
-                     </div>
-                     <div className="min-w-0">
-                        <h4 className="font-bold text-white truncate">{name}</h4>
-                        <p className="text-[10px] text-nexus-cyan font-mono uppercase tracking-widest">Collaborator</p>
-                     </div>
-                  </Card>
-                ))}
-             </div>
-          )}
-        </motion.div>
+        {activeTab === 'collaboration' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-heading font-bold">Staff assigné au projet</h3>
+              <Button variant="primary" size="sm" onClick={() => setIsCollabModalOpen(true)}><Plus size={18} className="mr-2" /> Ajouter un collaborateur</Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {collaborators.map(c => (
+                <Card key={c.id} className="text-center p-6 border-white/5">
+                  <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-4 border border-white/10">
+                    <img src={c.profile?.avatar_url} className="w-full h-full object-cover" />
+                  </div>
+                  <p className="font-bold text-white truncate">{c.profile?.full_name}</p>
+                  <p className="text-[10px] text-nexus-cyan font-mono uppercase mt-1">{c.role || 'Membre'}</p>
+                  <button onClick={async () => { await supabase.from('project_collaborators').delete().eq('id', c.id); setCollaborators(collaborators.filter(col => col.id !== c.id)); }} className="mt-4 text-[10px] text-nexus-red hover:underline uppercase font-bold">Retirer</button>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
       </AnimatePresence>
 
-      {/* Add Track Modal */}
-      <Modal isOpen={isTrackModalOpen} onClose={() => setIsTrackModalOpen(false)} title="Register New Track">
-        <form onSubmit={handleAddTrack} className="space-y-6">
-          <div className="space-y-4">
-            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Audio File</label>
-            <div className="w-full h-24 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center relative group cursor-pointer hover:border-nexus-purple transition-all">
-               {audioFile ? (
-                 <div className="flex flex-col items-center">
-                    <FileAudio className="text-nexus-purple mb-1" size={24} />
-                    <span className="text-[10px] font-mono text-white/70 max-w-[200px] truncate">{audioFile.name}</span>
-                 </div>
-               ) : (
-                 <div className="flex flex-col items-center text-white/20 group-hover:text-nexus-purple transition-colors">
-                    <Plus size={24} />
-                    <span className="text-[9px] font-mono uppercase">Upload MP3/WAV</span>
-                 </div>
-               )}
-               <input type="file" accept="audio/*" onChange={e => setAudioFile(e.target.files?.[0] || null)} className="absolute inset-0 opacity-0 cursor-pointer" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Track Title *</label>
-            <input required type="text" value={newTrack.title} onChange={e => setNewTrack({...newTrack, title: e.target.value})} placeholder="e.g. Midnight Soul" className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-nexus-purple" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">BPM</label>
-              <input type="number" value={newTrack.bpm} onChange={e => setNewTrack({...newTrack, bpm: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Key</label>
-              <input type="text" value={newTrack.key} onChange={e => setNewTrack({...newTrack, key: e.target.value})} placeholder="Am, Cm, G..." className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Status</label>
-            <select value={newTrack.status} onChange={e => setNewTrack({...newTrack, status: e.target.value as TrackStatus})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none">
-              <option value="demo">Demo</option>
-              <option value="recording">Recording</option>
-              <option value="mixing_v1">Mixing V1</option>
-              <option value="mix_approved">Mix Approved</option>
-              <option value="mastered">Mastered</option>
-            </select>
-          </div>
-
-          <div className="flex gap-3 pt-6">
-            <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsTrackModalOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmittingTrack}>Add Track</Button>
-          </div>
+      {/* Collaboration Modal */}
+      <Modal isOpen={isCollabModalOpen} onClose={() => setIsCollabModalOpen(false)} title="Nouveau Collaborateur">
+        <form onSubmit={handleAddCollaborator} className="space-y-4">
+          <select required className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" value={newCollab.profile_id} onChange={e => setNewCollab({...newCollab, profile_id: e.target.value})}>
+            <option value="">Choisir un membre de l'équipe...</option>
+            {allProfiles.map(p => <option key={p.id} value={p.id} className="bg-nexus-surface">{p.full_name}</option>)}
+          </select>
+          <input type="text" placeholder="Rôle sur ce projet (ex: Lead Mix)" value={newCollab.role} onChange={e => setNewCollab({...newCollab, role: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
+          <Button type="submit" variant="primary" className="w-full" isLoading={isSubmitting}>Confirmer</Button>
         </form>
       </Modal>
     </div>

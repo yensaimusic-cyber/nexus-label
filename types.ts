@@ -21,12 +21,37 @@ export interface Artist {
   spotify_id?: string;
   instagram_handle?: string;
   status: ArtistStatus;
+  monthly_listeners?: number;
+  total_streams?: number;
   created_at?: string;
-  projects_count?: number; // Calculé via jointure ou RPC
+  projects_count?: number;
 }
 
 export type ProjectType = 'single' | 'ep' | 'album' | 'mixtape';
-export type ProjectStatus = 'idea' | 'pre_production' | 'production' | 'post_production' | 'release' | 'released';
+
+// Nouveaux statuts demandés
+export type ProjectStatus = 
+  | 'idee_brainstorm'
+  | 'maquette'
+  | 'rec'
+  | 'mix'
+  | 'master'
+  | 'prepa_promo'
+  | 'promo_sortie'
+  | 'promo_pre_sortie'
+  | 'fin';
+
+export const STATUS_LABELS: Record<ProjectStatus, string> = {
+  idee_brainstorm: 'Idée/Brainstorm',
+  maquette: 'Maquette',
+  rec: 'Rec (Enregistrement)',
+  mix: 'Mix (Mixage)',
+  master: 'Master (Mastering)',
+  prepa_promo: 'Prépa-Promo',
+  promo_sortie: 'Promo Sortie',
+  promo_pre_sortie: 'Promo Pré-Sortie',
+  fin: 'Fin'
+};
 
 export interface Project {
   id: string;
@@ -48,7 +73,7 @@ export interface Track {
   id: string;
   project_id: string;
   title: string;
-  duration: number; // in seconds
+  duration: number;
   status: TrackStatus;
   bpm?: number;
   key?: string;
@@ -76,60 +101,69 @@ export interface Task {
   created_at?: string;
 }
 
-/**
- * Interface for tracking project promotion content across various platforms
- */
-export interface ContentPost {
+export interface CustomRole {
   id: string;
-  project_id: string;
-  platform: 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'twitter';
-  type: 'reel' | 'video' | 'post' | 'story' | 'short';
-  scheduled_date: string;
-  status: 'idea' | 'production' | 'scheduled' | 'published';
-  title: string;
-  url?: string;
-  created_at?: string;
+  name: string;
 }
 
-export interface TeamMember {
-  id: string;
-  user_id: string;
-  artist_id?: string;
-  role: string[];
-  skills: string[];
-  full_name: string;
-  avatar_url?: string;
-  email: string;
-  active_projects?: number;
-}
-
-export interface Asset {
+export interface ArtistAsset {
   id: string;
   artist_id: string;
   name: string;
-  type: 'photo' | 'epk' | 'logo' | 'document';
-  url: string;
-  size: string;
+  file_url: string;
+  file_type: string;
+  file_size: number;
+  created_at: string;
 }
 
+export interface CampaignTask {
+  id: string;
+  project_id: string;
+  task_text: string;
+  is_completed: boolean;
+  order_index: number;
+}
+
+export interface ProjectCollaborator {
+  id: string;
+  project_id: string;
+  profile_id: string;
+  role: string;
+  profile?: {
+    full_name: string;
+    avatar_url: string;
+  };
+}
+
+// Added TeamMember interface to fix import errors in Team.tsx and ArtistDetail.tsx
+export interface TeamMember {
+  id: string;
+  full_name: string;
+  email: string;
+  role: string[];
+  skills: string[];
+  avatar_url?: string;
+}
+
+// Added Meeting interface to fix import error in Meetings.tsx
 export interface Meeting {
   id: string;
   title: string;
   date: string;
+  summary?: string;
   attendees: string[];
-  summary: string;
   action_items: string[];
   project_id?: string;
-  created_at?: string;
 }
 
+// Added ExternalResource interface to fix import error in Resources.tsx
 export interface ExternalResource {
   id: string;
   name: string;
   service_type: string;
   skills: string[];
-  contact_info: string;
+  contact_info?: string;
   website?: string;
-  rating?: number;
+  rating: number;
   notes?: string;
 }
