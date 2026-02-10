@@ -21,28 +21,8 @@ export interface Artist {
   spotify_id?: string;
   instagram_handle?: string;
   status: ArtistStatus;
-  projects_count?: number;
-}
-
-export interface Meeting {
-  id: string;
-  title: string;
-  date: string;
-  attendees: string[];
-  summary: string;
-  action_items: string[];
-  project_id?: string;
-}
-
-export interface ExternalResource {
-  id: string;
-  name: string;
-  service_type: string;
-  skills: string[];
-  contact_info: string;
-  website?: string;
-  rating?: number;
-  notes?: string;
+  created_at?: string;
+  projects_count?: number; // Calculé via jointure ou RPC
 }
 
 export type ProjectType = 'single' | 'ep' | 'album' | 'mixtape';
@@ -59,6 +39,7 @@ export interface Project {
   spent: number;
   cover_url?: string;
   progress?: number;
+  created_at?: string;
 }
 
 export type TrackStatus = 'demo' | 'recording' | 'recorded' | 'mixing_v1' | 'mixing_v2' | 'mixing_v3' | 'mix_approved' | 'mastering' | 'mastered' | 'distributed';
@@ -73,6 +54,7 @@ export interface Track {
   key?: string;
   audio_file_url?: string;
   lyrics?: string;
+  created_at?: string;
 }
 
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done';
@@ -91,6 +73,22 @@ export interface Task {
   completed_at?: string;
   artist_name?: string;
   project_title?: string;
+  created_at?: string;
+}
+
+/**
+ * Interface for tracking project promotion content across various platforms
+ */
+export interface ContentPost {
+  id: string;
+  project_id: string;
+  platform: 'instagram' | 'tiktok' | 'youtube' | 'facebook' | 'twitter';
+  type: 'reel' | 'video' | 'post' | 'story' | 'short';
+  scheduled_date: string;
+  status: 'idea' | 'production' | 'scheduled' | 'published';
+  title: string;
+  url?: string;
+  created_at?: string;
 }
 
 export interface TeamMember {
@@ -114,12 +112,24 @@ export interface Asset {
   size: string;
 }
 
-export interface ContentPost {
+export interface Meeting {
   id: string;
-  project_id: string;
-  platform: 'instagram' | 'tiktok' | 'youtube' | 'twitter';
-  type: 'post' | 'reel' | 'story' | 'video';
-  scheduled_date: string;
-  status: 'idea' | 'production' | 'scheduled' | 'published';
   title: string;
+  date: string;
+  attendees: string[];
+  summary: string;
+  action_items: string[];
+  project_id?: string;
+  created_at?: string;
+}
+
+export interface ExternalResource {
+  id: string;
+  name: string;
+  service_type: string;
+  skills: string[];
+  contact_info: string;
+  website?: string;
+  rating?: number;
+  notes?: string;
 }
