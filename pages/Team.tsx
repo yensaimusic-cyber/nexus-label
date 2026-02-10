@@ -1,135 +1,277 @@
 
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Plus, Shield, User, Star, PenTool, Music, Mic2, Briefcase, Camera, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+// Added Search to the imports from lucide-react
+import { Plus, User, Camera, Loader2, ChevronRight, Mail, Trash2, Shield, Save, X, Search } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { TeamMember } from '../types';
+import { Modal } from '../components/ui/Modal';
+import { supabase } from '../lib/supabase';
+import { uploadFile, deleteFileByUrl } from '../lib/storage';
+import { TeamMember, UserRole } from '../types';
 
-const MOCK_TEAM: TeamMember[] = [
-  { id: '1', user_id: 'u1', full_name: 'GODFI', email: 'godfi@nexus.com', role: ['CO-F', 'Artiste'], skills: ['Chant', 'Écriture', 'Beatmaking'], avatar_url: 'https://picsum.photos/seed/godfi/100' },
-  { id: '2', user_id: 'u2', full_name: 'Yensai', email: 'yensai@nexus.com', role: ['CO-F', 'Artiste', 'Ingénieur Son'], skills: ['Vidéo', 'Photo', 'Management'], avatar_url: 'https://picsum.photos/seed/yensai/100' },
-  { id: '3', user_id: 'u3', full_name: 'Fahd', email: 'fahd@nexus.com', role: ['Trésorier', 'Artiste'], skills: ['Chant', 'Écriture', 'DA'], avatar_url: 'https://picsum.photos/seed/fahd/100' },
-  { id: '4', user_id: 'u4', full_name: 'Hugin', email: 'hugin@nexus.com', role: ['Project Manager'], skills: ['Management'], avatar_url: 'https://picsum.photos/seed/hugin/100' },
-  { id: '5', user_id: 'u5', full_name: 'Céline', email: 'celine@nexus.com', role: ['Direction Artistique'], skills: ['DA', 'Photo'], avatar_url: 'https://picsum.photos/seed/celine/100' },
-  { id: '6', user_id: 'u6', full_name: 'Insty', email: 'insty@nexus.com', role: ['Direction Artistique'], skills: ['DA', 'Photo', 'Vidéo'], avatar_url: 'https://picsum.photos/seed/insty/100' },
-  { id: '7', user_id: 'u7', full_name: 'Baddi', email: 'baddi@nexus.com', role: ['Artiste'], skills: ['Écriture', 'DA', 'Photo', 'Vidéo'], avatar_url: 'https://picsum.photos/seed/baddi/100' },
-  { id: '8', user_id: 'u8', full_name: 'Kaina', email: 'kaina@nexus.com', role: ['Artiste'], skills: ['Chant', 'composition', 'auteur interprete'], avatar_url: 'https://picsum.photos/seed/kaina/100' },
-  { id: '9', user_id: 'u9', full_name: 'Lewizzz', email: 'lewizzz@nexus.com', role: ['Artiste'], skills: ['Écriture', 'Chant', 'Beatmaking'], avatar_url: 'https://picsum.photos/seed/lewizzz/100' },
-  { id: '10', user_id: 'u10', full_name: 'Odah', email: 'odah@nexus.com', role: ['Ingénieur Son'], skills: ['MIX', 'Mastering', 'Beatmaking'], avatar_url: 'https://picsum.photos/seed/odah/100' },
-];
-
-const getPositionColor = (role: string) => {
-  if (role === 'Artiste') return 'bg-[#5B21B6] text-white';
-  if (role === 'CO-F') return 'bg-[#7C2D12] text-white';
-  if (role === 'Ingénieur Son') return 'bg-[#065F46] text-white';
-  if (role === 'Project Manager') return 'bg-[#1E40AF] text-white';
-  if (role === 'Direction Artistique') return 'bg-[#701A75] text-white';
-  return 'bg-[#3F3F46] text-white';
-};
-
-const getSkillColor = (skill: string) => {
-  const s = skill.toLowerCase();
-  if (s.includes('chant')) return 'bg-[#1E3A8A] text-white';
-  if (s.includes('écriture')) return 'bg-[#581C87] text-white';
-  if (s.includes('beatmaking')) return 'bg-[#713F12] text-white';
-  if (s.includes('vidéo')) return 'bg-[#7F1D1D] text-white';
-  if (s.includes('photo')) return 'bg-[#3F3F46] text-white';
-  if (s.includes('management')) return 'bg-[#431407] text-white';
-  if (s.includes('da')) return 'bg-[#701A75] text-white';
-  if (s.includes('mix') || s.includes('mastering')) return 'bg-[#064E3B] text-white';
-  return 'bg-[#111827] text-white/70';
+const ROLE_COLORS: Record<string, string> = {
+  'admin': 'bg-nexus-red/20 text-nexus-red border-nexus-red/30',
+  'manager': 'bg-nexus-purple/20 text-nexus-purple border-nexus-purple/30',
+  'artist': 'bg-nexus-cyan/20 text-nexus-cyan border-nexus-cyan/30',
+  'engineer': 'bg-nexus-green/20 text-nexus-green border-nexus-green/30',
+  'designer': 'bg-nexus-pink/20 text-nexus-pink border-nexus-pink/30',
 };
 
 export const Team: React.FC = () => {
+  const [profiles, setProfiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  // Modals
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Partial<TeamMember>>({
+    full_name: '',
+    email: '',
+    role: ['manager'],
+    skills: [],
+    avatar_url: ''
+  });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
+
+  const fetchProfiles = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('full_name', { ascending: true });
+      if (error) throw error;
+      setProfiles(data || []);
+    } catch (err: any) {
+      alert("Error fetching profiles: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsSubmitting(true);
+      let avatarUrl = formData.avatar_url;
+
+      if (selectedFile) {
+        avatarUrl = await uploadFile(selectedFile, 'avatars', 'team-avatars');
+      }
+
+      const submissionData = {
+        ...formData,
+        avatar_url: avatarUrl
+      };
+
+      if (editingId) {
+        const { error } = await supabase.from('profiles').update(submissionData).eq('id', editingId);
+        if (error) throw error;
+      } else {
+        // Creating profile requires a valid auth user id, usually done via trigger on auth.signup
+        // For existing label logic, we assume we update existing profiles or invite users
+        alert("To create a NEW user, please use the Invite flow. (Profiles are auto-created on sign-up)");
+        return;
+      }
+
+      setIsModalOpen(false);
+      fetchProfiles();
+      alert("Profile updated successfully!");
+    } catch (err: any) {
+      alert("Operation failed: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEdit = (profile: any) => {
+    setEditingId(profile.id);
+    setFormData({
+      full_name: profile.full_name,
+      email: profile.email,
+      role: Array.isArray(profile.role) ? profile.role : [profile.role],
+      skills: profile.skills || [],
+      avatar_url: profile.avatar_url
+    });
+    setPreviewUrl(profile.avatar_url);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string, avatarUrl?: string) => {
+    if (!confirm("Remove this member from Nexus Roster? (Auth account remains)")) return;
+    try {
+      if (avatarUrl) await deleteFileByUrl(avatarUrl, 'avatars');
+      const { error } = await supabase.from('profiles').delete().eq('id', id);
+      if (error) throw error;
+      setProfiles(profiles.filter(p => p.id !== id));
+    } catch (err: any) {
+      alert("Delete failed: " + err.message);
+    }
+  };
+
+  const filteredProfiles = profiles.filter(p => 
+    p.full_name.toLowerCase().includes(search.toLowerCase()) || 
+    p.email.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="p-4 lg:p-8 space-y-8 max-w-[1600px] mx-auto min-h-screen">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl lg:text-4xl font-heading font-extrabold text-white tracking-tight">Roster NEXUS</h2>
-          <p className="text-nexus-lightGray text-sm mt-1">Équipe centrale, artistes et compétences clés du label.</p>
+          <h2 className="text-3xl lg:text-4xl font-heading font-extrabold text-white tracking-tight">Label Roster</h2>
+          <p className="text-nexus-lightGray text-sm mt-1">Manage core team, artists and key label roles.</p>
         </div>
-        <Button variant="primary" className="gap-2 shadow-xl">
+        <Button variant="primary" className="gap-2 shadow-xl" onClick={() => { setEditingId(null); setFormData({ full_name: '', email: '', role: ['manager'], skills: [] }); setPreviewUrl(null); setIsModalOpen(true); }}>
           <Plus size={20} />
-          <span>Inviter un Membre</span>
+          <span>Invite Member</span>
         </Button>
       </header>
 
-      <div className="glass rounded-[32px] overflow-hidden border-white/10">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-white/[0.02] border-b border-white/5">
-                <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-[0.2em] text-white/30">Nom de l'Artiste</th>
-                <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-[0.2em] text-white/30">Position</th>
-                <th className="px-6 py-4 text-[10px] font-mono uppercase tracking-[0.2em] text-white/30">Compétences</th>
-                <th className="px-6 py-4 text-right"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {MOCK_TEAM.map((member) => (
-                <tr key={member.id} className="group hover:bg-white/[0.02] transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10 group-hover:border-nexus-purple/50 transition-colors">
-                        <img src={member.avatar_url} alt="" className="w-full h-full object-cover" />
-                      </div>
-                      <span className="font-heading font-bold text-white group-hover:text-nexus-purple transition-colors">{member.full_name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-2">
-                      {member.role.map(r => (
-                        <span key={r} className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-wide ${getPositionColor(r)}`}>
-                          {r}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-2">
-                      {member.skills.map(s => (
-                        <span key={s} className={`px-3 py-1 rounded-lg text-[10px] font-bold tracking-wide ${getSkillColor(s)}`}>
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="text-white/20 hover:text-white transition-colors">
-                       <ChevronRight size={20} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={18} />
+        <input 
+          type="text" 
+          placeholder="Search by name, email or role..." 
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full glass rounded-[24px] py-4 pl-12 pr-4 text-sm focus:border-nexus-purple transition-all outline-none text-white font-medium"
+        />
       </div>
 
-      {/* Stats Quick View */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
-        {[
-          { label: 'Artistes', value: '8', icon: <Mic2 />, color: 'purple' },
-          { label: 'Beatmakers', value: '4', icon: <Music />, color: 'cyan' },
-          { label: 'Image/DA', value: '5', icon: <Camera />, color: 'pink' },
-          { label: 'Management', value: '3', icon: <Sparkles />, color: 'orange' },
-        ].map((stat, i) => (
-          <Card key={i} className="flex items-center gap-4 p-5">
-            <div className={`p-3 rounded-2xl bg-nexus-${stat.color}/10 text-nexus-${stat.color}`}>
-              {stat.icon}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="animate-spin text-nexus-purple mb-4" size={40} />
+          <p className="text-[10px] font-mono uppercase tracking-widest text-white/30">Connecting to Internal Registry...</p>
+        </div>
+      ) : (
+        <div className="glass rounded-[32px] overflow-hidden border-white/10 shadow-2xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-white/[0.02] border-b border-white/5">
+                  <th className="px-6 py-5 text-[10px] font-mono uppercase tracking-[0.2em] text-white/30">Profile</th>
+                  <th className="px-6 py-5 text-[10px] font-mono uppercase tracking-[0.2em] text-white/30">Nexus Roles</th>
+                  <th className="px-6 py-5 text-[10px] font-mono uppercase tracking-[0.2em] text-white/30">Competencies</th>
+                  <th className="px-6 py-5 text-right"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {filteredProfiles.map((member) => (
+                  <tr key={member.id} className="group hover:bg-white/[0.03] transition-all">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-[18px] overflow-hidden border border-white/10 group-hover:border-nexus-purple/50 transition-all shadow-lg bg-nexus-surface">
+                          <img src={member.avatar_url || `https://picsum.photos/seed/${member.id}/100`} alt="" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex flex-col">
+                           <span className="font-heading font-bold text-white group-hover:text-nexus-cyan transition-colors">{member.full_name}</span>
+                           <span className="text-[10px] font-mono text-white/20 tracking-tighter">{member.email}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-2">
+                        {Array.isArray(member.role) ? member.role.map(r => (
+                          <span key={r} className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${ROLE_COLORS[r] || 'bg-white/5 text-white/40'}`}>
+                            {r}
+                          </span>
+                        )) : (
+                          <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${ROLE_COLORS[member.role] || 'bg-white/5 text-white/40'}`}>
+                            {member.role}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-2">
+                        {(member.skills || []).map((s: string) => (
+                          <span key={s} className="px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-[9px] font-bold text-white/40 group-hover:text-white/70 transition-colors">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(member)} className="p-2.5 hover:bg-white/5"><ChevronRight size={20} className="text-nexus-purple" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(member.id, member.avatar_url)} className="p-2.5 hover:text-nexus-red"><Trash2 size={18} /></Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredProfiles.length === 0 && (
+                   <tr>
+                     <td colSpan={4} className="py-20 text-center text-white/20 italic font-heading">No matching profiles in registry</td>
+                   </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Profile Modal */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Update Nexus Profile" : "Invite to Label"}>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="flex flex-col items-center gap-4">
+             <div className="relative group cursor-pointer">
+                <div className="w-24 h-24 rounded-[32px] overflow-hidden border-2 border-dashed border-white/10 flex items-center justify-center bg-white/5 hover:border-nexus-purple transition-all">
+                   {previewUrl ? <img src={previewUrl} className="w-full h-full object-cover" /> : <Camera className="text-white/20" size={32} />}
+                </div>
+                <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+             </div>
+             <p className="text-[9px] font-mono text-white/20 uppercase tracking-widest">Update Identification Photo</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Full Legal Name *</label>
+            <input required type="text" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-nexus-purple" />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Nexus Designation</label>
+            <div className="grid grid-cols-2 gap-2">
+              {['admin', 'manager', 'artist', 'engineer', 'designer'].map(r => (
+                <button
+                  type="button"
+                  key={r}
+                  onClick={() => {
+                    const current = formData.role || [];
+                    const updated = current.includes(r as any) ? current.filter(x => x !== r) : [...current, r as any];
+                    setFormData({...formData, role: updated});
+                  }}
+                  className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest border transition-all ${
+                    formData.role?.includes(r as any) ? 'bg-nexus-purple text-white border-nexus-purple' : 'bg-white/5 text-white/30 border-white/10'
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
             </div>
-            <div>
-              <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest">{stat.label}</p>
-              <p className="text-2xl font-bold font-heading">{stat.value}</p>
-            </div>
-          </Card>
-        ))}
-      </div>
+          </div>
+
+          <div className="flex gap-3 pt-6">
+            <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsModalOpen(false)}>Abort</Button>
+            <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}><Save size={18} className="mr-2" /> Sync Records</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
-
-const ChevronRight = ({ size }: { size: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-);

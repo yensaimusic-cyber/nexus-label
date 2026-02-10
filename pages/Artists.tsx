@@ -1,58 +1,118 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Filter, LayoutGrid, List, ChevronDown } from 'lucide-react';
+import { Plus, Search, Filter, LayoutGrid, List, ChevronDown, Loader2, Camera, X, Check } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import { ArtistCard } from '../components/features/artists/ArtistCard';
-import { Artist } from '../types';
-import { supabase } from '../lib/supabase';
+import { useArtists } from '../hooks/useArtists';
+import { Artist, ArtistStatus } from '../types';
+import { uploadFile } from '../lib/storage';
 
 export const Artists: React.FC = () => {
+  const { artists, loading, error, addArtist, fetchArtists } = useArtists();
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [artists, setArtists] = useState<Artist[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Charger les artistes depuis Supabase
-  useEffect(() => {
-    fetchArtists();
-  }, []);
-
-  const fetchArtists = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('artists')
-        .select(`
-          *,
-          projects:projects(count)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Transformer les données pour inclure projects_count
-      const artistsWithCount = data?.map(artist => ({
-        ...artist,
-        projects_count: artist.projects?.[0]?.count || 0
-      })) || [];
-
-      setArtists(artistsWithCount);
-    } catch (error) {
-      console.error('Error fetching artists:', error);
-      alert('Failed to load artists. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  
+  // Modal State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newArtist, setNewArtist] = useState<Partial<Artist>>({
+    name: '',
+    stage_name: '',
+    bio: '',
+    status: 'active',
+    instagram_handle: '',
+    spotify_id: ''
+  });
+  
+  // File upload states
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
   const filteredArtists = artists.filter(artist => {
-    const matchesSearch = artist.stage_name.toLowerCase().includes(search.toLowerCase()) || 
-                         artist.name.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = 
+      artist.stage_name.toLowerCase().includes(search.toLowerCase()) || 
+      artist.name.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || artist.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setAvatarPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setCoverFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setCoverPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddArtist = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newArtist.name || !newArtist.stage_name) {
+      alert("Name and Stage Name are required.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      
+      let avatarUrl = '';
+      let coverUrl = '';
+
+      // Upload files if selected
+      if (avatarFile) {
+        avatarUrl = await uploadFile(avatarFile, 'avatars', 'artist-avatars');
+      }
+      if (coverFile) {
+        coverUrl = await uploadFile(coverFile, 'covers', 'artist-covers');
+      }
+
+      await addArtist({
+        ...newArtist,
+        avatar_url: avatarUrl,
+        cover_url: coverUrl
+      });
+      
+      setIsAddModalOpen(false);
+      resetForm();
+      fetchArtists(); // Ensure list is up to date
+      alert("Artist signed successfully!");
+    } catch (err: any) {
+      alert("Error adding artist: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const resetForm = () => {
+    setNewArtist({
+      name: '',
+      stage_name: '',
+      bio: '',
+      status: 'active',
+      instagram_handle: '',
+      spotify_id: ''
+    });
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setCoverFile(null);
+    setCoverPreview(null);
+  };
 
   return (
     <div className="p-4 lg:p-8 space-y-6 lg:space-y-8 max-w-[1600px] mx-auto min-h-screen">
@@ -77,7 +137,11 @@ export const Artists: React.FC = () => {
               <List size={18} />
             </button>
           </div>
-          <Button variant="primary" className="gap-2 grow lg:grow-0 py-3 lg:py-2.5">
+          <Button 
+            variant="primary" 
+            className="gap-2 grow lg:grow-0 py-3 lg:py-2.5"
+            onClick={() => setIsAddModalOpen(true)}
+          >
             <Plus size={20} />
             <span className="font-bold">Add Artist</span>
           </Button>
@@ -119,13 +183,24 @@ export const Artists: React.FC = () => {
         </div>
       </div>
 
-      {/* Loading State */}
-      {loading ? (
-        <div className="flex items-center justify-center py-24">
-          <div className="text-white/40 font-heading text-xl">Loading artists...</div>
+      {/* Loading & Error States */}
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-24">
+          <Loader2 className="text-nexus-purple animate-spin mb-4" size={48} />
+          <p className="text-white/40 font-mono text-sm tracking-widest">SYNCHRONIZING ROSTER...</p>
         </div>
-      ) : (
-        /* Artists Grid/List */
+      )}
+
+      {!loading && error && (
+        <div className="glass p-8 rounded-3xl border-nexus-red/20 text-center">
+          <p className="text-nexus-red font-bold mb-2">Erreur de chargement</p>
+          <p className="text-white/40 text-sm">{error}</p>
+          <Button variant="outline" className="mt-4" onClick={() => fetchArtists()}>Réessayer</Button>
+        </div>
+      )}
+
+      {/* Artists Grid/List */}
+      {!loading && !error && (
         <AnimatePresence mode="wait">
           <motion.div 
             key={view + statusFilter + search}
@@ -140,7 +215,11 @@ export const Artists: React.FC = () => {
           >
             {filteredArtists.length > 0 ? (
               filteredArtists.map((artist) => (
-                <ArtistCard key={artist.id} artist={artist} view={view} />
+                <ArtistCard 
+                  key={artist.id} 
+                  artist={artist} 
+                  view={view} 
+                />
               ))
             ) : (
               <div className="col-span-full py-24 text-center glass rounded-[32px] border-dashed border-white/10 flex flex-col items-center justify-center">
@@ -155,6 +234,7 @@ export const Artists: React.FC = () => {
             {view === 'grid' && (
               <motion.div 
                 whileHover={{ y: -6, scale: 1.02 }}
+                onClick={() => setIsAddModalOpen(true)}
                 className="border-2 border-dashed border-white/10 rounded-[32px] flex flex-col items-center justify-center p-8 hover:border-nexus-purple/40 hover:bg-nexus-purple/5 transition-all cursor-pointer group min-h-[300px]"
               >
                 <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-4 group-hover:bg-nexus-purple/20 group-hover:scale-110 transition-all shadow-xl">
@@ -167,6 +247,145 @@ export const Artists: React.FC = () => {
           </motion.div>
         </AnimatePresence>
       )}
+
+      {/* Add Artist Modal */}
+      <Modal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title="Sign New Talent"
+      >
+        <form onSubmit={handleAddArtist} className="space-y-6 max-h-[70vh] overflow-y-auto px-1 custom-scrollbar">
+          {/* Cover & Avatar Upload */}
+          <div className="space-y-4">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Media Assets</label>
+            <div className="relative w-full h-32 rounded-2xl bg-white/5 overflow-hidden border border-white/10 group">
+              {coverPreview ? (
+                <img src={coverPreview} className="w-full h-full object-cover" alt="Cover Preview" />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-white/20 group-hover:text-nexus-purple transition-colors">
+                   <Camera size={24} />
+                   <span className="text-[9px] font-mono mt-1">Upload Cover</span>
+                </div>
+              )}
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={handleCoverChange}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+              
+              {/* Overlaid Avatar Upload */}
+              <div className="absolute bottom-2 left-4 w-16 h-16 rounded-xl overflow-hidden border-2 border-nexus-dark bg-nexus-surface group/avatar shadow-lg">
+                {avatarPreview ? (
+                  <img src={avatarPreview} className="w-full h-full object-cover" alt="Avatar Preview" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-white/20 group-hover/avatar:text-nexus-cyan transition-colors">
+                     <Camera size={16} />
+                  </div>
+                )}
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="absolute inset-0 opacity-0 cursor-pointer z-20"
+                />
+              </div>
+            </div>
+            <p className="text-[9px] font-mono text-white/20 uppercase text-center italic">Best results with high-res PNG/JPG</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Stage Name *</label>
+              <input 
+                required
+                type="text" 
+                value={newArtist.stage_name}
+                onChange={(e) => setNewArtist({...newArtist, stage_name: e.target.value})}
+                placeholder="ex: Solaris"
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-nexus-purple transition-all"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Full Name *</label>
+              <input 
+                required
+                type="text" 
+                value={newArtist.name}
+                onChange={(e) => setNewArtist({...newArtist, name: e.target.value})}
+                placeholder="ex: Luna Solaris"
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-nexus-purple transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Artist Bio</label>
+            <textarea 
+              rows={3}
+              value={newArtist.bio}
+              onChange={(e) => setNewArtist({...newArtist, bio: e.target.value})}
+              placeholder="Tell the artist's story..."
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-nexus-purple transition-all resize-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Instagram</label>
+              <input 
+                type="text" 
+                value={newArtist.instagram_handle}
+                onChange={(e) => setNewArtist({...newArtist, instagram_handle: e.target.value})}
+                placeholder="@handle"
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-nexus-purple transition-all"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Spotify ID</label>
+              <input 
+                type="text" 
+                value={newArtist.spotify_id}
+                onChange={(e) => setNewArtist({...newArtist, spotify_id: e.target.value})}
+                placeholder="official_id"
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-nexus-purple transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Contractual Status</label>
+            <select 
+              value={newArtist.status}
+              onChange={(e) => setNewArtist({...newArtist, status: e.target.value as ArtistStatus})}
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-nexus-purple appearance-none"
+            >
+              <option value="active" className="bg-nexus-surface">Active Signing</option>
+              <option value="on_hold" className="bg-nexus-surface">On Hold / Hiatus</option>
+              <option value="archived" className="bg-nexus-surface">Past Talent / Archived</option>
+            </select>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button 
+              type="button" 
+              variant="ghost" 
+              className="flex-1" 
+              onClick={() => setIsAddModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              variant="primary" 
+              className="flex-1"
+              isLoading={isSubmitting}
+            >
+              Confirm Signing
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
