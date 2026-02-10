@@ -6,9 +6,6 @@ import {
   Users, Disc, CheckSquare, TrendingUp, Clock, ArrowUpRight, Activity, Loader2, Wallet,
   AlertCircle, ShieldAlert
 } from 'lucide-react';
-import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from 'recharts';
 import { supabase } from '../lib/supabase';
 import { Task } from '../types';
 
@@ -36,7 +33,7 @@ export const Dashboard: React.FC = () => {
       // Stats Globales
       const [artistsCount, projectsCount, budgetData] = await Promise.all([
         supabase.from('artists').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-        supabase.from('projects').select('*', { count: 'exact', head: true }).in('status', ['rec', 'mix', 'master', 'prepa_promo']),
+        supabase.from('projects').select('*', { count: 'exact', head: true }).in('status', ['production', 'post_production']),
         supabase.from('projects').select('budget, spent')
       ]);
 
@@ -49,8 +46,8 @@ export const Dashboard: React.FC = () => {
       const tasks = (allTasks || []) as Task[];
 
       // Filtrage intelligent
-      const overdue = tasks.filter(t => t.due_date < now || t.priority === 'overdue');
-      const urgent = tasks.filter(t => t.priority === 'urgent' && t.due_date >= now);
+      const overdue = tasks.filter(t => (t.due_date && t.due_date < now) || t.priority === 'overdue');
+      const urgent = tasks.filter(t => t.priority === 'urgent' && (!t.due_date || t.due_date >= now));
 
       const totalBudget = budgetData.data?.reduce((sum, p) => sum + (Number(p.budget) || 0), 0) || 0;
       const totalSpent = budgetData.data?.reduce((sum, p) => sum + (Number(p.spent) || 0), 0) || 0;
@@ -72,11 +69,6 @@ export const Dashboard: React.FC = () => {
       setLoading(false);
     }
   };
-
-  const chartData = [
-    { name: 'Lun', streams: 4200 }, { name: 'Mar', streams: 5100 }, { name: 'Mer', streams: 4800 },
-    { name: 'Jeu', streams: 7200 }, { name: 'Ven', streams: 8100 }, { name: 'Sam', streams: 9500 }, { name: 'Dim', streams: 11000 },
-  ];
 
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center">
@@ -123,84 +115,53 @@ export const Dashboard: React.FC = () => {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Main Chart */}
-        <Card className="xl:col-span-2 p-6 lg:p-8 shadow-2xl min-h-[400px]">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="font-heading font-extrabold text-xl">Streaming Global</h3>
-            <div className="px-3 py-1 rounded-full bg-nexus-green/10 text-nexus-green text-[10px] font-black uppercase tracking-widest border border-nexus-green/20">+18.2% ce mois</div>
-          </div>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff05" />
-                <XAxis dataKey="name" stroke="#ffffff15" fontSize={10} />
-                <YAxis stroke="#ffffff15" fontSize={10} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#0F0F15', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
-                  itemStyle={{ color: '#8B5CF6' }}
-                />
-                <Area type="monotone" dataKey="streams" stroke="#8B5CF6" fillOpacity={1} fill="url(#chartGradient)" strokeWidth={3} />
-              </AreaChart>
-            </ResponsiveContainer>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Overdue Section */}
+        <Card className="p-6 border-nexus-red/20 bg-nexus-red/5">
+          <h3 className="font-heading font-black text-xs uppercase tracking-[0.2em] text-nexus-red flex items-center gap-2 mb-5">
+            <ShieldAlert size={16} /> 
+            Alertes : En Retard
+          </h3>
+          <div className="space-y-3">
+            {overdueTasks.map((task) => (
+              <div key={task.id} className="p-3 rounded-xl bg-black/40 border border-nexus-red/10 flex gap-3 items-center">
+                <div className="w-1.5 h-1.5 rounded-full bg-nexus-red shadow-[0_0_8px_#EF4444]" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-white truncate">{task.title}</p>
+                  <p className="text-[9px] text-nexus-red font-mono uppercase mt-0.5">Échéance : {task.due_date}</p>
+                </div>
+                <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0 border border-white/5">
+                  <img src={task.assignee?.avatar_url || `https://picsum.photos/seed/${task.id}/50`} className="w-full h-full object-cover" />
+                </div>
+              </div>
+            ))}
+            {overdueTasks.length === 0 && <p className="text-[10px] text-white/20 italic text-center py-4">Aucun retard critique.</p>}
           </div>
         </Card>
 
-        {/* Priorities Section */}
-        <div className="space-y-6">
-          {/* Overdue Section */}
-          <Card className="p-6 border-nexus-red/20 bg-nexus-red/5">
-            <h3 className="font-heading font-black text-xs uppercase tracking-[0.2em] text-nexus-red flex items-center gap-2 mb-5">
-              <ShieldAlert size={16} /> 
-              Alertes : En Retard
-            </h3>
-            <div className="space-y-3">
-              {overdueTasks.map((task) => (
-                <div key={task.id} className="p-3 rounded-xl bg-black/40 border border-nexus-red/10 flex gap-3 items-center">
-                  <div className="w-1.5 h-1.5 rounded-full bg-nexus-red shadow-[0_0_8px_#EF4444]" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-white truncate">{task.title}</p>
-                    <p className="text-[9px] text-nexus-red font-mono uppercase mt-0.5">Échéance : {task.due_date}</p>
-                  </div>
-                  <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0 border border-white/5">
-                    <img src={task.assignee?.avatar_url || `https://picsum.photos/seed/${task.id}/50`} className="w-full h-full object-cover" />
-                  </div>
+        {/* Urgent Section */}
+        <Card className="p-6 border-nexus-orange/20 bg-nexus-orange/5">
+          <h3 className="font-heading font-black text-xs uppercase tracking-[0.2em] text-nexus-orange flex items-center gap-2 mb-5">
+            <Clock size={16} /> 
+            Urgences : Priorité Haute
+          </h3>
+          <div className="space-y-3">
+            {urgentTasks.map((task) => (
+              <div key={task.id} className="p-3 rounded-xl bg-black/40 border border-nexus-orange/10 flex gap-3 items-center">
+                <div className="w-1.5 h-1.5 rounded-full bg-nexus-orange" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-white truncate">{task.title}</p>
+                  <p className="text-[9px] text-white/40 font-mono uppercase mt-0.5">{task.project?.title || 'Nexus Internal'}</p>
                 </div>
-              ))}
-              {overdueTasks.length === 0 && <p className="text-[10px] text-white/20 italic text-center py-4">Aucun retard critique.</p>}
-            </div>
-          </Card>
-
-          {/* Urgent Section */}
-          <Card className="p-6 border-nexus-orange/20 bg-nexus-orange/5">
-            <h3 className="font-heading font-black text-xs uppercase tracking-[0.2em] text-nexus-orange flex items-center gap-2 mb-5">
-              <Clock size={16} /> 
-              Urgences : Priorité Haute
-            </h3>
-            <div className="space-y-3">
-              {urgentTasks.map((task) => (
-                <div key={task.id} className="p-3 rounded-xl bg-black/40 border border-nexus-orange/10 flex gap-3 items-center">
-                  <div className="w-1.5 h-1.5 rounded-full bg-nexus-orange" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-white truncate">{task.title}</p>
-                    <p className="text-[9px] text-white/40 font-mono uppercase mt-0.5">{task.project?.title || 'Nexus Internal'}</p>
-                  </div>
-                  <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0 border border-white/5">
-                    <img src={task.assignee?.avatar_url || `https://picsum.photos/seed/${task.id}/50`} className="w-full h-full object-cover" />
-                  </div>
+                <div className="w-6 h-6 rounded-lg overflow-hidden shrink-0 border border-white/5">
+                  <img src={task.assignee?.avatar_url || `https://picsum.photos/seed/${task.id}/50`} className="w-full h-full object-cover" />
                 </div>
-              ))}
-              {urgentTasks.length === 0 && <p className="text-[10px] text-white/20 italic text-center py-4">Opérations fluides.</p>}
-            </div>
-            <button className="w-full mt-5 py-2 text-[9px] font-black uppercase text-white/30 hover:text-nexus-orange transition-colors">Gérer tout le flux →</button>
-          </Card>
-        </div>
+              </div>
+            ))}
+            {urgentTasks.length === 0 && <p className="text-[10px] text-white/20 italic text-center py-4">Opérations fluides.</p>}
+          </div>
+          <button className="w-full mt-5 py-2 text-[9px] font-black uppercase text-white/30 hover:text-nexus-orange transition-colors">Gérer tout le flux →</button>
+        </Card>
       </div>
     </div>
   );

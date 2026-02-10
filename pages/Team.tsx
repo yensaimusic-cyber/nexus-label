@@ -83,21 +83,27 @@ export const Team: React.FC = () => {
         avatarUrl = await uploadFile(selectedFile, 'avatars', 'team-avatars');
       }
       
+      const payload = {
+        full_name: formData.full_name,
+        email: formData.email || null, // Optionnel
+        role: formData.role,
+        skills: formData.skills,
+        avatar_url: avatarUrl
+      };
+
       if (editingId) {
         const { error } = await supabase
           .from('profiles')
-          .update({ ...formData, avatar_url: avatarUrl })
+          .update(payload)
           .eq('id', editingId);
         if (error) throw error;
         alert("Profil membre mis à jour !");
       } else {
-        // Création d'un nouveau membre (profiles)
         const newId = crypto.randomUUID();
         const { data, error } = await supabase
           .from('profiles')
           .insert([{ 
-            ...formData, 
-            avatar_url: avatarUrl,
+            ...payload,
             id: newId
           }])
           .select()
@@ -150,7 +156,7 @@ export const Team: React.FC = () => {
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={18} />
         <input 
           type="text" 
-          placeholder="Rechercher par nom, rôle ou spécialité..." 
+          placeholder="Rechercher un profil..." 
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full glass rounded-[24px] py-4 pl-12 pr-4 text-sm focus:border-nexus-purple transition-all outline-none text-white font-medium shadow-lg"
@@ -160,7 +166,7 @@ export const Team: React.FC = () => {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="animate-spin text-nexus-purple mb-4" size={40} />
-          <p className="text-[10px] font-mono uppercase text-white/30 tracking-widest">Accès aux archives du personnel...</p>
+          <p className="text-[10px] font-mono uppercase text-white/30 tracking-widest">Accès aux archives...</p>
         </div>
       ) : (
         <div className="glass rounded-[32px] overflow-hidden border-white/10 shadow-2xl">
@@ -168,8 +174,8 @@ export const Team: React.FC = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-white/[0.02] border-b border-white/5">
-                  <th className="px-8 py-6 text-[10px] font-mono uppercase text-white/30 tracking-[0.3em] font-black">Profil / Agent</th>
-                  <th className="px-8 py-6 text-[10px] font-mono uppercase text-white/30 tracking-[0.3em] font-black">Désignation</th>
+                  <th className="px-8 py-6 text-[10px] font-mono uppercase text-white/30 tracking-[0.3em] font-black">Agent</th>
+                  <th className="px-8 py-6 text-[10px] font-mono uppercase text-white/30 tracking-[0.3em] font-black">Rôles</th>
                   <th className="px-8 py-6 text-[10px] font-mono uppercase text-white/30 tracking-[0.3em] font-black">Expertises</th>
                   <th className="px-8 py-6"></th>
                 </tr>
@@ -179,12 +185,12 @@ export const Team: React.FC = () => {
                   <tr key={member.id} className="group hover:bg-white/[0.03] transition-all">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-[20px] overflow-hidden border border-white/10 shadow-xl bg-nexus-surface group-hover:border-nexus-purple/50 transition-all">
+                        <div className="w-14 h-14 rounded-[20px] overflow-hidden border border-white/10 bg-nexus-surface group-hover:border-nexus-purple/50 transition-all">
                           <img src={member.avatar_url || `https://picsum.photos/seed/${member.id}/100`} className="w-full h-full object-cover" alt="" />
                         </div>
                         <div>
                           <p className="font-heading font-extrabold text-white text-base group-hover:text-nexus-cyan transition-colors">{member.full_name}</p>
-                          <p className="text-[10px] font-mono text-white/20 tracking-tighter">{member.email}</p>
+                          <p className="text-[10px] font-mono text-white/20">{member.email || 'Sans email'}</p>
                         </div>
                       </div>
                     </td>
@@ -196,55 +202,24 @@ export const Team: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-8 py-5">
-                      <div className="flex flex-wrap gap-2 max-w-xs">
+                      <div className="flex flex-wrap gap-2">
                         {(member.skills || []).map((s: string) => (
-                          <span key={s} className="px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-[9px] font-bold text-white/40">{s}</span>
+                          <span key={s} className="px-2 py-0.5 rounded-md bg-white/5 text-[9px] font-bold text-white/40">{s}</span>
                         ))}
                       </div>
                     </td>
                     <td className="px-8 py-5 text-right">
-                      <button onClick={() => { setEditingId(member.id); setFormData(member); setPreviewUrl(member.avatar_url); setIsModalOpen(true); }} className="p-3 hover:bg-nexus-purple/10 rounded-xl text-nexus-purple transition-all shadow-lg">
+                      <button onClick={() => { setEditingId(member.id); setFormData(member); setPreviewUrl(member.avatar_url); setIsModalOpen(true); }} className="p-3 hover:bg-nexus-purple/10 rounded-xl text-nexus-purple transition-all">
                         <ChevronRight size={20} />
                       </button>
                     </td>
                   </tr>
                 ))}
-                {filteredProfiles.length === 0 && (
-                   <tr>
-                     <td colSpan={4} className="py-24 text-center text-white/20 italic font-heading opacity-50">Aucun profil ne correspond dans l'annuaire actuel.</td>
-                   </tr>
-                )}
               </tbody>
             </table>
           </div>
         </div>
       )}
-
-      {/* Modal Rôles */}
-      <Modal isOpen={isRoleModalOpen} onClose={() => setIsRoleModalOpen(false)} title="Gestionnaire de Désignations">
-        <div className="space-y-6">
-          <div className="flex gap-2">
-            <input 
-              type="text" 
-              placeholder="Titre du rôle (ex: Vidéaste)..." 
-              value={newRoleName}
-              onChange={(e) => setNewRoleName(e.target.value)}
-              className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-5 text-sm text-white focus:border-nexus-purple outline-none shadow-xl"
-            />
-            <Button variant="primary" onClick={handleAddRole} className="px-6 rounded-2xl"><Plus size={20} /></Button>
-          </div>
-          <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
-            {roles.map(role => (
-              <div key={role.id} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 shadow-inner">
-                <span className="text-sm font-bold text-white/80">{role.name}</span>
-                <button onClick={() => handleDeleteRole(role.id)} className="text-nexus-red hover:bg-nexus-red/10 p-2.5 rounded-xl transition-all">
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Modal>
 
       {/* Modal Membre */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Édition du Profil" : "Nouveau Profil Staff"}>
@@ -257,18 +232,17 @@ export const Team: React.FC = () => {
                 if (file) { setSelectedFile(file); setPreviewUrl(URL.createObjectURL(file)); }
               }} />
             </div>
-            <p className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] font-black">Identification biométrique</p>
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Nom complet / Agent *</label>
+            <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Nom complet *</label>
             <input required type="text" placeholder="ex: Jean Dupont" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 px-5 text-white focus:border-nexus-purple outline-none shadow-xl" />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Email Nexus *</label>
-            <input required type="email" placeholder="agent@nexuslabel.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 px-5 text-white focus:border-nexus-purple outline-none shadow-xl" />
+            <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Email (Optionnel)</label>
+            <input type="email" placeholder="agent@nexuslabel.com" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 px-5 text-white focus:border-nexus-purple outline-none shadow-xl" />
           </div>
           <div className="space-y-3">
-            <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Désignations autorisées</label>
+            <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Rôles</label>
             <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-2 custom-scrollbar">
               {roles.map(role => (
                 <button
@@ -294,6 +268,8 @@ export const Team: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Modal Rôles ... */}
     </div>
   );
 };

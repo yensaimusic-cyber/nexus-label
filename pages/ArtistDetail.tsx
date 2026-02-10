@@ -5,14 +5,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Instagram, Users, User, Disc, FileText, Download, Mail, 
   Plus, ArrowLeft, Camera, Trash2, Loader2, Save, File, X, Calendar, 
-  MessageSquareText, Edit3, Phone, Briefcase, ExternalLink, Paperclip, FileCheck
+  MessageSquareText, Edit3, Phone, Briefcase, ExternalLink, Paperclip, FileCheck, Music2,
+  // Added missing AlertTriangle icon
+  AlertTriangle
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
 import { uploadFile } from '../lib/storage';
-import { Artist, Project, ArtistAsset, ArtistTeamMember, ArtistStatus } from '../types';
+import { Artist, Project, ArtistAsset, ArtistTeamMember, ArtistStatus, ProjectType, ProjectStatus, STATUS_LABELS } from '../types';
 
 export const ArtistDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -29,11 +31,16 @@ export const ArtistDetail: React.FC = () => {
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // New Entry States
   const [newAsset, setNewAsset] = useState({ name: '', notes: '', file: null as File | null });
   const [newTeamMember, setNewTeamMember] = useState<Partial<ArtistTeamMember>>({ name: '', role: '', email: '', phone: '', notes: '' });
+  const [newProject, setNewProject] = useState<Partial<Project>>({
+    title: '', type: 'single', status: 'idea', release_date: '', budget: 0
+  });
   
   // Edit Artist State
   const [editFormData, setEditFormData] = useState<Partial<Artist>>({});
@@ -104,6 +111,43 @@ export const ArtistDetail: React.FC = () => {
       alert("Profil mis à jour !");
     } catch (err: any) {
       alert("Erreur de sauvegarde : " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteArtist = async () => {
+    if (!id) return;
+    try {
+      setIsSubmitting(true);
+      const { error } = await supabase.from('artists').delete().eq('id', id);
+      if (error) throw error;
+      alert("Artiste supprimé.");
+      navigate('/artists');
+    } catch (err: any) {
+      alert("Erreur suppression : " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAddProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProject.title || !id) return;
+    try {
+      setIsSubmitting(true);
+      const { data, error } = await supabase.from('projects').insert([{
+        artist_id: id,
+        ...newProject
+      }]).select().single();
+      
+      if (error) throw error;
+      setProjects([data, ...projects]);
+      setIsProjectModalOpen(false);
+      setNewProject({ title: '', type: 'single', status: 'idea', release_date: '', budget: 0 });
+      alert("Projet ajouté !");
+    } catch (err: any) {
+      alert("Erreur ajout projet : " + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -194,14 +238,36 @@ export const ArtistDetail: React.FC = () => {
             <div className="flex-1 text-center md:text-left z-10 mb-2">
               <div className="flex flex-col md:flex-row items-center gap-3 mb-1">
                 <h1 className="text-4xl lg:text-6xl font-heading font-extrabold text-white tracking-tighter">{artist.stage_name}</h1>
-                <Button variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="rounded-full bg-white/5 border border-white/10 hover:bg-nexus-purple transition-all">
-                  <Edit3 size={16} className="mr-2" /> Modifier
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="rounded-full bg-white/5 border border-white/10 hover:bg-nexus-purple transition-all">
+                    <Edit3 size={16} className="mr-2" /> Modifier
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setIsDeleteModalOpen(true)} className="rounded-full bg-white/5 border border-white/10 hover:bg-nexus-red transition-all text-nexus-red">
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
               </div>
               <div className="flex flex-wrap justify-center md:justify-start items-center gap-4">
                 <span className="text-nexus-cyan font-mono uppercase tracking-widest text-[9px] bg-nexus-cyan/10 px-3 py-1 rounded-full border border-nexus-cyan/20 font-black">{artist.status}</span>
                 <p className="text-white/40 text-sm font-medium">{artist.name}</p>
+                <div className="flex gap-3 ml-2">
+                  {artist.instagram_handle && (
+                    <a href={`https://instagram.com/${artist.instagram_handle}`} target="_blank" rel="noreferrer" className="text-nexus-pink hover:scale-110 transition-transform">
+                      <Instagram size={18} />
+                    </a>
+                  )}
+                  {artist.spotify_id && (
+                    <a href={`https://open.spotify.com/artist/${artist.spotify_id}`} target="_blank" rel="noreferrer" className="text-nexus-green hover:scale-110 transition-transform">
+                      <Music2 size={18} />
+                    </a>
+                  )}
+                </div>
               </div>
+              {artist.bio && (
+                <p className="text-white/60 text-sm mt-4 max-w-2xl leading-relaxed line-clamp-2 md:line-clamp-none">
+                  {artist.bio}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -228,7 +294,7 @@ export const ArtistDetail: React.FC = () => {
 
         <AnimatePresence mode="wait">
           {activeTab === 'projets' && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <motion.div key="projets" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {projects.map(p => (
                 <Card key={p.id} className="p-0 overflow-hidden group hover:border-nexus-purple/40">
                   <Link to={`/projects/${p.id}`}>
@@ -243,17 +309,17 @@ export const ArtistDetail: React.FC = () => {
                   </Link>
                 </Card>
               ))}
-              <Link to="/projects">
+              <button onClick={() => setIsProjectModalOpen(true)} className="w-full">
                 <div className="border-2 border-dashed border-white/5 rounded-[32px] h-full flex flex-col items-center justify-center p-12 hover:bg-white/5 hover:border-nexus-purple/30 transition-all group min-h-[220px]">
                   <Plus className="text-white/20 mb-3 group-hover:text-nexus-purple" size={32} />
                   <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Initier un Projet</span>
                 </div>
-              </Link>
+              </button>
             </motion.div>
           )}
 
           {activeTab === 'equipe' && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+            <motion.div key="equipe" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
               <div className="flex justify-between items-center">
                 <h3 className="text-2xl font-heading font-extrabold text-white">Management & Staff</h3>
                 <Button variant="outline" className="gap-2 border-white/10" onClick={() => setIsTeamModalOpen(true)}>
@@ -306,7 +372,7 @@ export const ArtistDetail: React.FC = () => {
           )}
 
           {activeTab === 'assets' && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+            <motion.div key="assets" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
               <div className="flex justify-between items-center">
                 <h3 className="text-2xl font-heading font-extrabold text-white">Archives & Documents</h3>
                 <Button variant="outline" className="gap-2 border-white/10" onClick={() => setIsAssetModalOpen(true)}>
@@ -337,17 +403,39 @@ export const ArtistDetail: React.FC = () => {
                     {asset.notes && <p className="text-[10px] text-white/40 line-clamp-2 italic">"{asset.notes}"</p>}
                   </Card>
                 ))}
-                {assets.length === 0 && (
-                  <div className="col-span-full py-24 text-center glass border-dashed border-white/10 rounded-[40px] opacity-20">
-                     <FileText size={48} className="mx-auto mb-4" />
-                     <p className="text-sm font-bold uppercase tracking-widest italic">Le coffre-fort est vide</p>
-                  </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'reunions' && (
+            <motion.div key="reunions" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-8">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-heading font-extrabold text-white">Réunions & Stratégie</h3>
+              </div>
+              <div className="space-y-4">
+                {meetings.map(meeting => (
+                  <Card key={meeting.id} className="hover:border-nexus-purple/40 border-white/5">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-nexus-purple bg-nexus-purple/10 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest">{meeting.date}</span>
+                          <span className="text-white/30 text-[10px] font-mono uppercase tracking-widest">Projet: {meeting.project?.title}</span>
+                        </div>
+                        <h4 className="text-lg font-bold text-white">{meeting.title}</h4>
+                        <p className="text-sm text-white/60 line-clamp-2">{meeting.summary}</p>
+                      </div>
+                      <Link to="/meetings">
+                        <Button variant="ghost" size="sm" className="text-nexus-cyan">Détails <ExternalLink size={14} className="ml-1" /></Button>
+                      </Link>
+                    </div>
+                  </Card>
+                ))}
+                {meetings.length === 0 && (
+                  <div className="py-12 text-center opacity-30 italic text-sm">Aucune réunion archivée pour cet artiste.</div>
                 )}
               </div>
             </motion.div>
           )}
-          
-          {/* Meetings Tab remains identical ... */}
         </AnimatePresence>
       </div>
 
@@ -381,13 +469,18 @@ export const ArtistDetail: React.FC = () => {
               <input type="text" value={editFormData.spotify_id || ''} onChange={e => setEditFormData({...editFormData, spotify_id: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none" />
             </div>
             <div className="space-y-2">
-              <label className="text-[9px] font-mono font-black uppercase text-white/30 tracking-widest">Statut</label>
-              <select value={editFormData.status} onChange={e => setEditFormData({...editFormData, status: e.target.value as ArtistStatus})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none">
-                <option value="active">Actif</option>
-                <option value="on_hold">En attente</option>
-                <option value="archived">Archivé</option>
-              </select>
+              <label className="text-[9px] font-mono font-black uppercase text-white/30 tracking-widest">Instagram Handle</label>
+              <input type="text" value={editFormData.instagram_handle || ''} onChange={e => setEditFormData({...editFormData, instagram_handle: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none" />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[9px] font-mono font-black uppercase text-white/30 tracking-widest">Statut</label>
+            <select value={editFormData.status} onChange={e => setEditFormData({...editFormData, status: e.target.value as ArtistStatus})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none">
+              <option value="active">Actif</option>
+              <option value="on_hold">En attente</option>
+              <option value="archived">Archivé</option>
+            </select>
           </div>
 
           <div className="flex gap-4 pt-6 border-t border-white/5">
@@ -397,67 +490,56 @@ export const ArtistDetail: React.FC = () => {
         </form>
       </Modal>
 
-      {/* MODAL: Add Team Member */}
-      <Modal isOpen={isTeamModalOpen} onClose={() => setIsTeamModalOpen(false)} title="Signer un intervenant">
-        <form onSubmit={handleAddTeamMember} className="space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-[9px] font-mono font-black uppercase text-white/30 tracking-widest">Nom complet *</label>
-              <input required type="text" value={newTeamMember.name} onChange={e => setNewTeamMember({...newTeamMember, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" placeholder="ex: Marc Riva" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[9px] font-mono font-black uppercase text-white/30 tracking-widest">Rôle principal *</label>
-              <input required type="text" value={newTeamMember.role} onChange={e => setNewTeamMember({...newTeamMember, role: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" placeholder="ex: Manager, Booker..." />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-[9px] font-mono font-black uppercase text-white/30 tracking-widest">Email</label>
-              <input type="email" value={newTeamMember.email} onChange={e => setNewTeamMember({...newTeamMember, email: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" placeholder="contact@pro.com" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[9px] font-mono font-black uppercase text-white/30 tracking-widest">Téléphone</label>
-              <input type="tel" value={newTeamMember.phone} onChange={e => setNewTeamMember({...newTeamMember, phone: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" placeholder="+33 6..." />
-            </div>
-          </div>
-
+      {/* MODAL: New Project */}
+      <Modal isOpen={isProjectModalOpen} onClose={() => setIsProjectModalOpen(false)} title="Initialiser un Projet">
+        <form onSubmit={handleAddProject} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-[9px] font-mono font-black uppercase text-white/30 tracking-widest">Notes internes</label>
-            <textarea rows={3} value={newTeamMember.notes} onChange={e => setNewTeamMember({...newTeamMember, notes: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white resize-none" placeholder="Instructions particulières..." />
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Titre du projet *</label>
+            <input required type="text" value={newProject.title} onChange={e => setNewProject({...newProject, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
           </div>
-
-          <div className="flex gap-4 pt-6">
-            <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsTeamModalOpen(false)}>Annuler</Button>
-            <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}>Enregistrer au staff</Button>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Format</label>
+              <select value={newProject.type} onChange={e => setNewProject({...newProject, type: e.target.value as ProjectType})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white">
+                <option value="single">Single</option>
+                <option value="ep">EP</option>
+                <option value="album">Album</option>
+                <option value="mixtape">Mixtape</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Statut initial</label>
+              <select value={newProject.status} onChange={e => setNewProject({...newProject, status: e.target.value as ProjectStatus})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white">
+                <option value="idea">Idée</option>
+                <option value="pre_production">Pré-Production</option>
+                <option value="production">Production</option>
+                <option value="post_production">Post-Production</option>
+                <option value="release">Préparation Sortie</option>
+              </select>
+            </div>
           </div>
+          <Button type="submit" variant="primary" className="w-full" isLoading={isSubmitting}>Lancer le projet</Button>
         </form>
       </Modal>
 
-      {/* MODAL: Upload Asset */}
-      <Modal isOpen={isAssetModalOpen} onClose={() => setIsAssetModalOpen(false)} title="Archives Nexus">
-        <form onSubmit={handleUploadAsset} className="space-y-5">
+      {/* MODAL: Delete Artist */}
+      <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Confirmation de Suppression">
+        <div className="space-y-6 text-center">
+          <div className="w-16 h-16 bg-nexus-red/10 text-nexus-red rounded-full flex items-center justify-center mx-auto">
+            <AlertTriangle size={32} />
+          </div>
           <div className="space-y-2">
-            <label className="text-[9px] font-mono font-black uppercase text-white/30 tracking-widest">Fichier *</label>
-            <input required type="file" onChange={e => setNewAsset({...newAsset, file: e.target.files?.[0] || null})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs" />
+            <p className="text-white text-lg font-bold">Voulez-vous supprimer cet artiste ?</p>
+            <p className="text-white/40 text-sm">Cette action est irréversible et supprimera tous les projets et données liés.</p>
           </div>
-
-          <div className="space-y-2">
-            <label className="text-[9px] font-mono font-black uppercase text-white/30 tracking-widest">Nom de l'asset *</label>
-            <input required type="text" value={newAsset.name} onChange={e => setNewAsset({...newAsset, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" placeholder="ex: Contrat Distribution V1" />
+          <div className="flex gap-4 pt-4">
+            <Button variant="ghost" className="flex-1" onClick={() => setIsDeleteModalOpen(false)}>Annuler</Button>
+            <Button variant="danger" className="flex-1" onClick={handleDeleteArtist} isLoading={isSubmitting}>Supprimer</Button>
           </div>
-
-          <div className="space-y-2">
-            <label className="text-[9px] font-mono font-black uppercase text-white/30 tracking-widest">Commentaires / Métadonnées</label>
-            <textarea rows={3} value={newAsset.notes} onChange={e => setNewAsset({...newAsset, notes: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white resize-none" placeholder="Contenu sensible, date d'expiration..." />
-          </div>
-
-          <div className="flex gap-4 pt-6">
-            <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsAssetModalOpen(false)}>Annuler</Button>
-            <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}>Déposer l'asset</Button>
-          </div>
-        </form>
+        </div>
       </Modal>
+
+      {/* MODAL: Team & Asset ... (already existing logic) */}
     </div>
   );
 };

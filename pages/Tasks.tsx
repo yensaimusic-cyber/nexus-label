@@ -81,18 +81,21 @@ export const Tasks: React.FC = () => {
     if (!editingTask?.title) return alert("Le titre est obligatoire.");
     try {
       setIsSubmitting(true);
-      const payload = { ...editingTask };
-      if (!payload.project_id) payload.project_id = undefined;
-      if (!payload.track_id) payload.track_id = undefined;
-
-      const cleanPayload = { ...payload };
-      delete (cleanPayload as any).project;
-      delete (cleanPayload as any).assignee;
+      const payload: any = { 
+        title: editingTask.title,
+        description: editingTask.description,
+        project_id: editingTask.project_id || null,
+        track_id: editingTask.track_id || null,
+        assigned_to: editingTask.assigned_to,
+        status: editingTask.status || 'todo',
+        priority: editingTask.priority || 'medium',
+        due_date: editingTask.due_date || null
+      };
 
       if (editingTask.id) {
         const { data, error } = await supabase
           .from('tasks')
-          .update(cleanPayload)
+          .update(payload)
           .eq('id', editingTask.id)
           .select('*, project:projects(id, title, status, artist:artists(stage_name)), assignee:profiles(id, full_name, avatar_url)')
           .single();
@@ -101,7 +104,7 @@ export const Tasks: React.FC = () => {
       } else {
         const { data, error } = await supabase
           .from('tasks')
-          .insert([cleanPayload])
+          .insert([payload])
           .select('*, project:projects(id, title, status, artist:artists(stage_name)), assignee:profiles(id, full_name, avatar_url)')
           .single();
         if (error) throw error;
@@ -110,6 +113,7 @@ export const Tasks: React.FC = () => {
 
       setIsModalOpen(false);
       setEditingTask(null);
+      alert("Opération enregistrée !");
     } catch (err: any) {
       alert("Échec de l'opération : " + err.message);
     } finally {
@@ -127,6 +131,7 @@ export const Tasks: React.FC = () => {
       setIsDeleteModalOpen(false);
       setIsModalOpen(false);
       setEditingTask(null);
+      alert("Tâche supprimée.");
     } catch (err: any) {
       alert("Suppression impossible.");
     } finally {
@@ -172,7 +177,7 @@ export const Tasks: React.FC = () => {
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={20} />
         <input 
           type="text" 
-          placeholder="Recherche opérationnelle..." 
+          placeholder="Rechercher une mission..." 
           value={search} 
           onChange={(e) => setSearch(e.target.value)} 
           className="w-full glass rounded-[24px] py-4 pl-12 pr-4 text-sm text-white focus:border-nexus-purple outline-none transition-all shadow-xl" 
@@ -206,25 +211,26 @@ export const Tasks: React.FC = () => {
                     <motion.div 
                       key={task.id} 
                       layout
-                      className={`glass p-6 rounded-[28px] border border-white/5 transition-all relative flex flex-col h-full ${task.status === 'done' ? 'opacity-40 grayscale-[0.5]' : 'hover:border-white/20'}`}
+                      className={`glass p-6 rounded-[28px] border border-white/5 transition-all relative flex flex-col h-full ${task.status === 'done' ? 'opacity-40 grayscale-[0.5]' : 'hover:border-white/20 cursor-pointer'}`}
+                      onClick={() => handleOpenEdit(task)}
                     >
                       <div className="flex justify-between items-start mb-4">
                         <span className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase border tracking-widest ${priorityStyles[task.priority]}`}>
                           {task.priority}
                         </span>
-                        <button onClick={() => handleOpenEdit(task)} className="p-2 hover:bg-white/5 rounded-xl text-white/20 hover:text-nexus-purple transition-all">
+                        <div className="p-2 text-white/20">
                           <Edit3 size={16} />
-                        </button>
+                        </div>
                       </div>
                       
                       <div className="flex gap-4 mb-auto">
                         <button 
-                          onClick={() => handleToggleTaskStatus(task.id, task.status)}
+                          onClick={(e) => { e.stopPropagation(); handleToggleTaskStatus(task.id, task.status); }}
                           className={`w-6 h-6 rounded-xl border-2 transition-all shrink-0 flex items-center justify-center mt-0.5 ${task.status === 'done' ? 'bg-nexus-green border-nexus-green text-nexus-dark' : 'border-white/20 text-transparent hover:border-nexus-cyan'}`}
                         >
                           <Check size={16} strokeWidth={4} />
                         </button>
-                        <div className="cursor-pointer" onClick={() => handleOpenEdit(task)}>
+                        <div>
                           <h4 className={`text-base font-bold leading-snug tracking-tight ${task.status === 'done' ? 'line-through' : 'text-white'}`}>{task.title}</h4>
                           {task.project && <p className="text-[9px] text-nexus-cyan font-mono uppercase tracking-widest font-black mt-2">{task.project.title}</p>}
                         </div>
@@ -248,19 +254,73 @@ export const Tasks: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL IS IDENTICAL TO BEFORE BUT UPDATED KEYS */}
+      {/* Modal Mission */}
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingTask(null); }} title={editingTask?.id ? "Mise à jour tactique" : "Lancer Mission"}>
          <form onSubmit={handleCreateOrUpdate} className="space-y-4">
-            <input required type="text" value={editingTask?.title || ''} onChange={e => setEditingTask({...editingTask!, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white outline-none" placeholder="Titre..." />
-            <select value={editingTask?.project_id || ''} onChange={e => setEditingTask({...editingTask!, project_id: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white">
-               <option value="">Aucun Projet</option>
-               {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-            </select>
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Titre *</label>
+              <input required type="text" value={editingTask?.title || ''} onChange={e => setEditingTask({...editingTask!, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white outline-none" placeholder="Intitulé de la mission..." />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Projet lié</label>
+              <select value={editingTask?.project_id || ''} onChange={e => setEditingTask({...editingTask!, project_id: e.target.value, track_id: ''})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white">
+                <option value="">Indépendant / Interne</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Responsable</label>
+                <select required value={editingTask?.assigned_to || ''} onChange={e => setEditingTask({...editingTask!, assigned_to: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white">
+                  <option value="">Assigner à...</option>
+                  {profiles.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Deadline</label>
+                <input type="date" value={editingTask?.due_date || ''} onChange={e => setEditingTask({...editingTask!, due_date: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white [color-scheme:dark]" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Priorité</label>
+                <select value={editingTask?.priority || 'medium'} onChange={e => setEditingTask({...editingTask!, priority: e.target.value as TaskPriority})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white">
+                  <option value="low">Basse</option><option value="medium">Medium</option><option value="high">Haute</option><option value="urgent">Urgent</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Statut</label>
+                <select value={editingTask?.status || 'todo'} onChange={e => setEditingTask({...editingTask!, status: e.target.value as TaskStatus})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white">
+                  <option value="todo">À faire</option><option value="in_progress">En cours</option><option value="review">Review</option><option value="done">Terminé</option>
+                </select>
+              </div>
+            </div>
+
             <div className="flex gap-4 pt-4">
-              <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsModalOpen(false)}>Annuler</Button>
+              {editingTask?.id && (
+                <Button type="button" variant="ghost" className="text-nexus-red border-nexus-red/10" onClick={() => setIsDeleteModalOpen(true)}>
+                  Supprimer
+                </Button>
+              )}
+              <Button type="button" variant="ghost" className="flex-1" onClick={() => { setIsModalOpen(false); setEditingTask(null); }}>Annuler</Button>
               <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}>Confirmer</Button>
             </div>
          </form>
+      </Modal>
+
+      {/* Confirmation Suppression */}
+      <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Confirmation">
+        <div className="space-y-6 text-center">
+          <AlertTriangle size={32} className="mx-auto text-nexus-red" />
+          <p className="text-white">Confirmez la suppression de cette mission ?</p>
+          <div className="flex gap-4">
+            <Button variant="ghost" className="flex-1" onClick={() => setIsDeleteModalOpen(false)}>Annuler</Button>
+            <Button variant="danger" className="flex-1" onClick={handleDeleteTask} isLoading={isSubmitting}>Supprimer</Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -15,7 +15,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
-      // Rediriger vers la racine pour laisser App.tsx gérer la redirection via HashRouter
       window.location.href = '/';
     } catch (error) {
       console.error('Erreur de déconnexion:', error);
@@ -34,14 +33,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         </button>
 
         <div className="flex-1 max-w-xl hidden md:block">
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 group-focus-within:text-nexus-purple transition-colors" size={18} />
-            <input 
-              type="text" 
-              placeholder="Recherche opérationnelle..." 
-              className="w-full bg-white/5 border border-white/10 rounded-2xl py-2.5 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-nexus-purple focus:ring-1 focus:ring-nexus-purple transition-all shadow-inner"
-            />
-          </div>
+          {/* Barre de recherche supprimée car inutile selon les consignes */}
         </div>
       </div>
 
