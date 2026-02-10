@@ -170,3 +170,23 @@ export interface ExternalResource {
   instagram?: string;
   created_at?: string;
 }
+
+export type MemberType = 'internal' | 'external';
+
+export interface ProjectTeamMember {
+  id: string;
+  project_id: string;
+  member_id?: string;
+  member_type: MemberType;
+  role_on_project: string;
+  external_name?: string;
+  external_email?: string;
+  external_phone?: string;
+  external_notes?: string;
+  created_at?: string;
+  profile?: {
+    full_name: string;
+    avatar_url: string;
+    role: string[];
+  };
+}

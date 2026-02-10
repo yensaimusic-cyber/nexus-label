@@ -5,14 +5,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Disc, Users, Settings, 
   Play, Plus, Clock, DollarSign, 
-  Trash2, Camera, Loader2, Save, FileAudio, Check, X, ClipboardList, Edit3, AlertTriangle, User, Calendar
+  Trash2, Camera, Loader2, Save, FileAudio, Check, X, ClipboardList, Edit3, AlertTriangle, User, Calendar, Mail, Phone, ExternalLink
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
 import { uploadFile } from '../lib/storage';
-import { Project, Track, Task, ProjectStatus, ProjectType, STATUS_LABELS } from '../types';
+import { Project, Track, Task, ProjectStatus, ProjectType, STATUS_LABELS, ProjectTeamMember, MemberType } from '../types';
 
 export const ProjectDetail: React.FC = () => {
   const { id } = useParams();
@@ -20,7 +20,8 @@ export const ProjectDetail: React.FC = () => {
   const [project, setProject] = useState<any>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [projectTasks, setProjectTasks] = useState<Task[]>([]);
-  const [collaborators, setCollaborators] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<ProjectTeamMember[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [allArtists, setAllArtists] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'tracks' | 'tasks' | 'collaboration'>('tracks');
@@ -28,8 +29,20 @@ export const ProjectDetail: React.FC = () => {
   // Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isAddTeamModalOpen, setIsAddTeamModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // New Team Member Form State
+  const [addTeamType, setAddTeamType] = useState<MemberType>('internal');
+  const [newTeamMember, setNewTeamMember] = useState({
+    member_id: '',
+    role_on_project: '',
+    external_name: '',
+    external_email: '',
+    external_phone: '',
+    external_notes: ''
+  });
+
   // Edit Form State
   const [editData, setEditData] = useState<Partial<Project>>({});
   const [newCoverFile, setNewCoverFile] = useState<File | null>(null);
@@ -41,11 +54,12 @@ export const ProjectDetail: React.FC = () => {
   const fetchProjectData = async () => {
     try {
       setLoading(true);
-      const [projRes, tracksRes, tasksRes, collabRes, artistsRes] = await Promise.all([
+      const [projRes, tracksRes, tasksRes, teamRes, profilesRes, artistsRes] = await Promise.all([
         supabase.from('projects').select('*, artist:artists(*)').eq('id', id).single(),
         supabase.from('tracks').select('*').eq('project_id', id).order('created_at'),
         supabase.from('tasks').select('*, assignee:profiles(full_name, avatar_url)').eq('project_id', id).order('due_date'),
-        supabase.from('project_collaborators').select('*, profile:profiles(*)').eq('project_id', id),
+        supabase.from('project_team').select('*, profile:profiles(full_name, avatar_url, role)').eq('project_id', id),
+        supabase.from('profiles').select('id, full_name, role').order('full_name'),
         supabase.from('artists').select('id, stage_name').order('stage_name')
       ]);
 
@@ -54,7 +68,8 @@ export const ProjectDetail: React.FC = () => {
       setEditData(projRes.data);
       setTracks(tracksRes.data || []);
       setProjectTasks(tasksRes.data || []);
-      setCollaborators(collabRes.data || []);
+      setTeamMembers(teamRes.data || []);
+      setProfiles(profilesRes.data || []);
       setAllArtists(artistsRes.data || []);
     } catch (err: any) {
       console.error("Fetch error:", err);
@@ -102,6 +117,60 @@ export const ProjectDetail: React.FC = () => {
       alert("Suppression impossible.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleAddTeamMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsSubmitting(true);
+      const payload: any = {
+        project_id: id,
+        member_type: addTeamType,
+        role_on_project: newTeamMember.role_on_project,
+      };
+
+      if (addTeamType === 'internal') {
+        payload.member_id = newTeamMember.member_id;
+      } else {
+        payload.external_name = newTeamMember.external_name;
+        payload.external_email = newTeamMember.external_email;
+        payload.external_phone = newTeamMember.external_phone;
+        payload.external_notes = newTeamMember.external_notes;
+      }
+
+      const { data, error } = await supabase
+        .from('project_team')
+        .insert([payload])
+        .select('*, profile:profiles(full_name, avatar_url, role)')
+        .single();
+
+      if (error) throw error;
+      setTeamMembers([...teamMembers, data]);
+      setIsAddTeamModalOpen(false);
+      setNewTeamMember({
+        member_id: '',
+        role_on_project: '',
+        external_name: '',
+        external_email: '',
+        external_phone: '',
+        external_notes: ''
+      });
+    } catch (err: any) {
+      alert("Erreur lors de l'ajout : " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRemoveTeamMember = async (memberId: string) => {
+    if (!confirm("Retirer ce membre de l'équipe ?")) return;
+    try {
+      const { error } = await supabase.from('project_team').delete().eq('id', memberId);
+      if (error) throw error;
+      setTeamMembers(teamMembers.filter(m => m.id !== memberId));
+    } catch (err) {
+      alert("Erreur lors de la suppression.");
     }
   };
 
@@ -287,20 +356,62 @@ export const ProjectDetail: React.FC = () => {
 
           {activeTab === 'collaboration' && (
             <div className="space-y-6">
-              <h3 className="text-2xl font-heading font-extrabold text-white">Équipe</h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-heading font-extrabold text-white">L'Équipe</h3>
+                <Button variant="outline" size="sm" onClick={() => setIsAddTeamModalOpen(true)} className="gap-2 border-white/10 hover:bg-nexus-cyan/10 text-nexus-cyan">
+                  <Plus size={16} /> Ajouter un membre
+                </Button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {collaborators.map(c => (
-                  <Card key={c.id} className="text-center p-8 border-white/5 hover:border-nexus-cyan/30 bg-white/[0.01]">
+                {teamMembers.map(member => (
+                  <Card key={member.id} className="text-center p-8 border-white/5 hover:border-nexus-cyan/30 bg-white/[0.01] group relative">
+                    <button 
+                      onClick={() => handleRemoveTeamMember(member.id)}
+                      className="absolute top-4 right-4 p-2 text-white/10 hover:text-nexus-red transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+
                     <div className="w-20 h-20 rounded-[24px] overflow-hidden mx-auto mb-4 border-2 border-white/10 group-hover:border-nexus-cyan/40 transition-all shadow-2xl bg-nexus-surface">
-                      <img src={c.profile?.avatar_url || `https://picsum.photos/seed/${c.profile_id}/200`} className="w-full h-full object-cover" alt="" />
+                      <img 
+                        src={member.member_type === 'internal' ? (member.profile?.avatar_url || `https://picsum.photos/seed/${member.member_id}/200`) : `https://ui-avatars.com/api/?name=${member.external_name}&background=06B6D4&color=fff&size=200`} 
+                        className="w-full h-full object-cover" 
+                        alt="" 
+                      />
                     </div>
-                    <p className="font-heading font-extrabold text-white truncate text-base">{c.profile?.full_name}</p>
-                    <p className="text-[9px] text-nexus-cyan font-mono uppercase mt-1.5 tracking-[0.2em] font-black">{c.role || 'Expert Nexus'}</p>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-center gap-2">
+                        <p className="font-heading font-extrabold text-white truncate text-base">
+                          {member.member_type === 'internal' ? member.profile?.full_name : member.external_name}
+                        </p>
+                        <span className={`px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-tighter ${member.member_type === 'internal' ? 'bg-nexus-purple/20 text-nexus-purple border border-nexus-purple/30' : 'bg-nexus-cyan/20 text-nexus-cyan border border-nexus-cyan/30'}`}>
+                          {member.member_type === 'internal' ? 'Interne' : 'Externe'}
+                        </span>
+                      </div>
+                      <p className="text-[9px] text-nexus-cyan font-mono uppercase tracking-[0.2em] font-black">{member.role_on_project}</p>
+                    </div>
+
+                    {member.member_type === 'external' && (
+                      <div className="flex justify-center gap-3 mt-4 pt-4 border-t border-white/5">
+                        {member.external_email && (
+                          <a href={`mailto:${member.external_email}`} className="text-white/20 hover:text-white transition-colors">
+                            <Mail size={14} />
+                          </a>
+                        )}
+                        {member.external_phone && (
+                          <a href={`tel:${member.external_phone}`} className="text-white/20 hover:text-white transition-colors">
+                            <Phone size={14} />
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </Card>
                 ))}
-                {collaborators.length === 0 && (
+                {teamMembers.length === 0 && (
                    <div className="col-span-full py-16 text-center glass rounded-[32px] border-dashed border-white/10 opacity-30 italic text-sm">
-                     Aucun collaborateur assigné.
+                     L'équipe du projet est vide. Mobilisez vos agents ou recrutez des externes.
                    </div>
                 )}
               </div>
@@ -308,6 +419,109 @@ export const ProjectDetail: React.FC = () => {
           )}
         </motion.div>
       </AnimatePresence>
+
+      {/* Add Team Member Modal */}
+      <Modal isOpen={isAddTeamModalOpen} onClose={() => setIsAddTeamModalOpen(false)} title="Assigner un Agent / Partenaire">
+        <div className="flex p-1 bg-white/5 rounded-xl mb-6">
+          <button 
+            onClick={() => setAddTeamType('internal')}
+            className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${addTeamType === 'internal' ? 'bg-nexus-purple text-white' : 'text-white/30 hover:text-white/50'}`}
+          >
+            Membre Interne
+          </button>
+          <button 
+            onClick={() => setAddTeamType('external')}
+            className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${addTeamType === 'external' ? 'bg-nexus-cyan text-white' : 'text-white/30 hover:text-white/50'}`}
+          >
+            Intervenant Externe
+          </button>
+        </div>
+
+        <form onSubmit={handleAddTeamMember} className="space-y-4">
+          {addTeamType === 'internal' ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Agent Nexus *</label>
+                <select 
+                  required 
+                  value={newTeamMember.member_id} 
+                  onChange={e => setNewTeamMember({...newTeamMember, member_id: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white appearance-none outline-none focus:border-nexus-purple"
+                >
+                  <option value="" className="bg-nexus-surface">Sélectionner un agent...</option>
+                  {profiles.map(p => (
+                    <option key={p.id} value={p.id} className="bg-nexus-surface">
+                      {p.full_name} ({Array.isArray(p.role) ? p.role.join(', ') : p.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Nom de l'intervenant *</label>
+                <input 
+                  required 
+                  type="text" 
+                  value={newTeamMember.external_name} 
+                  onChange={e => setNewTeamMember({...newTeamMember, external_name: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none focus:border-nexus-cyan"
+                  placeholder="ex: Alex Rivera"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Email</label>
+                  <input 
+                    type="email" 
+                    value={newTeamMember.external_email} 
+                    onChange={e => setNewTeamMember({...newTeamMember, external_email: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none focus:border-nexus-cyan"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Téléphone</label>
+                  <input 
+                    type="tel" 
+                    value={newTeamMember.external_phone} 
+                    onChange={e => setNewTeamMember({...newTeamMember, external_phone: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none focus:border-nexus-cyan"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Notes</label>
+                <textarea 
+                  rows={2}
+                  value={newTeamMember.external_notes} 
+                  onChange={e => setNewTeamMember({...newTeamMember, external_notes: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none focus:border-nexus-cyan resize-none"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Mission sur ce projet *</label>
+            <input 
+              required 
+              type="text" 
+              value={newTeamMember.role_on_project} 
+              onChange={e => setNewTeamMember({...newTeamMember, role_on_project: e.target.value})}
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none focus:border-white/40"
+              placeholder="ex: Mix Engineer, Marketing Lead..."
+            />
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsAddTeamModalOpen(false)}>Annuler</Button>
+            <Button type="submit" variant="primary" className={`flex-1 ${addTeamType === 'external' ? 'bg-nexus-cyan' : ''}`} isLoading={isSubmitting}>
+              Assigner au Projet
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Edit Modal */}
       <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Modifier le Projet">

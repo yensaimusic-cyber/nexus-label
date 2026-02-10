@@ -1,28 +1,35 @@
 
--- NEXUS LABEL - EXTENSION SCHEMA RESOURCES
-ALTER TABLE resources ADD COLUMN IF NOT EXISTS phone text;
-ALTER TABLE resources ADD COLUMN IF NOT EXISTS email text;
-ALTER TABLE resources ADD COLUMN IF NOT EXISTS instagram text;
+-- NEXUS LABEL - PROJECT TEAM SCHEMA
 
--- TABLES POUR LA GESTION D'ARTISTE
-CREATE TABLE IF NOT EXISTS artist_team_members (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  artist_id UUID REFERENCES artists(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  role TEXT NOT NULL,
-  email TEXT,
-  phone TEXT,
-  notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- 1. Création de l'enum pour le type de membre
+DO $$ BEGIN
+    CREATE TYPE member_type AS ENUM ('internal', 'external');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- 2. Création de la table project_team
+CREATE TABLE IF NOT EXISTS project_team (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    member_id UUID REFERENCES profiles(id) ON DELETE SET NULL, -- Nullable pour les externes
+    member_type member_type NOT NULL DEFAULT 'internal',
+    role_on_project TEXT NOT NULL, -- Rôle spécifique sur CE projet
+    external_name TEXT, -- Pour les externes
+    external_email TEXT, -- Pour les externes
+    external_phone TEXT, -- Pour les externes
+    external_notes TEXT, -- Pour les externes
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS artist_assets (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  artist_id UUID REFERENCES artists(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  file_url TEXT NOT NULL,
-  file_type TEXT,
-  file_size BIGINT,
-  notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- 3. Activation de la RLS
+ALTER TABLE project_team ENABLE ROW LEVEL SECURITY;
+
+-- 4. Politiques RLS
+DROP POLICY IF EXISTS "Allow all for authenticated users on project_team" ON project_team;
+CREATE POLICY "Allow all for authenticated users on project_team" 
+ON project_team FOR ALL TO authenticated 
+USING (true);
+
+-- 5. Index pour les performances
+CREATE INDEX IF NOT EXISTS idx_project_team_project_id ON project_team(project_id);
