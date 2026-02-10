@@ -29,7 +29,6 @@ export interface Artist {
 
 export type ProjectType = 'single' | 'ep' | 'album' | 'mixtape';
 
-// Nouveaux statuts demandés
 export type ProjectStatus = 
   | 'idee_brainstorm'
   | 'maquette'
@@ -83,7 +82,7 @@ export interface Track {
 }
 
 export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done';
-export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent' | 'overdue';
 
 export interface Task {
   id: string;
@@ -99,6 +98,17 @@ export interface Task {
   artist_name?: string;
   project_title?: string;
   created_at?: string;
+  // Metadata for display
+  project?: {
+    title: string;
+    artist?: {
+      stage_name: string;
+    }
+  };
+  assignee?: {
+    full_name: string;
+    avatar_url: string;
+  };
 }
 
 export interface CustomRole {
@@ -135,7 +145,6 @@ export interface ProjectCollaborator {
   };
 }
 
-// Added TeamMember interface to fix import errors in Team.tsx and ArtistDetail.tsx
 export interface TeamMember {
   id: string;
   full_name: string;
@@ -145,7 +154,6 @@ export interface TeamMember {
   avatar_url?: string;
 }
 
-// Added Meeting interface to fix import error in Meetings.tsx
 export interface Meeting {
   id: string;
   title: string;
@@ -156,7 +164,6 @@ export interface Meeting {
   project_id?: string;
 }
 
-// Added ExternalResource interface to fix import error in Resources.tsx
 export interface ExternalResource {
   id: string;
   name: string;
