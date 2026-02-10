@@ -98,7 +98,6 @@ export interface Task {
   artist_name?: string;
   project_title?: string;
   created_at?: string;
-  // Metadata for display
   project?: {
     title: string;
     artist?: {
@@ -111,9 +110,15 @@ export interface Task {
   };
 }
 
-export interface CustomRole {
+export interface ArtistTeamMember {
   id: string;
+  artist_id: string;
   name: string;
+  role: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
+  created_at?: string;
 }
 
 export interface ArtistAsset {
@@ -122,27 +127,14 @@ export interface ArtistAsset {
   name: string;
   file_url: string;
   file_type: string;
-  file_size: number;
-  created_at: string;
+  file_size?: number;
+  notes?: string;
+  created_at?: string;
 }
 
-export interface CampaignTask {
+export interface CustomRole {
   id: string;
-  project_id: string;
-  task_text: string;
-  is_completed: boolean;
-  order_index: number;
-}
-
-export interface ProjectCollaborator {
-  id: string;
-  project_id: string;
-  profile_id: string;
-  role: string;
-  profile?: {
-    full_name: string;
-    avatar_url: string;
-  };
+  name: string;
 }
 
 export interface TeamMember {
@@ -171,6 +163,10 @@ export interface ExternalResource {
   skills: string[];
   contact_info?: string;
   website?: string;
-  rating: number;
+  rating?: number;
   notes?: string;
+  phone?: string;
+  email?: string;
+  instagram?: string;
+  created_at?: string;
 }
