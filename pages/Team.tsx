@@ -83,18 +83,34 @@ export const Team: React.FC = () => {
       }
       
       if (editingId) {
-        const { error } = await supabase.from('profiles').update({ ...formData, avatar_url: avatarUrl }).eq('id', editingId);
+        // Modification d'un membre existant
+        const { error } = await supabase
+          .from('profiles')
+          .update({ ...formData, avatar_url: avatarUrl })
+          .eq('id', editingId);
         if (error) throw error;
+        alert("Membre modifié avec succès !");
       } else {
-        // En prod, la création de profil est liée à auth.signUp, mais on simule ici pour l'UI si besoin
-        // Pour cet exemple, on suppose qu'on édite des profils existants ou créés par trigger
-        alert("Action restreinte à la modification de profils existants dans cette vue.");
-        return;
+        // Création d'un nouveau membre
+        const { data, error } = await supabase
+          .from('profiles')
+          .insert([{ 
+            ...formData, 
+            avatar_url: avatarUrl,
+            id: crypto.randomUUID() // Générer un UUID
+          }])
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        // Ajouter immédiatement au state local pour affichage instantané
+        setProfiles(prev => [data, ...prev]);
+        alert("Membre ajouté avec succès !");
       }
 
       setIsModalOpen(false);
       await fetchInitialData(); // Re-sync de la liste
-      alert("Opération réussie !");
     } catch (err: any) {
       alert("Échec : " + err.message);
     } finally {
@@ -121,7 +137,7 @@ export const Team: React.FC = () => {
           </Button>
           <Button variant="primary" className="gap-2" onClick={() => { setEditingId(null); setFormData({ full_name: '', email: '', role: [], skills: [] }); setPreviewUrl(null); setIsModalOpen(true); }}>
             <Plus size={20} />
-            <span>Modifier un membre</span>
+            <span>Ajouter un membre</span>
           </Button>
         </div>
       </header>
