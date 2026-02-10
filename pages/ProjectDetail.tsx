@@ -4,15 +4,15 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Disc, Users, Settings, 
-  Play, Plus, Clock, DollarSign, 
-  Trash2, Camera, Loader2, Save, FileAudio, Check, X, ClipboardList, Edit3, AlertTriangle, User, Calendar, Mail, Phone, ExternalLink, Music, Hash, Layers
+  Plus, DollarSign, 
+  Trash2, Camera, Loader2, Save, FileAudio, Check, X, ClipboardList, Edit3, AlertTriangle, Mail, Phone, ExternalLink, Hash, Layers, UserPlus
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
 import { uploadFile } from '../lib/storage';
-import { Project, Track, Task, ProjectStatus, ProjectType, STATUS_LABELS, ProjectTeamMember, MemberType, TrackStatus, TRACK_STATUS_LABELS, TaskStatus, TaskPriority } from '../types';
+import { Project, Track, Task, ProjectStatus, ProjectType, STATUS_LABELS, ProjectTeamMember, MemberType, TrackStatus, TRACK_STATUS_LABELS, TaskPriority } from '../types';
 
 export const ProjectDetail: React.FC = () => {
   const { id } = useParams();
@@ -86,12 +86,23 @@ export const ProjectDetail: React.FC = () => {
       if (newCoverFile) {
         updates.cover_url = await uploadFile(newCoverFile, 'covers', 'project-covers');
       }
-      const { data, error } = await supabase.from('projects').update(updates).eq('id', id).select('*, artist:artists(*)').single();
+      
+      const { data, error } = await supabase
+        .from('projects')
+        .update(updates)
+        .eq('id', id)
+        .select('*, artist:artists(*)')
+        .single();
+        
       if (error) throw error;
       setProject(data);
       setIsEditModalOpen(false);
       alert("Projet mis à jour !");
-    } catch (err) { alert("Erreur mise à jour."); } finally { setIsSubmitting(false); }
+    } catch (err) { 
+      alert("Erreur mise à jour."); 
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
   const handleDeleteProject = async () => {
@@ -100,10 +111,63 @@ export const ProjectDetail: React.FC = () => {
       const { error } = await supabase.from('projects').delete().eq('id', id);
       if (error) throw error;
       navigate('/projects');
-    } catch (err) { alert("Suppression impossible."); } finally { setIsSubmitting(false); }
+    } catch (err) { 
+      alert("Suppression impossible."); 
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
-  // --- TRACKS MANAGEMENT ---
+  const handleAddTeamMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsSubmitting(true);
+      const payload: any = {
+        project_id: id,
+        member_type: addTeamType,
+        role_on_project: newTeamMember.role_on_project
+      };
+
+      if (addTeamType === 'internal') {
+        payload.member_id = newTeamMember.member_id;
+      } else {
+        payload.external_name = newTeamMember.external_name;
+        payload.external_email = newTeamMember.external_email;
+        payload.external_phone = newTeamMember.external_phone;
+        payload.external_notes = newTeamMember.external_notes;
+      }
+
+      const { data, error } = await supabase
+        .from('project_team')
+        .insert([payload])
+        .select('*, profile:profiles(full_name, avatar_url, role)')
+        .single();
+
+      if (error) throw error;
+      setTeamMembers([...teamMembers, data]);
+      setIsAddTeamModalOpen(false);
+      setNewTeamMember({
+        member_id: '', role_on_project: '', external_name: '', external_email: '', external_phone: '', external_notes: ''
+      });
+    } catch (err: any) {
+      alert("Erreur lors de l'ajout : " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRemoveTeamMember = async (memberId: string) => {
+    if (!confirm("Retirer ce membre du projet ?")) return;
+    try {
+      const { error } = await supabase.from('project_team').delete().eq('id', memberId);
+      if (error) throw error;
+      setTeamMembers(teamMembers.filter(m => m.id !== memberId));
+    } catch (err) {
+      alert("Erreur lors de la suppression.");
+    }
+  };
+
+  // --- TRACKS & TASKS WRAPPERS ---
   const handleOpenTrackModal = (track?: Track) => {
     setEditingTrack(track || { title: '', status: 'demo', project_id: id });
     setIsTrackModalOpen(true);
@@ -141,7 +205,6 @@ export const ProjectDetail: React.FC = () => {
     } catch (err) { alert("Suppression impossible."); } finally { setIsSubmitting(false); }
   };
 
-  // --- TASKS MANAGEMENT ---
   const handleOpenTaskModal = (task?: Task) => {
     setEditingTask(task || { title: '', status: 'todo', priority: 'medium', project_id: id });
     setIsTaskModalOpen(true);
@@ -202,7 +265,7 @@ export const ProjectDetail: React.FC = () => {
         <div className="flex items-center justify-between">
           <Link to="/projects" className="flex items-center gap-2 text-white/30 hover:text-white transition-all w-fit group">
             <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="text-[10px] font-black uppercase tracking-widest font-mono">Pipeline Central</span>
+            <span className="text-[10px] font-black uppercase tracking-widest font-mono">Archives Pipeline</span>
           </Link>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="gap-2 border border-white/10 hover:bg-white/5">
@@ -232,11 +295,11 @@ export const ProjectDetail: React.FC = () => {
             
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
                <div className="bg-white/5 p-4 rounded-2xl border border-white/5 shadow-xl">
-                 <p className="text-[8px] font-mono text-white/30 uppercase tracking-widest mb-1">Budget Restant</p>
+                 <p className="text-[8px] font-mono text-white/30 uppercase tracking-widest mb-1">Reste / Budget</p>
                  <p className="text-xl font-bold font-heading text-white">€{(project.budget - project.spent).toLocaleString()}</p>
                </div>
                <div className="bg-white/5 p-4 rounded-2xl border border-white/5 shadow-xl">
-                 <p className="text-[8px] font-mono text-white/30 uppercase tracking-widest mb-1">Cible</p>
+                 <p className="text-[8px] font-mono text-white/30 uppercase tracking-widest mb-1">Deadline</p>
                  <p className="text-base font-bold font-heading text-white">{project.release_date || 'Non fixée'}</p>
                </div>
             </div>
@@ -248,7 +311,7 @@ export const ProjectDetail: React.FC = () => {
         {[
           { id: 'tracks', label: 'Morceaux', icon: <Disc size={16} /> },
           { id: 'tasks', label: 'Opérations', icon: <ClipboardList size={16} /> },
-          { id: 'collaboration', label: 'Management', icon: <Users size={16} /> }
+          { id: 'collaboration', label: 'Équipe Projet', icon: <Users size={16} /> }
         ].map(tab => (
           <button 
             key={tab.id} 
@@ -285,34 +348,11 @@ export const ProjectDetail: React.FC = () => {
                           <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border tracking-widest ${getTrackStatusColor(track.status)}`}>
                             {TRACK_STATUS_LABELS[track.status] || track.status}
                           </span>
-                          <span className="text-[9px] font-mono text-white/20">{formatDuration(track.duration)}</span>
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center gap-4 pl-14 md:pl-0">
-                        {track.bpm && (
-                          <div className="flex flex-col items-center px-3 border-l border-white/5">
-                            <span className="text-[7px] font-mono text-white/30 uppercase">BPM</span>
-                            <span className="text-xs font-bold text-nexus-purple">{track.bpm}</span>
-                          </div>
-                        )}
-                        {track.key && (
-                          <div className="flex flex-col items-center px-3 border-l border-white/5">
-                            <span className="text-[7px] font-mono text-white/30 uppercase">KEY</span>
-                            <span className="text-xs font-bold text-nexus-cyan">{track.key}</span>
-                          </div>
-                        )}
-                        <Button variant="ghost" size="sm" className="p-2 opacity-0 group-hover:opacity-100"><Edit3 size={16} /></Button>
-                    </div>
                   </Card>
                 ))}
-                {tracks.length === 0 && (
-                   <div className="py-20 text-center glass rounded-[32px] border-dashed border-white/10 opacity-30 flex flex-col items-center">
-                     <FileAudio size={48} className="mb-4" />
-                     <p className="text-sm font-bold italic">Le catalogue est encore vide.</p>
-                   </div>
-                )}
               </div>
             </div>
           )}
@@ -320,138 +360,264 @@ export const ProjectDetail: React.FC = () => {
           {activeTab === 'tasks' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-heading font-extrabold text-white">Opérations</h3>
+                <h3 className="text-2xl font-heading font-extrabold text-white">Missions Opérationnelles</h3>
                 <Button variant="outline" size="sm" onClick={() => handleOpenTaskModal()} className="gap-2 border-white/10 text-nexus-cyan hover:border-nexus-cyan">
-                  <Plus size={16} /> Créer une tâche
+                  <Plus size={16} /> Nouvelle tâche
                 </Button>
               </div>
               <div className="space-y-3">
                 {projectTasks.map(task => (
-                  <div key={task.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-5 glass rounded-2xl hover:border-nexus-purple/30 transition-all group cursor-pointer" onClick={() => handleOpenTaskModal(task)}>
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className={`w-2 h-10 rounded-full shrink-0 ${task.status === 'done' ? 'bg-nexus-green' : 'bg-white/10'}`} />
-                      <div className="min-w-0">
-                        <p className={`font-bold text-base ${task.status === 'done' ? 'line-through text-white/20' : 'text-white'}`}>{task.title}</p>
-                        <div className="flex items-center gap-3 mt-1.5">
-                           <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase border tracking-widest ${getPriorityColor(task.priority)}`}>{task.priority}</span>
-                           <span className="text-[9px] font-mono text-white/20 flex items-center gap-1"><Calendar size={10} /> {task.due_date || 'TBD'}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between sm:justify-end gap-6 pt-4 sm:pt-0 border-t sm:border-t-0 border-white/5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg overflow-hidden border border-white/10">
-                          <img src={task.assignee?.avatar_url || `https://picsum.photos/seed/${task.id}/50`} className="w-full h-full object-cover opacity-60" />
-                        </div>
-                        <span className="text-[10px] text-white/30 font-bold">{task.assignee?.full_name?.split(' ')[0]}</span>
-                      </div>
-                      <Edit3 size={16} className="text-white/10 group-hover:text-nexus-purple transition-colors" />
+                  <div key={task.id} className="flex items-center gap-4 p-5 glass rounded-2xl hover:border-nexus-purple/30 transition-all group cursor-pointer" onClick={() => handleOpenTaskModal(task)}>
+                    <div className={`w-2 h-10 rounded-full shrink-0 ${task.status === 'done' ? 'bg-nexus-green' : 'bg-white/10'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-bold text-base ${task.status === 'done' ? 'line-through text-white/20' : 'text-white'}`}>{task.title}</p>
+                      <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase border tracking-widest mt-1 inline-block ${getPriorityColor(task.priority)}`}>{task.priority}</span>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          
-          {/* Collaboration tab identical to previous turn ... */}
+
+          {activeTab === 'collaboration' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-heading font-extrabold text-white">Équipe de Production</h3>
+                <Button variant="outline" size="sm" onClick={() => setIsAddTeamModalOpen(true)} className="gap-2 border-white/10 text-nexus-purple hover:border-nexus-purple">
+                  <UserPlus size={16} /> Ajouter un membre
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {teamMembers.map(member => (
+                  <Card key={member.id} className="p-6 border-white/5 hover:border-nexus-purple/30 group relative">
+                    <button 
+                      onClick={() => handleRemoveTeamMember(member.id)}
+                      className="absolute top-4 right-4 p-2 text-white/10 hover:text-nexus-red transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <X size={16} />
+                    </button>
+                    
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden border border-white/10 shrink-0 shadow-lg">
+                        <img 
+                          src={member.member_type === 'internal' ? (member.profile?.avatar_url || `https://picsum.photos/seed/${member.member_id}/100`) : `https://ui-avatars.com/api/?name=${member.external_name}&background=8B5CF6&color=fff`} 
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-white truncate">
+                          {member.member_type === 'internal' ? member.profile?.full_name : member.external_name}
+                        </h4>
+                        <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${member.member_type === 'internal' ? 'bg-nexus-purple/10 text-nexus-purple border-nexus-purple/20' : 'bg-nexus-cyan/10 text-nexus-cyan border-nexus-cyan/20'}`}>
+                          {member.member_type === 'internal' ? 'Nexus Agent' : 'Externe'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-4 border-t border-white/5">
+                      <p className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black">Mission</p>
+                      <p className="text-sm font-bold text-white">{member.role_on_project}</p>
+                      {member.member_type === 'external' && (
+                        <div className="flex gap-3 pt-2">
+                          {member.external_email && <a href={`mailto:${member.external_email}`} className="text-white/20 hover:text-white transition-colors"><Mail size={14} /></a>}
+                          {member.external_phone && <a href={`tel:${member.external_phone}`} className="text-white/20 hover:text-white transition-colors"><Phone size={14} /></a>}
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+                {teamMembers.length === 0 && (
+                   <div className="col-span-full py-20 text-center glass rounded-[32px] border-dashed border-white/10 opacity-30 italic text-sm">
+                     Aucun membre assigné. Mobilisez vos agents.
+                   </div>
+                )}
+              </div>
+            </div>
+          )}
         </motion.div>
       </AnimatePresence>
 
-      {/* TRACK MODAL */}
-      <Modal isOpen={isTrackModalOpen} onClose={() => setIsTrackModalOpen(false)} title={editingTrack?.id ? "Studio Piste" : "Nouvel Enregistrement"}>
-        <form onSubmit={handleCreateOrUpdateTrack} className="space-y-5 max-h-[75vh] overflow-y-auto px-1 custom-scrollbar">
-          <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Titre du morceau *</label>
-            <input required type="text" value={editingTrack?.title || ''} onChange={e => setEditingTrack({...editingTrack!, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" placeholder="ex: Intro (The Nexus)" />
-          </div>
+      {/* TEAM MEMBER MODAL */}
+      <Modal isOpen={isAddTeamModalOpen} onClose={() => setIsAddTeamModalOpen(false)} title="Assigner un membre">
+        <div className="flex p-1 bg-white/5 rounded-xl mb-6">
+          <button 
+            onClick={() => setAddTeamType('internal')}
+            className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${addTeamType === 'internal' ? 'bg-nexus-purple text-white shadow-lg' : 'text-white/30 hover:text-white/50'}`}
+          >
+            Interne (Profiles)
+          </button>
+          <button 
+            onClick={() => setAddTeamType('external')}
+            className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${addTeamType === 'external' ? 'bg-nexus-cyan text-white shadow-lg' : 'text-white/30 hover:text-white/50'}`}
+          >
+            Intervenant Externe
+          </button>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-             <div className="space-y-2">
-                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">BPM</label>
-                <input type="number" value={editingTrack?.bpm || ''} onChange={e => setEditingTrack({...editingTrack!, bpm: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" placeholder="128" />
-             </div>
-             <div className="space-y-2">
-                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Key</label>
-                <input type="text" value={editingTrack?.key || ''} onChange={e => setEditingTrack({...editingTrack!, key: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" placeholder="Am, C# Maj..." />
-             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-             <div className="space-y-2">
-                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Durée (Secondes)</label>
-                <input type="number" value={editingTrack?.duration || ''} onChange={e => setEditingTrack({...editingTrack!, duration: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" placeholder="180" />
-             </div>
-             <div className="space-y-2">
-                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Production Status</label>
-                <select value={editingTrack?.status || 'demo'} onChange={e => setEditingTrack({...editingTrack!, status: e.target.value as TrackStatus})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white">
-                  {Object.entries(TRACK_STATUS_LABELS).map(([val, lbl]) => <option key={val} value={val} className="bg-nexus-surface">{lbl}</option>)}
+        <form onSubmit={handleAddTeamMember} className="space-y-4">
+          {addTeamType === 'internal' ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Agent Nexus *</label>
+                <select 
+                  required 
+                  value={newTeamMember.member_id} 
+                  onChange={e => setNewTeamMember({...newTeamMember, member_id: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white appearance-none outline-none focus:border-nexus-purple"
+                >
+                  <option value="" className="bg-nexus-surface">Sélectionner un agent...</option>
+                  {profiles.map(p => (
+                    <option key={p.id} value={p.id} className="bg-nexus-surface">
+                      {p.full_name} ({p.role?.[0] || 'Staff'})
+                    </option>
+                  ))}
                 </select>
-             </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Nom complet *</label>
+                <input 
+                  required 
+                  type="text" 
+                  value={newTeamMember.external_name} 
+                  onChange={e => setNewTeamMember({...newTeamMember, external_name: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none focus:border-nexus-cyan"
+                  placeholder="ex: Alex Rivera"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Email</label>
+                  <input type="email" value={newTeamMember.external_email} onChange={e => setNewTeamMember({...newTeamMember, external_email: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Téléphone</label>
+                  <input type="tel" value={newTeamMember.external_phone} onChange={e => setNewTeamMember({...newTeamMember, external_phone: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Rôle sur ce projet *</label>
+            <input 
+              required 
+              type="text" 
+              value={newTeamMember.role_on_project} 
+              onChange={e => setNewTeamMember({...newTeamMember, role_on_project: e.target.value})}
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none"
+              placeholder="ex: Mix Engineer, Lead Booker..."
+            />
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsAddTeamModalOpen(false)}>Annuler</Button>
+            <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}>Confirmer</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* PROJECT EDIT MODAL */}
+      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Modifier Opération">
+        <form onSubmit={handleUpdateProject} className="space-y-5 max-h-[75vh] overflow-y-auto px-1 custom-scrollbar">
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Visuel de Couverture</label>
+            <div className="relative h-28 rounded-xl overflow-hidden bg-white/5 border border-dashed border-white/20 flex items-center justify-center group cursor-pointer">
+              {newCoverFile ? (
+                <img src={URL.createObjectURL(newCoverFile)} className="w-full h-full object-cover" />
+              ) : project.cover_url ? (
+                <img src={project.cover_url} className="w-full h-full object-cover" />
+              ) : (
+                <Camera className="text-white/20 group-hover:text-nexus-purple transition-all" />
+              )}
+              <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => setNewCoverFile(e.target.files?.[0] || null)} />
+            </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Paroles (Lyrics)</label>
-            <textarea rows={4} value={editingTrack?.lyrics || ''} onChange={e => setEditingTrack({...editingTrack!, lyrics: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white resize-none" placeholder="Verse 1..." />
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Titre *</label>
+            <input required type="text" value={editData.title} onChange={e => setEditData({...editData, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none focus:border-nexus-purple shadow-inner" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Artiste</label>
+              <select value={editData.artist_id} onChange={e => setEditData({...editData, artist_id: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white appearance-none outline-none">
+                {allArtists.map(a => <option key={a.id} value={a.id} className="bg-nexus-surface">{a.stage_name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Format</label>
+              <select value={editData.type} onChange={e => setEditData({...editData, type: e.target.value as ProjectType})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white appearance-none outline-none">
+                <option value="single">Single</option><option value="ep">EP</option><option value="album">Album</option><option value="mixtape">Mixtape</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Date de Sortie</label>
+              <input type="date" value={editData.release_date} onChange={e => setEditData({...editData, release_date: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none [color-scheme:dark]" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Phase Actuelle</label>
+              <select value={editData.status} onChange={e => setEditData({...editData, status: e.target.value as ProjectStatus})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white appearance-none outline-none">
+                {Object.entries(STATUS_LABELS).map(([val, label]) => <option key={val} value={val} className="bg-nexus-surface">{label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Budget Total (€)</label>
+              <input type="number" value={editData.budget} onChange={e => setEditData({...editData, budget: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none shadow-inner" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Dépensé (€)</label>
+              <input type="number" value={editData.spent} onChange={e => setEditData({...editData, spent: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none shadow-inner" />
+            </div>
           </div>
 
           <div className="flex gap-4 pt-4 border-t border-white/5">
-             {editingTrack?.id && <Button type="button" variant="danger" onClick={() => setIsTrackDeleteModalOpen(true)}><Trash2 size={20} /></Button>}
-             <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsTrackModalOpen(false)}>Annuler</Button>
-             <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}>Enregistrer</Button>
+            <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsEditModalOpen(false)}>Annuler</Button>
+            <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}>Enregistrer</Button>
           </div>
         </form>
       </Modal>
 
-      {/* TASK MODAL (Simplified for Project Context) */}
-      <Modal isOpen={isTaskModalOpen} onClose={() => setIsTaskModalOpen(false)} title={editingTask?.id ? "Mise à jour Tâche" : "Nouvelle Opération"}>
-        <form onSubmit={handleUpdateTask} className="space-y-5">
-           <div className="space-y-2">
-             <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Titre *</label>
-             <input required type="text" value={editingTask?.title || ''} onChange={e => setEditingTask({...editingTask!, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
-           </div>
-           <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Assigné à</label>
-                <select required value={editingTask?.assigned_to || ''} onChange={e => setEditingTask({...editingTask!, assigned_to: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white">
-                  <option value="" className="bg-nexus-surface">Choisir...</option>
-                  {profiles.map(p => <option key={p.id} value={p.id} className="bg-nexus-surface">{p.full_name}</option>)}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Priorité</label>
-                <select value={editingTask?.priority || 'medium'} onChange={e => setEditingTask({...editingTask!, priority: e.target.value as TaskPriority})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white">
-                  <option value="low">Basse</option><option value="medium">Medium</option><option value="high">Haute</option><option value="urgent">Urgent</option>
-                </select>
-              </div>
-           </div>
-           <div className="flex gap-4 pt-4">
-              <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsTaskModalOpen(false)}>Annuler</Button>
-              <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}>Confirmer</Button>
-           </div>
-        </form>
-      </Modal>
-
-      {/* DELETE MODALS ... */}
-      <Modal isOpen={isTrackDeleteModalOpen} onClose={() => setIsTrackDeleteModalOpen(false)} title="Confirmer Suppression Track">
-         <div className="space-y-6 text-center py-4">
-            <AlertTriangle size={32} className="mx-auto text-nexus-red" />
-            <p className="text-white text-sm">Supprimer définitivement cette piste ?</p>
-            <div className="flex gap-3 pt-4">
-               <Button variant="ghost" className="flex-1" onClick={() => setIsTrackDeleteModalOpen(false)}>Annuler</Button>
-               <Button variant="danger" className="flex-1" onClick={handleDeleteTrack} isLoading={isSubmitting}>Supprimer</Button>
-            </div>
-         </div>
-      </Modal>
-
-      <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Suppression Projet">
+      {/* DELETE MODALS */}
+      <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Confirmer Destruction">
         <div className="space-y-6 text-center py-4">
-          <AlertTriangle size={32} className="mx-auto text-nexus-red" />
-          <p className="text-sm text-white/40">Cette action supprimera tout l'historique de production associé.</p>
+          <div className="w-16 h-16 bg-nexus-red/10 text-nexus-red rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle size={32} />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xl font-bold text-white">Supprimer {project.title} ?</p>
+            <p className="text-sm text-white/40">Cette action est définitive et retirera toutes les tracks et tâches associées de la base Nexus.</p>
+          </div>
           <div className="flex gap-3 pt-4">
             <Button variant="ghost" className="flex-1" onClick={() => setIsDeleteModalOpen(false)}>Annuler</Button>
             <Button variant="danger" className="flex-1" onClick={handleDeleteProject} isLoading={isSubmitting}>Supprimer</Button>
           </div>
         </div>
+      </Modal>
+
+      {/* TRACK MODAL WRAPPER (Kept for consistency with previous functional code) */}
+      <Modal isOpen={isTrackModalOpen} onClose={() => setIsTrackModalOpen(false)} title={editingTrack?.id ? "Studio Piste" : "Nouvel Enregistrement"}>
+        <form onSubmit={handleCreateOrUpdateTrack} className="space-y-5">
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Titre *</label>
+            <input required type="text" value={editingTrack?.title || ''} onChange={e => setEditingTrack({...editingTrack!, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none" />
+          </div>
+          <div className="flex gap-4 pt-4">
+             {editingTrack?.id && <Button type="button" variant="danger" onClick={() => setIsTrackDeleteModalOpen(true)}><Trash2 size={20} /></Button>}
+             <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsTrackModalOpen(false)}>Annuler</Button>
+             <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}>Confirmer</Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

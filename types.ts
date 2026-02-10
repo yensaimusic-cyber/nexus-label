@@ -1,5 +1,4 @@
 
-
 export type UserRole = 'admin' | 'manager' | 'artist' | 'engineer' | 'designer';
 
 export interface User {
@@ -31,26 +30,20 @@ export interface Artist {
 export type ProjectType = 'single' | 'ep' | 'album' | 'mixtape';
 
 export type ProjectStatus = 
-  | 'idee_brainstorm'
-  | 'maquette'
-  | 'rec'
-  | 'mix'
-  | 'master'
-  | 'prepa_promo'
-  | 'promo_sortie'
-  | 'promo_pre_sortie'
-  | 'fin';
+  | 'idea'
+  | 'pre_production'
+  | 'production'
+  | 'post_production'
+  | 'release'
+  | 'released';
 
 export const STATUS_LABELS: Record<ProjectStatus, string> = {
-  idee_brainstorm: 'Idée/Brainstorm',
-  maquette: 'Maquette',
-  rec: 'Rec (Enregistrement)',
-  mix: 'Mix (Mixage)',
-  master: 'Master (Mastering)',
-  prepa_promo: 'Prépa-Promo',
-  promo_sortie: 'Promo Sortie',
-  promo_pre_sortie: 'Promo Pré-Sortie',
-  fin: 'Fin'
+  idea: 'Idée / Brainstorm',
+  pre_production: 'Pré-Production',
+  production: 'Production / REC',
+  post_production: 'Post-Production / Mix',
+  release: 'Préparation Sortie',
+  released: 'Distribué / Terminé'
 };
 
 export interface Project {
@@ -139,37 +132,6 @@ export interface Task {
   };
 }
 
-export interface ArtistTeamMember {
-  id: string;
-  artist_id: string;
-  name: string;
-  role: string;
-  email?: string;
-  phone?: string;
-  notes?: string;
-  created_at?: string;
-}
-
-export interface ArtistAsset {
-  id: string;
-  artist_id: string;
-  name: string;
-  file_url: string;
-  file_type: string;
-  file_size?: number;
-  notes?: string;
-  created_at?: string;
-}
-
-export interface CustomRole {
-  id: string;
-  name: string;
-}
-
-/**
- * Fixed: Renamed from MemberType to TeamMember to match imports in Team.tsx 
- * and added skills property which was missing but used in formData.
- */
 export interface TeamMember {
   id: string;
   full_name: string;
@@ -179,10 +141,6 @@ export interface TeamMember {
   avatar_url?: string;
 }
 
-/**
- * Added: MemberType defined as a union for project member classification, 
- * resolving errors in ProjectDetail.tsx where it was used as a literal type.
- */
 export type MemberType = 'internal' | 'external';
 
 export interface ProjectTeamMember {
@@ -195,6 +153,7 @@ export interface ProjectTeamMember {
   external_email?: string;
   external_phone?: string;
   external_notes?: string;
+  created_at?: string;
   profile?: {
     full_name: string;
     avatar_url: string;
@@ -223,4 +182,33 @@ export interface Meeting {
   attendees: string[];
   action_items: string[];
   project_id?: string;
+}
+
+// Added missing interfaces for artist assets and team management
+export interface ArtistAsset {
+  id: string;
+  artist_id: string;
+  name: string;
+  notes?: string;
+  file_url: string;
+  file_type: string;
+  file_size: number;
+  created_at?: string;
+}
+
+export interface ArtistTeamMember {
+  id: string;
+  artist_id: string;
+  name: string;
+  role: string;
+  email?: string;
+  phone?: string;
+  notes?: string;
+  created_at?: string;
+}
+
+export interface CustomRole {
+  id: string;
+  name: string;
+  created_at?: string;
 }

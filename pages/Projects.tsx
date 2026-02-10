@@ -19,7 +19,8 @@ export const Projects: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<Partial<Project>>({
-    title: '', artist_id: '', type: 'single', status: 'idee_brainstorm', release_date: '', budget: 0
+    // Fix: changed 'idee_brainstorm' to 'idea' to match ProjectStatus type
+    title: '', artist_id: '', type: 'single', status: 'idea', release_date: '', budget: 0
   });
   const [coverFile, setCoverFile] = useState<File | null>(null);
 
@@ -54,7 +55,8 @@ export const Projects: React.FC = () => {
       if (error) throw error;
       setProjects([data, ...projects]);
       setIsModalOpen(false);
-      setFormData({ title: '', artist_id: '', type: 'single', status: 'idee_brainstorm', release_date: '', budget: 0 });
+      // Fix: changed 'idee_brainstorm' to 'idea' to match ProjectStatus type
+      setFormData({ title: '', artist_id: '', type: 'single', status: 'idea', release_date: '', budget: 0 });
       setCoverFile(null);
       alert("Projet initialisé !");
     } catch (err: any) {
