@@ -1,4 +1,5 @@
 
+
 export type UserRole = 'admin' | 'manager' | 'artist' | 'engineer' | 'designer';
 
 export interface User {
@@ -64,15 +65,42 @@ export interface Project {
   cover_url?: string;
   progress?: number;
   created_at?: string;
+  artist?: {
+    stage_name: string;
+    avatar_url?: string;
+  };
 }
 
-export type TrackStatus = 'demo' | 'recording' | 'recorded' | 'mixing_v1' | 'mixing_v2' | 'mixing_v3' | 'mix_approved' | 'mastering' | 'mastered' | 'distributed';
+export type TrackStatus = 
+  | 'demo' 
+  | 'recording' 
+  | 'recorded' 
+  | 'mixing_v1' 
+  | 'mixing_v2' 
+  | 'mixing_v3' 
+  | 'mix_approved' 
+  | 'mastering' 
+  | 'mastered' 
+  | 'distributed';
+
+export const TRACK_STATUS_LABELS: Record<TrackStatus, string> = {
+  demo: 'Démo',
+  recording: 'Enregistrement',
+  recorded: 'Enregistré',
+  mixing_v1: 'Mix V1',
+  mixing_v2: 'Mix V2',
+  mixing_v3: 'Mix V3',
+  mix_approved: 'Mix Validé',
+  mastering: 'Mastering',
+  mastered: 'Masterisé',
+  distributed: 'Distribué'
+};
 
 export interface Track {
   id: string;
   project_id: string;
   title: string;
-  duration: number;
+  duration?: number;
   status: TrackStatus;
   bpm?: number;
   key?: string;
@@ -86,7 +114,7 @@ export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent' | 'overdue';
 
 export interface Task {
   id: string;
-  project_id: string;
+  project_id?: string;
   track_id?: string;
   assigned_to: string;
   title: string;
@@ -95,16 +123,17 @@ export interface Task {
   priority: TaskPriority;
   due_date: string;
   completed_at?: string;
-  artist_name?: string;
-  project_title?: string;
   created_at?: string;
   project?: {
+    id: string;
     title: string;
+    status: ProjectStatus;
     artist?: {
       stage_name: string;
     }
   };
   assignee?: {
+    id: string;
     full_name: string;
     avatar_url: string;
   };
@@ -137,40 +166,23 @@ export interface CustomRole {
   name: string;
 }
 
+/**
+ * Fixed: Renamed from MemberType to TeamMember to match imports in Team.tsx 
+ * and added skills property which was missing but used in formData.
+ */
 export interface TeamMember {
   id: string;
   full_name: string;
   email: string;
   role: string[];
-  skills: string[];
+  skills?: string[];
   avatar_url?: string;
 }
 
-export interface Meeting {
-  id: string;
-  title: string;
-  date: string;
-  summary?: string;
-  attendees: string[];
-  action_items: string[];
-  project_id?: string;
-}
-
-export interface ExternalResource {
-  id: string;
-  name: string;
-  service_type: string;
-  skills: string[];
-  contact_info?: string;
-  website?: string;
-  rating?: number;
-  notes?: string;
-  phone?: string;
-  email?: string;
-  instagram?: string;
-  created_at?: string;
-}
-
+/**
+ * Added: MemberType defined as a union for project member classification, 
+ * resolving errors in ProjectDetail.tsx where it was used as a literal type.
+ */
 export type MemberType = 'internal' | 'external';
 
 export interface ProjectTeamMember {
@@ -183,10 +195,32 @@ export interface ProjectTeamMember {
   external_email?: string;
   external_phone?: string;
   external_notes?: string;
-  created_at?: string;
   profile?: {
     full_name: string;
     avatar_url: string;
     role: string[];
   };
+}
+
+export interface ExternalResource {
+  id: string;
+  name: string;
+  service_type: string;
+  skills: string[];
+  phone?: string;
+  email?: string;
+  instagram?: string;
+  website?: string;
+  rating?: number;
+  notes?: string;
+}
+
+export interface Meeting {
+  id: string;
+  title: string;
+  date: string;
+  summary?: string;
+  attendees: string[];
+  action_items: string[];
+  project_id?: string;
 }
