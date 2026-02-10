@@ -29,14 +29,14 @@ export const COLORS = {
 };
 
 export const NAVIGATION = [
-  { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/' },
-  { name: 'Artists', icon: <Users size={20} />, path: '/artists' },
-  { name: 'Projects', icon: <Disc size={20} />, path: '/projects' },
-  { name: 'Tasks', icon: <CheckSquare size={20} />, path: '/tasks' },
-  { name: 'Meetings', icon: <MessageSquareText size={20} />, path: '/meetings' },
-  { name: 'Calendar', icon: <Calendar size={20} />, path: '/calendar' },
-  { name: 'Resources', icon: <Briefcase size={20} />, path: '/resources' },
-  { name: 'Team', icon: <Shield size={20} />, path: '/team' },
+  { name: 'Tableau de bord', icon: <LayoutDashboard size={20} />, path: '/' },
+  { name: 'Artistes', icon: <Users size={20} />, path: '/artists' },
+  { name: 'Projets', icon: <Disc size={20} />, path: '/projects' },
+  { name: 'Tâches', icon: <CheckSquare size={20} />, path: '/tasks' },
+  { name: 'Réunions', icon: <MessageSquareText size={20} />, path: '/meetings' },
+  { name: 'Calendrier', icon: <Calendar size={20} />, path: '/calendar' },
+  { name: 'Ressources', icon: <Briefcase size={20} />, path: '/resources' },
+  { name: 'Équipe', icon: <Shield size={20} />, path: '/team' },
 ];
 
 export const STATUS_COLORS: Record<string, string> = {

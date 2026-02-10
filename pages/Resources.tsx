@@ -21,7 +21,7 @@ export const Resources: React.FC = () => {
 
   const [formData, setFormData] = useState<Partial<ExternalResource & { phone: string, email: string, instagram: string }>>({
     name: '', 
-    service_type: 'Audio', 
+    service_type: '', 
     skills: [], 
     contact_info: '', 
     website: '', 
@@ -62,46 +62,51 @@ export const Resources: React.FC = () => {
       if (editingId) {
         const { error } = await supabase.from('resources').update(formData).eq('id', editingId);
         if (error) throw error;
-        alert("Partenaire mis à jour !");
+        alert("Partenaire mis à jour avec succès !");
       } else {
         const { error } = await supabase.from('resources').insert([formData]);
         if (error) throw error;
-        alert("Partenaire ajouté !");
+        alert("Nouveau partenaire ajouté au répertoire !");
       }
       
       setIsModalOpen(false);
       fetchResources();
     } catch (err: any) {
-      alert("Erreur: " + err.message);
+      alert("Erreur lors de l'enregistrement : " + err.message);
     } finally { setIsSubmitting(false); }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Supprimer ce partenaire du répertoire ?")) return;
+    if (!confirm("Voulez-vous vraiment supprimer ce partenaire du répertoire ?")) return;
     try {
       const { error } = await supabase.from('resources').delete().eq('id', id);
       if (error) throw error;
       setResources(prev => prev.filter(r => r.id !== id));
+      alert("Partenaire supprimé.");
     } catch (err: any) {
-      alert("Erreur lors de la suppression");
+      alert("Erreur lors de la suppression.");
     }
   };
 
   const filteredResources = resources.filter(r => 
-    r.name.toLowerCase().includes(search.toLowerCase()) || 
-    r.service_type.toLowerCase().includes(search.toLowerCase())
+    r.name?.toLowerCase().includes(search.toLowerCase()) || 
+    r.service_type?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <div className="p-4 lg:p-8 space-y-8 max-w-[1400px] mx-auto min-h-screen flex flex-col">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl lg:text-4xl font-heading font-extrabold text-white tracking-tight">Répertoire Nexus</h2>
-          <p className="text-nexus-lightGray text-sm mt-1">Partenaires vérifiés, studios et services externes du label.</p>
+          <h2 className="text-3xl lg:text-4xl font-heading font-extrabold text-white tracking-tight">Répertoire Partenaires</h2>
+          <p className="text-nexus-lightGray text-sm mt-1">Gérez vos prestataires externes, studios et créatifs favoris.</p>
         </div>
-        <Button variant="primary" className="gap-2 shadow-xl" onClick={() => { setEditingId(null); setFormData({ name: '', service_type: 'Audio', skills: [], contact_info: '', website: '', rating: 5, notes: '', phone: '', email: '', instagram: '' }); setIsModalOpen(true); }}>
+        <Button variant="primary" className="gap-2 shadow-xl" onClick={() => { 
+          setEditingId(null); 
+          setFormData({ name: '', service_type: '', skills: [], website: '', rating: 5, notes: '', phone: '', email: '', instagram: '' }); 
+          setIsModalOpen(true); 
+        }}>
           <Plus size={20} />
-          <span>Ajouter un prestataire</span>
+          <span>Nouveau Partenaire</span>
         </Button>
       </header>
 
@@ -109,7 +114,7 @@ export const Resources: React.FC = () => {
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={18} />
         <input 
           type="text" 
-          placeholder="Rechercher par nom, spécialité ou service..." 
+          placeholder="Rechercher par nom, service ou compétence..." 
           value={search} 
           onChange={(e) => setSearch(e.target.value)} 
           className="w-full glass rounded-[24px] py-4 pl-12 pr-4 text-sm focus:border-nexus-purple transition-all outline-none text-white font-medium shadow-lg" 
@@ -119,7 +124,7 @@ export const Resources: React.FC = () => {
       {loading ? (
         <div className="flex-1 flex flex-col items-center justify-center">
            <Loader2 className="animate-spin text-nexus-purple" size={40} />
-           <p className="mt-4 text-[10px] font-mono text-white/20 uppercase tracking-widest">Synchronisation du répertoire...</p>
+           <p className="mt-4 text-[10px] font-mono text-white/20 uppercase tracking-widest">Synchronisation du carnet d'adresses...</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
@@ -127,15 +132,15 @@ export const Resources: React.FC = () => {
             <Card key={resource.id} className="flex flex-col h-full hover:border-nexus-cyan/40 transition-all group border-white/5 shadow-xl relative">
               <div className="flex justify-between items-start mb-6">
                 <div className="flex items-center gap-4">
-                  <div className="p-3.5 rounded-[18px] bg-nexus-cyan/10 text-nexus-cyan shadow-lg shadow-cyan-500/5">
+                  <div className="p-3.5 rounded-[18px] bg-nexus-cyan/10 text-nexus-cyan shadow-lg">
                     <Briefcase size={24} />
                   </div>
-                  <div>
-                    <h3 className="font-heading font-bold text-lg text-white group-hover:text-nexus-cyan transition-colors leading-none mb-1.5">{resource.name}</h3>
-                    <span className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] font-black">{resource.service_type}</span>
+                  <div className="min-w-0">
+                    <h3 className="font-heading font-bold text-lg text-white group-hover:text-nexus-cyan transition-colors leading-none mb-1.5 truncate">{resource.name}</h3>
+                    <span className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] font-black">{resource.service_type || 'Service Divers'}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 bg-nexus-orange/10 px-2 py-1 rounded-lg text-nexus-orange">
+                <div className="flex items-center gap-1.5 bg-nexus-orange/10 px-2 py-1 rounded-lg text-nexus-orange shrink-0">
                   <Star size={12} fill="currentColor" />
                   <span className="text-[10px] font-black">{resource.rating}</span>
                 </div>
@@ -150,7 +155,7 @@ export const Resources: React.FC = () => {
                   ))}
                 </div>
                 <p className="text-xs text-white/40 italic leading-relaxed line-clamp-3">
-                  "{resource.notes || 'Partenaire de confiance pour les opérations du label.'}"
+                  "{resource.notes || 'Aucune note stratégique pour ce partenaire.'}"
                 </p>
               </div>
 
@@ -216,44 +221,45 @@ export const Resources: React.FC = () => {
           {filteredResources.length === 0 && (
             <div className="col-span-full py-24 text-center glass rounded-[40px] border-dashed border-white/10 opacity-30 flex flex-col items-center justify-center">
                <Briefcase size={64} className="mb-4" />
-               <p className="text-lg font-heading font-bold">Aucun partenaire ne correspond à votre recherche</p>
+               <p className="text-lg font-heading font-bold">Aucun partenaire trouvé</p>
             </div>
           )}
         </div>
       )}
 
-      {/* Resource Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Éditer le partenaire" : "Nouveau Prestataire"}>
+      {/* Modal Partenaire */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Modifier le Partenaire" : "Nouveau Partenaire"}>
         <form onSubmit={handleSubmit} className="space-y-5 max-h-[75vh] overflow-y-auto px-1 custom-scrollbar">
           <div className="space-y-2">
             <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Nom du partenaire *</label>
-            <input required type="text" placeholder="ex: Studio Pulse" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:border-nexus-purple outline-none transition-all" />
+            <input required type="text" placeholder="ex: Studio Pulse" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-white focus:border-nexus-purple outline-none transition-all shadow-xl" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Secteur</label>
-              <select className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none appearance-none" value={formData.service_type} onChange={e => setFormData({...formData, service_type: e.target.value})}>
-                <option value="Audio">Audio / Studio</option>
-                <option value="Image">Image / Visuels</option>
-                <option value="Marketing">Marketing / PR</option>
-                <option value="Legal">Juridique / Business</option>
-              </select>
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Secteur / Type de service</label>
+              <input 
+                type="text"
+                placeholder="Ex: Studio, Graphiste, PR..."
+                value={formData.service_type || ''}
+                onChange={(e) => setFormData({...formData, service_type: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-white focus:border-nexus-purple outline-none transition-all shadow-xl"
+              />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Rating (1-5)</label>
-              <input type="number" min="1" max="5" step="0.5" value={formData.rating} onChange={e => setFormData({...formData, rating: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none" />
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Note de satisfaction (1-5)</label>
+              <input type="number" min="1" max="5" step="0.5" value={formData.rating} onChange={e => setFormData({...formData, rating: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-white outline-none" />
             </div>
           </div>
 
-          <div className="space-y-4 pt-2 border-t border-white/5">
+          <div className="space-y-4 pt-4 border-t border-white/5">
             <p className="text-[10px] font-mono uppercase text-nexus-purple tracking-widest font-black">Coordonnées de contact</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-[10px] font-mono uppercase text-white/30 tracking-widest">Téléphone</label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" size={14} />
-                  <input type="tel" placeholder="+33..." value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none" />
+                  <input type="tel" placeholder="+33 6..." value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none" />
                 </div>
               </div>
               <div className="space-y-2">
@@ -271,7 +277,7 @@ export const Resources: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-mono uppercase text-white/30 tracking-widest">Site Web</label>
+                <label className="text-[10px] font-mono uppercase text-white/30 tracking-widest">Lien Site Web</label>
                 <div className="relative">
                   <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" size={14} />
                   <input type="url" placeholder="https://..." value={formData.website} onChange={e => setFormData({...formData, website: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white outline-none" />
@@ -281,19 +287,14 @@ export const Resources: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Spécialités (Séparez par des virgules)</label>
-            <input type="text" placeholder="Mixage, Dolby Atmos, VFX..." value={formData.skills?.join(', ')} onChange={e => setFormData({...formData, skills: e.target.value.split(',').map(s => s.trim())})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none" />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Notes stratégiques</label>
-            <textarea rows={3} placeholder="Retours d'expérience, tarifs préférentiels..." value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:border-nexus-purple outline-none resize-none text-sm" />
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Notes & Retours</label>
+            <textarea rows={3} placeholder="Tarifs préférentiels, spécialités Dolby Atmos..." value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-white focus:border-nexus-purple outline-none resize-none text-sm" />
           </div>
 
           <div className="flex gap-3 pt-6 border-t border-white/5">
             <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsModalOpen(false)}>Annuler</Button>
             <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}>
-              <Save size={18} className="mr-2" /> {editingId ? "Mettre à jour" : "Ajouter au répertoire"}
+              <Save size={18} className="mr-2" /> Enregistrer
             </Button>
           </div>
         </form>

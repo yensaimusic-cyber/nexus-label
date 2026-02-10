@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NAVIGATION } from '../../constants';
 import { LogOut, Music, X } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -12,6 +13,15 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Erreur déconnexion:', error);
+    }
+  };
 
   const SidebarContent = () => (
     <>
@@ -57,9 +67,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       </nav>
 
       <div className="p-6 border-t border-white/5">
-        <button className="flex items-center gap-3 px-4 py-3.5 w-full text-nexus-red hover:bg-nexus-red/10 rounded-xl transition-all group">
+        <button 
+          onClick={handleSignOut}
+          className="flex items-center gap-3 px-4 py-3.5 w-full text-nexus-red hover:bg-nexus-red/10 rounded-xl transition-all group"
+        >
           <LogOut size={20} className="group-hover:rotate-12 transition-transform" />
-          <span className="font-bold text-sm">Sign Out</span>
+          <span className="font-bold text-sm uppercase tracking-widest text-[10px]">Déconnexion</span>
         </button>
       </div>
     </>
@@ -68,7 +81,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 h-screen fixed left-0 top-0 glass border-r border-white/10 z-50 flex-col">
+      <aside className="hidden lg:flex w-64 h-screen fixed left-0 top-0 glass border-r border-white/10 z-50 flex-col shadow-2xl">
         <SidebarContent />
       </aside>
 
