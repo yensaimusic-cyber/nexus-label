@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -29,6 +29,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Artist, Project, TeamMember, Asset, ProjectType } from '../types';
+import { supabase } from '../lib/supabase';
 import { 
   AreaChart, 
   Area, 
@@ -102,7 +103,8 @@ type TabType = 'projects' | 'team' | 'assets' | 'stats';
 
 export const ArtistDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [artistData, setArtistData] = useState<Artist>(INITIAL_MOCK_ARTIST);
+  const [artistData, setArtistData] = useState<Artist | null>(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('projects');
   
   // Team states
@@ -121,6 +123,35 @@ export const ArtistDetail: React.FC = () => {
     budget: '',
     templateId: ''
   });
+
+  // Charger l'artiste depuis Supabase
+  useEffect(() => {
+    if (id) {
+      fetchArtist();
+    }
+  }, [id]);
+
+  const fetchArtist = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('artists')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      
+      if (data) {
+        setArtistData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching artist:', error);
+      alert('Failed to load artist details.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'projects', label: 'Projets', icon: <Disc size={18} /> },
@@ -193,17 +224,38 @@ export const ArtistDetail: React.FC = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (file && artistData) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setArtistData(prev => ({
+        setArtistData(prev => prev ? ({
           ...prev,
           avatar_url: reader.result as string
-        }));
+        }) : null);
       };
       reader.readAsDataURL(file);
     }
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-white/40 font-heading text-xl">Loading artist...</div>
+      </div>
+    );
+  }
+
+  // Artist not found
+  if (!artistData) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <div className="text-white/40 font-heading text-xl">Artist not found</div>
+        <Link to="/artists">
+          <Button variant="primary">Back to Artists</Button>
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -219,7 +271,7 @@ export const ArtistDetail: React.FC = () => {
       {/* Hero Header */}
       <div className="relative h-[300px] w-full overflow-hidden">
         <img 
-          src={artistData.cover_url} 
+          src={artistData.cover_url || 'https://picsum.photos/1200/400'} 
           alt="Cover" 
           className="w-full h-full object-cover brightness-50"
         />
@@ -241,7 +293,7 @@ export const ArtistDetail: React.FC = () => {
               animate={{ scale: 1, opacity: 1 }}
               className="w-32 h-32 rounded-3xl overflow-hidden border-4 border-nexus-surface shadow-2xl"
             >
-              <img src={artistData.avatar_url} alt={artistData.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+              <img src={artistData.avatar_url || 'https://picsum.photos/200'} alt={artistData.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
             </motion.div>
             
             <button 
@@ -261,12 +313,12 @@ export const ArtistDetail: React.FC = () => {
               </span>
             </div>
             <p className="text-nexus-lightGray max-w-2xl line-clamp-2 text-sm">
-              {artistData.bio}
+              {artistData.bio || 'No bio available'}
             </p>
             <div className="flex items-center gap-4 pt-2">
               <a href="#" className="flex items-center gap-1.5 text-nexus-pink hover:text-nexus-pink/80 transition-colors text-xs font-medium">
                 <Instagram size={14} />
-                {artistData.instagram_handle}
+                {artistData.instagram_handle || '@artist'}
               </a>
               <a href="#" className="flex items-center gap-1.5 text-nexus-green hover:text-nexus-green/80 transition-colors text-xs font-medium">
                 <Music2 size={14} />
