@@ -86,7 +86,7 @@ export const Tasks: React.FC = () => {
         description: editingTask.description,
         project_id: editingTask.project_id || null,
         track_id: editingTask.track_id || null,
-        assigned_to: editingTask.assigned_to,
+        assigned_to: editingTask.assigned_to || null,
         status: editingTask.status || 'todo',
         priority: editingTask.priority || 'medium',
         due_date: editingTask.due_date || null
@@ -113,7 +113,6 @@ export const Tasks: React.FC = () => {
 
       setIsModalOpen(false);
       setEditingTask(null);
-      alert("Opération enregistrée !");
     } catch (err: any) {
       alert("Échec de l'opération : " + err.message);
     } finally {
@@ -131,7 +130,7 @@ export const Tasks: React.FC = () => {
       setIsDeleteModalOpen(false);
       setIsModalOpen(false);
       setEditingTask(null);
-      alert("Tâche supprimée.");
+      alert("Mission effacée des registres.");
     } catch (err: any) {
       alert("Suppression impossible.");
     } finally {
@@ -163,13 +162,13 @@ export const Tasks: React.FC = () => {
 
   return (
     <div className="p-4 lg:p-8 space-y-8 min-h-screen max-w-[1600px] mx-auto">
-      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
-          <h2 className="text-3xl lg:text-5xl font-heading font-extrabold text-white tracking-tighter italic">Opérations <span className="text-nexus-purple">Hub</span></h2>
-          <p className="text-nexus-lightGray text-sm font-mono uppercase tracking-widest mt-1">Registre tactique Nexus</p>
+          <h2 className="text-3xl lg:text-5xl font-heading font-extrabold text-white tracking-tighter italic leading-none">Centre Opérationnel <span className="text-nexus-purple">Hub</span></h2>
+          <p className="text-nexus-lightGray text-xs lg:text-sm font-mono uppercase tracking-[0.2em] mt-1.5 opacity-60">Registre central des missions Nexus</p>
         </div>
-        <Button variant="primary" className="gap-2 h-14 rounded-2xl px-8 shadow-2xl" onClick={() => { setEditingTask({ title: '', status: 'todo', priority: 'medium' }); setIsModalOpen(true); }}>
-          <Plus size={20} /> <span className="font-black uppercase tracking-widest text-xs">Nouvelle Mission</span>
+        <Button variant="primary" className="gap-2 h-14 rounded-2xl px-8 shadow-2xl nexus-glow" onClick={() => { setEditingTask({ title: '', status: 'todo', priority: 'medium' }); setIsModalOpen(true); }}>
+          <Plus size={20} /> <span className="font-black uppercase tracking-[0.2em] text-[10px]">Déclencher Nouvelle Mission</span>
         </Button>
       </header>
 
@@ -177,71 +176,79 @@ export const Tasks: React.FC = () => {
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={20} />
         <input 
           type="text" 
-          placeholder="Rechercher une mission..." 
+          placeholder="Rechercher une mission ou un projet..." 
           value={search} 
           onChange={(e) => setSearch(e.target.value)} 
-          className="w-full glass rounded-[24px] py-4 pl-12 pr-4 text-sm text-white focus:border-nexus-purple outline-none transition-all shadow-xl" 
+          className="w-full glass rounded-[24px] py-4 pl-12 pr-4 text-sm text-white focus:border-nexus-purple outline-none transition-all shadow-xl font-medium" 
         />
       </div>
 
       {loading ? (
         <div className="py-32 flex flex-col items-center justify-center gap-4">
            <Loader2 className="animate-spin text-nexus-purple" size={48} />
+           <p className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/20">Accès au registre...</p>
         </div>
       ) : (
-        <div className="space-y-16 pb-20">
+        <div className="space-y-20 pb-20">
           {GROUP_ORDER.map(statusKey => {
             const statusTasks = groupedTasks[statusKey];
             if (statusTasks.length === 0) return null;
 
             return (
-              <section key={statusKey} className="space-y-6">
-                <div className="flex items-center gap-4 border-b border-white/5 pb-4">
+              <section key={statusKey} className="space-y-8">
+                <div className="flex items-center gap-6 border-b border-white/5 pb-5">
                   <div className="w-1.5 h-6 nexus-gradient rounded-full" />
-                  <h3 className="text-xs font-black font-mono uppercase tracking-[0.3em] text-white/60">
-                    {STATUS_LABELS[statusKey as any] || 'Hors Projet'}
+                  <h3 className="text-[11px] font-black font-mono uppercase tracking-[0.4em] text-white/60">
+                    {STATUS_LABELS[statusKey as any] || 'Missions Indépendantes'}
                   </h3>
-                  <span className="text-[9px] bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-lg text-white/30 font-black">
+                  <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1 rounded-xl text-white/30 font-black shadow-inner">
                     {statusTasks.length}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                   {statusTasks.map(task => (
                     <motion.div 
                       key={task.id} 
                       layout
-                      className={`glass p-6 rounded-[28px] border border-white/5 transition-all relative flex flex-col h-full ${task.status === 'done' ? 'opacity-40 grayscale-[0.5]' : 'hover:border-white/20 cursor-pointer'}`}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className={`glass p-7 rounded-[32px] border border-white/5 transition-all relative flex flex-col h-full shadow-2xl ${task.status === 'done' ? 'opacity-30 grayscale-[0.5]' : 'hover:border-nexus-purple/40 cursor-pointer'}`}
                       onClick={() => handleOpenEdit(task)}
                     >
-                      <div className="flex justify-between items-start mb-4">
-                        <span className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase border tracking-widest ${priorityStyles[task.priority]}`}>
+                      <div className="flex justify-between items-start mb-6">
+                        <span className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase border tracking-widest ${priorityStyles[task.priority]}`}>
                           {task.priority}
                         </span>
-                        <div className="p-2 text-white/20">
-                          <Edit3 size={16} />
+                        <div className="p-2 text-white/10 group-hover:text-nexus-purple transition-colors">
+                          <Edit3 size={18} />
                         </div>
                       </div>
                       
-                      <div className="flex gap-4 mb-auto">
+                      <div className="flex gap-5 mb-auto">
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleToggleTaskStatus(task.id, task.status); }}
-                          className={`w-6 h-6 rounded-xl border-2 transition-all shrink-0 flex items-center justify-center mt-0.5 ${task.status === 'done' ? 'bg-nexus-green border-nexus-green text-nexus-dark' : 'border-white/20 text-transparent hover:border-nexus-cyan'}`}
+                          className={`w-7 h-7 rounded-xl border-2 transition-all shrink-0 flex items-center justify-center mt-0.5 ${task.status === 'done' ? 'bg-nexus-green border-nexus-green text-nexus-dark shadow-[0_0_10px_rgba(16,185,129,0.4)]' : 'border-white/20 text-transparent hover:border-nexus-cyan hover:bg-white/5'}`}
                         >
-                          <Check size={16} strokeWidth={4} />
+                          <Check size={18} strokeWidth={4} />
                         </button>
-                        <div>
-                          <h4 className={`text-base font-bold leading-snug tracking-tight ${task.status === 'done' ? 'line-through' : 'text-white'}`}>{task.title}</h4>
-                          {task.project && <p className="text-[9px] text-nexus-cyan font-mono uppercase tracking-widest font-black mt-2">{task.project.title}</p>}
+                        <div className="min-w-0">
+                          <h4 className={`text-lg font-heading font-extrabold leading-tight tracking-tight ${task.status === 'done' ? 'line-through' : 'text-white'}`}>{task.title}</h4>
+                          {task.project && (
+                             <div className="flex items-center gap-2 mt-4">
+                                <Disc size={12} className="text-nexus-cyan shrink-0" />
+                                <p className="text-[9px] text-nexus-cyan font-mono uppercase tracking-[0.2em] font-black truncate">{task.project.title}</p>
+                             </div>
+                          )}
                         </div>
                       </div>
 
-                      <div className="pt-6 mt-6 border-t border-white/5 flex justify-between items-center">
-                        <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-white/30">
-                          <CalendarIcon size={12} />
-                          {task.due_date || 'No Date'}
+                      <div className="pt-6 mt-8 border-t border-white/5 flex justify-between items-center">
+                        <div className="flex items-center gap-3 text-[10px] font-mono font-bold text-white/30">
+                          <CalendarIcon size={14} className="text-nexus-purple/40" />
+                          {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'Pas de deadline'}
                         </div>
-                        <div className="w-8 h-8 rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                        <div className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-white/5 shadow-2xl bg-white/5">
                           <img src={task.assignee?.avatar_url || `https://picsum.photos/seed/${task.assigned_to}/50`} className="w-full h-full object-cover" />
                         </div>
                       </div>
@@ -254,71 +261,95 @@ export const Tasks: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Mission */}
-      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingTask(null); }} title={editingTask?.id ? "Mise à jour tactique" : "Lancer Mission"}>
-         <form onSubmit={handleCreateOrUpdate} className="space-y-4">
+      {/* MODAL: Tactical Mission Configuration */}
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingTask(null); }} title={editingTask?.id ? "Mise à jour de Directive" : "Initialisation d'Ordre"}>
+         <form onSubmit={handleCreateOrUpdate} className="space-y-6 max-h-[75vh] overflow-y-auto px-1 custom-scrollbar">
             <div className="space-y-2">
-              <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Titre *</label>
-              <input required type="text" value={editingTask?.title || ''} onChange={e => setEditingTask({...editingTask!, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white outline-none" placeholder="Intitulé de la mission..." />
+              <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Intitulé de l'Opération *</label>
+              <input required type="text" value={editingTask?.title || ''} onChange={e => setEditingTask({...editingTask!, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none focus:border-nexus-purple shadow-xl" placeholder="ex: Validation Mix Master V2" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Liaison Projet (Optionnel)</label>
+                <select value={editingTask?.project_id || ''} onChange={e => setEditingTask({...editingTask!, project_id: e.target.value, track_id: ''})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none shadow-xl appearance-none">
+                  <option value="" className="bg-nexus-surface">Mission Indépendante / Interne</option>
+                  {projects.map(p => <option key={p.id} value={p.id} className="bg-nexus-surface">{p.title}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Liaison Track (Si applicable)</label>
+                <select value={editingTask?.track_id || ''} onChange={e => setEditingTask({...editingTask!, track_id: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none shadow-xl appearance-none disabled:opacity-20" disabled={!editingTask?.project_id}>
+                  <option value="" className="bg-nexus-surface">Global au Projet</option>
+                  {relatedTracks.map(t => <option key={t.id} value={t.id} className="bg-nexus-surface">{t.title}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Responsable Assigné</label>
+                <select required value={editingTask?.assigned_to || ''} onChange={e => setEditingTask({...editingTask!, assigned_to: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none shadow-xl appearance-none">
+                  <option value="" className="bg-nexus-surface">Identifier un agent...</option>
+                  {profiles.map(p => <option key={p.id} value={p.id} className="bg-nexus-surface">{p.full_name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Date d'Échéance</label>
+                <input type="date" value={editingTask?.due_date || ''} onChange={e => setEditingTask({...editingTask!, due_date: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none shadow-xl [color-scheme:dark]" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Niveau de Priorité</label>
+                <select value={editingTask?.priority || 'medium'} onChange={e => setEditingTask({...editingTask!, priority: e.target.value as TaskPriority})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none shadow-xl">
+                  <option value="low" className="bg-nexus-surface">Basse</option>
+                  <option value="medium" className="bg-nexus-surface">Medium</option>
+                  <option value="high" className="bg-nexus-surface">Haute</option>
+                  <option value="urgent" className="bg-nexus-surface">Urgente</option>
+                  <option value="overdue" className="bg-nexus-surface">Critique / Retard</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Statut d'Avancement</label>
+                <select value={editingTask?.status || 'todo'} onChange={e => setEditingTask({...editingTask!, status: e.target.value as TaskStatus})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none shadow-xl">
+                  <option value="todo" className="bg-nexus-surface">À faire</option>
+                  <option value="in_progress" className="bg-nexus-surface">En cours</option>
+                  <option value="review" className="bg-nexus-surface">Review / Test</option>
+                  <option value="done" className="bg-nexus-surface">Terminé</option>
+                </select>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Projet lié</label>
-              <select value={editingTask?.project_id || ''} onChange={e => setEditingTask({...editingTask!, project_id: e.target.value, track_id: ''})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white">
-                <option value="">Indépendant / Interne</option>
-                {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-              </select>
+              <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Briefing / Détails</label>
+              <textarea rows={4} value={editingTask?.description || ''} onChange={e => setEditingTask({...editingTask!, description: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white resize-none outline-none focus:border-nexus-purple shadow-xl" placeholder="Instruction détaillées pour l'agent..." />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Responsable</label>
-                <select required value={editingTask?.assigned_to || ''} onChange={e => setEditingTask({...editingTask!, assigned_to: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white">
-                  <option value="">Assigner à...</option>
-                  {profiles.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Deadline</label>
-                <input type="date" value={editingTask?.due_date || ''} onChange={e => setEditingTask({...editingTask!, due_date: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white [color-scheme:dark]" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Priorité</label>
-                <select value={editingTask?.priority || 'medium'} onChange={e => setEditingTask({...editingTask!, priority: e.target.value as TaskPriority})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white">
-                  <option value="low">Basse</option><option value="medium">Medium</option><option value="high">Haute</option><option value="urgent">Urgent</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Statut</label>
-                <select value={editingTask?.status || 'todo'} onChange={e => setEditingTask({...editingTask!, status: e.target.value as TaskStatus})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white">
-                  <option value="todo">À faire</option><option value="in_progress">En cours</option><option value="review">Review</option><option value="done">Terminé</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-4 pt-4">
+            <div className="flex gap-4 pt-8 border-t border-white/5">
               {editingTask?.id && (
-                <Button type="button" variant="ghost" className="text-nexus-red border-nexus-red/10" onClick={() => setIsDeleteModalOpen(true)}>
-                  Supprimer
+                <Button type="button" variant="ghost" className="text-nexus-red border border-nexus-red/20 hover:bg-nexus-red/10 rounded-2xl h-14 w-14 p-0 shrink-0" onClick={() => setIsDeleteModalOpen(true)}>
+                  <Trash2 size={24} />
                 </Button>
               )}
-              <Button type="button" variant="ghost" className="flex-1" onClick={() => { setIsModalOpen(false); setEditingTask(null); }}>Annuler</Button>
-              <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}>Confirmer</Button>
+              <Button type="button" variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => { setIsModalOpen(false); setEditingTask(null); }}>Annuler</Button>
+              <Button type="submit" variant="primary" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px]" isLoading={isSubmitting}>Enregistrer les directives</Button>
             </div>
          </form>
       </Modal>
 
-      {/* Confirmation Suppression */}
-      <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Confirmation">
-        <div className="space-y-6 text-center">
-          <AlertTriangle size={32} className="mx-auto text-nexus-red" />
-          <p className="text-white">Confirmez la suppression de cette mission ?</p>
+      {/* MODAL: Cancellation Confirmation */}
+      <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Confirmation d'Archivage">
+        <div className="space-y-8 text-center py-6">
+          <AlertTriangle size={64} className="mx-auto text-nexus-red nexus-glow rounded-full p-2 bg-nexus-red/10" />
+          <div className="space-y-3">
+             <p className="text-white text-2xl font-heading font-extrabold">Confirmer l'annulation définitive de cette mission ?</p>
+             <p className="text-white/40 text-sm italic">Cette action retirera la tâche du registre central sans possibilité de retour en arrière.</p>
+          </div>
           <div className="flex gap-4">
-            <Button variant="ghost" className="flex-1" onClick={() => setIsDeleteModalOpen(false)}>Annuler</Button>
-            <Button variant="danger" className="flex-1" onClick={handleDeleteTask} isLoading={isSubmitting}>Supprimer</Button>
+            <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => setIsDeleteModalOpen(false)}>Maintenir</Button>
+            <Button variant="danger" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px]" onClick={handleDeleteTask} isLoading={isSubmitting}>Confirmer l'effacement</Button>
           </div>
         </div>
       </Modal>

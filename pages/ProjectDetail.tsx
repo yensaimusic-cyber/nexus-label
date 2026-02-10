@@ -32,7 +32,6 @@ export const ProjectDetail: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isAddTeamModalOpen, setIsAddTeamModalOpen] = useState(false);
   const [isTrackModalOpen, setIsTrackModalOpen] = useState(false);
-  const [isTrackDeleteModalOpen, setIsTrackDeleteModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -91,17 +90,12 @@ export const ProjectDetail: React.FC = () => {
         updates.cover_url = await uploadFile(newCoverFile, 'covers', 'project-covers');
       }
       
-      // Nettoyage de l'objet pour éviter l'erreur 400 (champs inexistants en DB)
-      const cleanUpdates = {
-        artist_id: updates.artist_id,
-        title: updates.title,
-        type: updates.type,
-        release_date: updates.release_date,
-        status: updates.status,
-        budget: updates.budget,
-        spent: updates.spent,
-        cover_url: updates.cover_url
-      };
+      // FIX 400 ERROR: Only keep fields that exist in table "projects"
+      const persistentFields = ['artist_id', 'title', 'type', 'release_date', 'status', 'budget', 'spent', 'cover_url'];
+      const cleanUpdates: any = {};
+      persistentFields.forEach(f => {
+        if (updates[f] !== undefined) cleanUpdates[f] = updates[f];
+      });
 
       const { data, error } = await supabase
         .from('projects')
@@ -113,9 +107,9 @@ export const ProjectDetail: React.FC = () => {
       if (error) throw error;
       setProject(data);
       setIsEditModalOpen(false);
-      alert("Projet mis à jour !");
-    } catch (err) { 
-      alert("Erreur mise à jour."); 
+      alert("Projet mis à jour avec succès !");
+    } catch (err: any) { 
+      alert("Erreur lors de la mise à jour : " + err.message); 
     } finally { 
       setIsSubmitting(false); 
     }
@@ -128,7 +122,7 @@ export const ProjectDetail: React.FC = () => {
       if (error) throw error;
       navigate('/projects');
     } catch (err) { 
-      alert("Suppression impossible."); 
+      alert("Impossible de supprimer le projet."); 
     } finally { 
       setIsSubmitting(false); 
     }
@@ -145,8 +139,10 @@ export const ProjectDetail: React.FC = () => {
       };
 
       if (addTeamType === 'internal') {
+        if (!newTeamMember.member_id) return alert("Veuillez sélectionner un agent.");
         payload.member_id = newTeamMember.member_id;
       } else {
+        if (!newTeamMember.external_name) return alert("Le nom est obligatoire pour un externe.");
         payload.external_name = newTeamMember.external_name;
         payload.external_email = newTeamMember.external_email;
         payload.external_phone = newTeamMember.external_phone;
@@ -160,7 +156,7 @@ export const ProjectDetail: React.FC = () => {
         .single();
 
       if (error) throw error;
-      setTeamMembers([...teamMembers, data]);
+      setTeamMembers(prev => [...prev, data]);
       setIsAddTeamModalOpen(false);
       setNewTeamMember({
         member_id: '', role_on_project: '', external_name: '', external_email: '', external_phone: '', external_notes: ''
@@ -177,7 +173,7 @@ export const ProjectDetail: React.FC = () => {
     try {
       const { error } = await supabase.from('project_team').delete().eq('id', memberId);
       if (error) throw error;
-      setTeamMembers(teamMembers.filter(m => m.id !== memberId));
+      setTeamMembers(prev => prev.filter(m => m.id !== memberId));
     } catch (err) {
       alert("Erreur lors de la suppression.");
     }
@@ -200,7 +196,7 @@ export const ProjectDetail: React.FC = () => {
       } else {
         const { data, error } = await supabase.from('tracks').insert([editingTrack]).select().single();
         if (error) throw error;
-        setTracks([...tracks, data]);
+        setTracks(prev => [...prev, data]);
       }
       setIsTrackModalOpen(false);
       setEditingTrack(null);
@@ -208,13 +204,12 @@ export const ProjectDetail: React.FC = () => {
   };
 
   const handleDeleteTrack = async () => {
-    if (!editingTrack?.id) return;
+    if (!editingTrack?.id || !confirm("Supprimer cette track ?")) return;
     try {
       setIsSubmitting(true);
       const { error } = await supabase.from('tracks').delete().eq('id', editingTrack.id);
       if (error) throw error;
       setTracks(prev => prev.filter(t => t.id !== editingTrack.id));
-      setIsTrackDeleteModalOpen(false);
       setIsTrackModalOpen(false);
       setEditingTrack(null);
     } catch (err) { alert("Suppression impossible."); } finally { setIsSubmitting(false); }
@@ -230,9 +225,15 @@ export const ProjectDetail: React.FC = () => {
     if (!editingTask?.title) return;
     try {
       setIsSubmitting(true);
-      const cleanPayload: any = { ...editingTask };
-      delete cleanPayload.assignee;
-      delete cleanPayload.project;
+      const cleanPayload: any = { 
+        title: editingTask.title,
+        description: editingTask.description,
+        status: editingTask.status,
+        priority: editingTask.priority,
+        due_date: editingTask.due_date,
+        assigned_to: editingTask.assigned_to,
+        project_id: editingTask.project_id
+      };
 
       if (editingTask.id) {
         const { data, error } = await supabase.from('tasks').update(cleanPayload).eq('id', editingTask.id).select('*, assignee:profiles(full_name, avatar_url)').single();
@@ -241,15 +242,15 @@ export const ProjectDetail: React.FC = () => {
       } else {
         const { data, error } = await supabase.from('tasks').insert([cleanPayload]).select('*, assignee:profiles(full_name, avatar_url)').single();
         if (error) throw error;
-        setProjectTasks([...projectTasks, data]);
+        setProjectTasks(prev => [...prev, data]);
       }
       setIsTaskModalOpen(false);
       setEditingTask(null);
-    } catch (err: any) { alert("Erreur tâche."); } finally { setIsSubmitting(false); }
+    } catch (err: any) { alert("Erreur tâche : " + err.message); } finally { setIsSubmitting(false); }
   };
 
   const handleDeleteTask = async () => {
-    if (!editingTask?.id) return;
+    if (!editingTask?.id || !confirm("Effacer cette mission ?")) return;
     try {
       setIsSubmitting(true);
       const { error } = await supabase.from('tasks').delete().eq('id', editingTask.id);
@@ -258,13 +259,6 @@ export const ProjectDetail: React.FC = () => {
       setIsTaskModalOpen(false);
       setEditingTask(null);
     } catch (err) { alert("Suppression impossible."); } finally { setIsSubmitting(false); }
-  };
-
-  const formatDuration = (s?: number) => {
-    if (!s) return '--:--';
-    const m = Math.floor(s / 60);
-    const rs = s % 60;
-    return `${m}:${rs.toString().padStart(2, '0')}`;
   };
 
   const getTrackStatusColor = (s: TrackStatus) => {
@@ -295,57 +289,57 @@ export const ProjectDetail: React.FC = () => {
             <span className="text-[10px] font-black uppercase tracking-widest font-mono">Archives Pipeline</span>
           </Link>
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="gap-2 border border-white/10 hover:bg-white/5">
-              <Edit3 size={16} /> <span className="hidden sm:inline">Modifier</span>
+            <Button variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="gap-2 border border-white/10 hover:bg-white/5 rounded-full">
+              <Edit3 size={16} /> <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest">Modifier Opération</span>
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setIsDeleteModalOpen(true)} className="gap-2 text-nexus-red hover:bg-nexus-red/10 border border-nexus-red/10">
-              <Trash2 size={16} /> <span className="hidden sm:inline">Supprimer</span>
+            <Button variant="ghost" size="sm" onClick={() => setIsDeleteModalOpen(true)} className="gap-2 text-nexus-red hover:bg-nexus-red/10 border border-nexus-red/10 rounded-full">
+              <Trash2 size={16} />
             </Button>
           </div>
         </div>
 
-        <div className="glass p-6 lg:p-10 rounded-[32px] lg:rounded-[48px] border-white/10 flex flex-col md:flex-row gap-8 items-center md:items-start relative overflow-hidden shadow-2xl">
-          <div className="w-40 h-40 lg:w-56 lg:h-56 rounded-[32px] lg:rounded-[40px] overflow-hidden border border-white/10 shrink-0 shadow-2xl relative z-10">
+        <div className="glass p-6 lg:p-10 rounded-[48px] border-white/10 flex flex-col md:flex-row gap-8 items-center md:items-start relative overflow-hidden shadow-2xl">
+          <div className="w-44 h-44 lg:w-60 lg:h-60 rounded-[48px] overflow-hidden border-4 border-white/10 shrink-0 shadow-2xl relative z-10 nexus-glow">
             <img src={project.cover_url || "https://picsum.photos/seed/project/400"} alt="Cover" className="w-full h-full object-cover" />
           </div>
-          <div className="flex-1 space-y-4 text-center md:text-left relative z-10 w-full">
-            <div className="flex flex-col gap-2">
+          <div className="flex-1 space-y-5 text-center md:text-left relative z-10 w-full">
+            <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                <span className="px-3 py-1 rounded-lg bg-nexus-purple/20 text-nexus-purple text-[9px] font-black uppercase border border-nexus-purple/30 tracking-widest">{project.type}</span>
-                <span className="px-3 py-1 rounded-lg bg-nexus-cyan/10 text-nexus-cyan text-[9px] font-black uppercase border border-nexus-cyan/30 tracking-widest">
+                <span className="px-4 py-1.5 rounded-full bg-nexus-purple/20 text-nexus-purple text-[10px] font-black uppercase border border-nexus-purple/30 tracking-[0.2em]">{project.type}</span>
+                <span className="px-4 py-1.5 rounded-full bg-nexus-cyan/10 text-nexus-cyan text-[10px] font-black uppercase border border-nexus-cyan/30 tracking-[0.2em]">
                   {STATUS_LABELS[project.status as ProjectStatus] || project.status}
                 </span>
               </div>
-              <h2 className="text-3xl lg:text-5xl font-heading font-extrabold text-white tracking-tighter leading-tight">{project.title}</h2>
-              <p className="text-nexus-lightGray text-lg font-medium">Par <Link to={`/artists/${project.artist_id}`} className="text-nexus-cyan hover:underline">{project.artist?.stage_name}</Link></p>
+              <h2 className="text-4xl lg:text-6xl font-heading font-extrabold text-white tracking-tighter leading-none">{project.title}</h2>
+              <p className="text-nexus-lightGray text-xl font-medium">Par <Link to={`/artists/${project.artist_id}`} className="text-nexus-cyan hover:underline">{project.artist?.stage_name}</Link></p>
             </div>
             
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
-               <div className="bg-white/5 p-4 rounded-2xl border border-white/5 shadow-xl">
-                 <p className="text-[8px] font-mono text-white/30 uppercase tracking-widest mb-1">Dépensé / Budget</p>
-                 <p className="text-xl font-bold font-heading text-white">€{project.spent?.toLocaleString()} / €{project.budget?.toLocaleString()}</p>
+               <div className="bg-white/5 p-5 rounded-3xl border border-white/5 shadow-xl backdrop-blur-md">
+                 <p className="text-[9px] font-mono text-white/30 uppercase tracking-[0.3em] mb-1 font-black">Consommé / Budget</p>
+                 <p className="text-xl font-bold font-heading text-white">€{Number(project.spent).toLocaleString()} / €{Number(project.budget).toLocaleString()}</p>
                </div>
-               <div className="bg-white/5 p-4 rounded-2xl border border-white/5 shadow-xl">
-                 <p className="text-[8px] font-mono text-white/30 uppercase tracking-widest mb-1">Deadline</p>
-                 <p className="text-base font-bold font-heading text-white">{project.release_date || 'Non fixée'}</p>
+               <div className="bg-white/5 p-5 rounded-3xl border border-white/5 shadow-xl backdrop-blur-md">
+                 <p className="text-[9px] font-mono text-white/30 uppercase tracking-[0.3em] mb-1 font-black">Timeline Sortie</p>
+                 <p className="text-base font-bold font-heading text-white">{project.release_date ? new Date(project.release_date).toLocaleDateString() : 'Non fixée'}</p>
                </div>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="flex overflow-x-auto no-scrollbar gap-2 p-1 glass rounded-2xl w-full sm:w-fit shadow-2xl">
+      <div className="flex overflow-x-auto no-scrollbar gap-2 p-1.5 glass rounded-[28px] w-full lg:w-fit shadow-2xl">
         {[
-          { id: 'tracks', label: 'Morceaux', icon: <Disc size={16} /> },
+          { id: 'tracks', label: 'Discographie', icon: <Disc size={16} /> },
           { id: 'tasks', label: 'Opérations', icon: <ClipboardList size={16} /> },
-          { id: 'collaboration', label: 'Équipe', icon: <Users size={16} /> },
-          { id: 'meetings', label: 'Réunions', icon: <Calendar size={16} /> }
+          { id: 'collaboration', label: 'Équipe Hub', icon: <Users size={16} /> },
+          { id: 'meetings', label: 'Sessions / Meetings', icon: <Calendar size={16} /> }
         ].map(tab => (
           <button 
             key={tab.id} 
             onClick={() => setActiveTab(tab.id as any)} 
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${
-              activeTab === tab.id ? 'bg-nexus-purple text-white shadow-xl' : 'text-white/40 hover:text-white'
+            className={`flex items-center gap-2 px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shrink-0 ${
+              activeTab === tab.id ? 'bg-nexus-purple text-white shadow-xl nexus-glow' : 'text-white/40 hover:text-white hover:bg-white/5'
             }`}
           >
             {tab.icon} {tab.label}
@@ -354,208 +348,312 @@ export const ProjectDetail: React.FC = () => {
       </div>
 
       <AnimatePresence mode="wait">
-        <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+        <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="pb-20">
           {activeTab === 'tracks' && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div className="flex justify-between items-center">
                 <h3 className="text-2xl font-heading font-extrabold text-white">Tracklist <span className="text-nexus-purple opacity-40 ml-2 font-mono">[{tracks.length}]</span></h3>
-                <Button variant="outline" size="sm" onClick={() => handleOpenTrackModal()} className="gap-2 border-white/10 hover:border-nexus-purple">
-                  <Plus size={16} /> Ajouter une track
+                <Button variant="outline" size="sm" onClick={() => handleOpenTrackModal()} className="gap-2 border-white/10 hover:bg-nexus-purple/10 rounded-xl">
+                  <Plus size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">Enregistrer une track</span>
                 </Button>
               </div>
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-4">
                 {tracks.map((track, i) => (
-                  <Card key={track.id} className="p-4 flex flex-col md:flex-row md:items-center gap-4 group hover:border-nexus-purple/40 cursor-pointer" onClick={() => handleOpenTrackModal(track)}>
-                    <div className="flex items-center gap-5 flex-1">
-                      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center font-mono text-sm text-white/20 font-black border border-white/5 group-hover:text-nexus-purple transition-colors">
+                  <Card key={track.id} className="p-5 flex flex-col md:flex-row md:items-center gap-6 group hover:border-nexus-purple/40 cursor-pointer shadow-xl border-white/5" onClick={() => handleOpenTrackModal(track)}>
+                    <div className="flex items-center gap-6 flex-1">
+                      <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center font-mono text-sm text-white/20 font-black border border-white/5 group-hover:text-nexus-purple transition-all group-hover:scale-105">
                         {(i+1).toString().padStart(2, '0')}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-bold text-white text-base truncate">{track.title}</p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border tracking-widest ${getTrackStatusColor(track.status)}`}>
+                        <p className="font-heading font-bold text-lg text-white truncate">{track.title}</p>
+                        <div className="flex items-center gap-3 mt-1.5">
+                          <span className={`px-3 py-0.5 rounded-full text-[9px] font-black uppercase border tracking-widest ${getTrackStatusColor(track.status)}`}>
                             {TRACK_STATUS_LABELS[track.status] || track.status}
                           </span>
+                          {track.bpm && <span className="text-[10px] font-mono text-white/30 uppercase">{track.bpm} BPM</span>}
                         </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-4 opacity-40 group-hover:opacity-100 transition-opacity">
+                       <Button variant="ghost" size="sm" className="text-white/40 hover:text-nexus-purple"><Edit3 size={18} /></Button>
+                    </div>
                   </Card>
                 ))}
+                {tracks.length === 0 && <div className="py-24 text-center glass rounded-[40px] border-dashed border-white/10 opacity-20 italic">Aucune piste enregistrée.</div>}
               </div>
             </div>
           )}
 
           {activeTab === 'tasks' && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-heading font-extrabold text-white">Opérations</h3>
-                <Button variant="outline" size="sm" onClick={() => handleOpenTaskModal()} className="gap-2 border-white/10 text-nexus-cyan hover:border-nexus-cyan">
-                  <Plus size={16} /> Nouvelle tâche
+                <h3 className="text-2xl font-heading font-extrabold text-white">Opérations Tactiques</h3>
+                <Button variant="outline" size="sm" onClick={() => handleOpenTaskModal()} className="gap-2 border-white/10 text-nexus-cyan hover:bg-nexus-cyan/10 rounded-xl">
+                  <Plus size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">Lancer une mission</span>
                 </Button>
               </div>
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {projectTasks.map(task => (
-                  <div key={task.id} className="flex items-center gap-4 p-5 glass rounded-2xl hover:border-nexus-purple/30 transition-all group cursor-pointer" onClick={() => handleOpenTaskModal(task)}>
-                    <div className={`w-2 h-10 rounded-full shrink-0 ${task.status === 'done' ? 'bg-nexus-green' : 'bg-white/10'}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-bold text-base ${task.status === 'done' ? 'line-through text-white/20' : 'text-white'}`}>{task.title}</p>
-                      <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase border tracking-widest mt-1 inline-block ${getPriorityColor(task.priority)}`}>{task.priority}</span>
+                  <Card key={task.id} className="p-6 glass rounded-3xl hover:border-nexus-purple/40 transition-all group cursor-pointer border-white/5 shadow-xl flex flex-col justify-between" onClick={() => handleOpenTaskModal(task)}>
+                    <div>
+                      <div className="flex justify-between items-start mb-4">
+                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase border tracking-widest inline-block ${getPriorityColor(task.priority)}`}>{task.priority}</span>
+                        {task.status === 'done' && <div className="p-1 rounded-full bg-nexus-green/20 text-nexus-green border border-nexus-green/20"><Check size={14} /></div>}
+                      </div>
+                      <p className={`font-heading font-bold text-lg leading-tight ${task.status === 'done' ? 'line-through text-white/20' : 'text-white'}`}>{task.title}</p>
+                      {task.due_date && <p className="text-[10px] font-mono text-white/30 uppercase mt-4 flex items-center gap-2"><Calendar size={12} /> {new Date(task.due_date).toLocaleDateString()}</p>}
                     </div>
-                  </div>
+                    <div className="mt-6 pt-6 border-t border-white/5 flex items-center justify-between">
+                       <div className="flex items-center gap-3">
+                         <div className="w-8 h-8 rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                           <img src={task.assignee?.avatar_url || `https://picsum.photos/seed/${task.id}/50`} className="w-full h-full object-cover" />
+                         </div>
+                         <p className="text-[10px] font-black uppercase tracking-widest text-white/40">{task.assignee?.full_name || 'Non assigné'}</p>
+                       </div>
+                    </div>
+                  </Card>
                 ))}
+                {projectTasks.length === 0 && <div className="col-span-full py-24 text-center glass rounded-[40px] border-dashed border-white/10 opacity-20 italic">Aucune mission en cours.</div>}
               </div>
             </div>
           )}
 
           {activeTab === 'collaboration' && (
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-heading font-extrabold text-white">Équipe</h3>
-                <Button variant="outline" size="sm" onClick={() => setIsAddTeamModalOpen(true)} className="gap-2 border-white/10 text-nexus-purple hover:border-nexus-purple">
-                  <UserPlus size={16} /> Ajouter un membre
+                <h3 className="text-2xl font-heading font-extrabold text-white">Corps d'Élite / Hub Projet</h3>
+                <Button variant="outline" size="sm" onClick={() => setIsAddTeamModalOpen(true)} className="gap-2 border-white/10 text-nexus-purple hover:bg-nexus-purple/10 rounded-xl">
+                  <UserPlus size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">Mobiliser un agent</span>
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {teamMembers.map(member => (
-                  <Card key={member.id} className="p-6 border-white/5 hover:border-nexus-purple/30 group relative">
-                    <button onClick={() => handleRemoveTeamMember(member.id)} className="absolute top-4 right-4 p-2 text-white/10 hover:text-nexus-red transition-all opacity-0 group-hover:opacity-100"><X size={16} /></button>
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="w-12 h-12 rounded-xl overflow-hidden border border-white/10 shrink-0 shadow-lg">
+                  <Card key={member.id} className="p-8 border-white/5 hover:border-nexus-purple/30 group relative shadow-2xl">
+                    <button onClick={() => handleRemoveTeamMember(member.id)} className="absolute top-6 right-6 p-2 text-white/10 hover:text-nexus-red transition-all opacity-0 group-hover:opacity-100"><X size={18} /></button>
+                    <div className="flex items-center gap-5 mb-6">
+                      <div className="w-16 h-16 rounded-3xl overflow-hidden border-2 border-white/10 shrink-0 shadow-2xl">
                         <img src={member.member_type === 'internal' ? (member.profile?.avatar_url || `https://picsum.photos/seed/${member.member_id}/100`) : `https://ui-avatars.com/api/?name=${member.external_name}&background=8B5CF6&color=fff`} className="w-full h-full object-cover" />
                       </div>
                       <div className="min-w-0">
-                        <h4 className="font-bold text-white truncate">{member.member_type === 'internal' ? member.profile?.full_name : member.external_name}</h4>
-                        <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${member.member_type === 'internal' ? 'bg-nexus-purple/10 text-nexus-purple border-nexus-purple/20' : 'bg-nexus-cyan/10 text-nexus-cyan border-nexus-cyan/20'}`}>
-                          {member.member_type === 'internal' ? 'Nexus Agent' : 'Externe'}
+                        <h4 className="font-heading font-extrabold text-xl text-white truncate">{member.member_type === 'internal' ? member.profile?.full_name : member.external_name}</h4>
+                        <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border mt-1.5 inline-block ${member.member_type === 'internal' ? 'bg-nexus-purple/10 text-nexus-purple border-nexus-purple/20' : 'bg-nexus-cyan/10 text-nexus-cyan border-nexus-cyan/20'}`}>
+                          {member.member_type === 'internal' ? 'Agent Nexus' : 'Consultant Externe'}
                         </span>
                       </div>
                     </div>
-                    <div className="space-y-2 pt-4 border-t border-white/5">
-                      <p className="text-sm font-bold text-white">{member.role_on_project}</p>
+                    <div className="space-y-4 pt-6 border-t border-white/5">
+                      <p className="text-[10px] font-mono uppercase text-white/30 tracking-[0.3em] font-black">Mission</p>
+                      <p className="text-sm font-bold text-white bg-black/40 p-4 rounded-2xl border border-white/5">{member.role_on_project}</p>
                     </div>
                   </Card>
                 ))}
+                {teamMembers.length === 0 && <div className="col-span-full py-24 text-center glass rounded-[48px] border-dashed border-white/10 opacity-20 italic">Aucun agent assigné à l'opération.</div>}
               </div>
             </div>
           )}
 
           {activeTab === 'meetings' && (
-            <div className="space-y-6">
-              <h3 className="text-2xl font-heading font-extrabold text-white">Réunions</h3>
-              <div className="space-y-3">
+            <div className="space-y-8">
+              <h3 className="text-2xl font-heading font-extrabold text-white">Logs de Sessions & Stratégie</h3>
+              <div className="space-y-6">
                 {meetings.map(meeting => (
-                  <Card key={meeting.id} className="p-4 border-white/5 hover:border-nexus-purple/40">
-                    <div className="flex items-center justify-between">
-                       <div className="space-y-1">
-                          <p className="text-[10px] font-mono text-nexus-purple uppercase tracking-widest">{meeting.date}</p>
-                          <h4 className="font-bold text-white">{meeting.title}</h4>
-                          <p className="text-sm text-white/50">{meeting.summary}</p>
+                  <Card key={meeting.id} className="p-8 border-white/5 hover:border-nexus-purple/40 shadow-2xl group transition-all">
+                    <div className="flex flex-col lg:flex-row items-start justify-between gap-6">
+                       <div className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-black font-mono text-nexus-purple uppercase tracking-[0.3em] bg-nexus-purple/10 px-4 py-1 rounded-full border border-nexus-purple/20">{meeting.date}</span>
+                          </div>
+                          <h4 className="text-2xl font-heading font-extrabold text-white group-hover:text-nexus-cyan transition-colors">{meeting.title}</h4>
+                          <p className="text-sm text-white/50 leading-relaxed max-w-4xl line-clamp-3 italic">"{meeting.summary}"</p>
                        </div>
-                       <Link to="/meetings">
-                         <Button variant="ghost" size="sm" className="text-nexus-cyan">Détails</Button>
+                       <Link to="/meetings" className="shrink-0">
+                         <Button variant="ghost" size="sm" className="rounded-2xl border border-white/5 text-nexus-cyan hover:bg-nexus-cyan/10">Archive Complète <ExternalLink size={16} className="ml-2" /></Button>
                        </Link>
                     </div>
                   </Card>
                 ))}
-                {meetings.length === 0 && <p className="text-center opacity-30 italic py-12">Aucun meeting pour ce projet.</p>}
+                {meetings.length === 0 && <div className="py-24 text-center glass rounded-[48px] border-dashed border-white/10 opacity-20 italic">Aucun log de session archivé pour ce projet.</div>}
               </div>
             </div>
           )}
         </motion.div>
       </AnimatePresence>
 
-      {/* MODALS */}
-      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Modifier Projet">
-        <form onSubmit={handleUpdateProject} className="space-y-4">
-           <div className="space-y-2">
-             <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Titre *</label>
-             <input required type="text" value={editData.title} onChange={e => setEditData({...editData, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
+      {/* MODALS: Operational Updates */}
+      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Modifier les Paramètres d'Opération">
+        <form onSubmit={handleUpdateProject} className="space-y-6 max-h-[75vh] overflow-y-auto px-1 custom-scrollbar">
+           <div className="space-y-3">
+             <label className="text-[10px] font-mono uppercase text-white/30 tracking-[0.3em] font-black">Visuel de Production</label>
+             <div className="relative h-40 rounded-[32px] overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center group cursor-pointer shadow-inner">
+               {newCoverFile ? (
+                 <img src={URL.createObjectURL(newCoverFile)} className="w-full h-full object-cover" />
+               ) : project.cover_url ? (
+                 <img src={project.cover_url} className="w-full h-full object-cover" />
+               ) : (
+                 <Camera className="text-white/20 group-hover:text-nexus-purple transition-all" size={32} />
+               )}
+               <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => setNewCoverFile(e.target.files?.[0] || null)} />
+             </div>
            </div>
-           <div className="grid grid-cols-2 gap-4">
+
+           <div className="space-y-2">
+             <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Titre Officiel *</label>
+             <input required type="text" value={editData.title} onChange={e => setEditData({...editData, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white focus:border-nexus-purple outline-none shadow-xl" />
+           </div>
+
+           <div className="grid grid-cols-2 gap-6">
              <div className="space-y-2">
-               <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Type</label>
-               <select value={editData.type} onChange={e => setEditData({...editData, type: e.target.value as ProjectType})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white">
+               <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Format</label>
+               <select value={editData.type} onChange={e => setEditData({...editData, type: e.target.value as ProjectType})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none appearance-none">
                  <option value="single">Single</option><option value="ep">EP</option><option value="album">Album</option><option value="mixtape">Mixtape</option>
                </select>
              </div>
              <div className="space-y-2">
-               <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Statut</label>
-               <select value={editData.status} onChange={e => setEditData({...editData, status: e.target.value as ProjectStatus})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white">
+               <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Phase Actuelle</label>
+               <select value={editData.status} onChange={e => setEditData({...editData, status: e.target.value as ProjectStatus})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none appearance-none">
                  {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                </select>
              </div>
            </div>
-           <div className="grid grid-cols-2 gap-4">
+
+           <div className="space-y-2">
+             <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Date de Sortie (Target)</label>
+             <input type="date" value={editData.release_date || ''} onChange={e => setEditData({...editData, release_date: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none [color-scheme:dark]" />
+           </div>
+
+           <div className="grid grid-cols-2 gap-6">
              <div className="space-y-2">
-               <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Budget (€)</label>
-               <input type="number" value={editData.budget} onChange={e => setEditData({...editData, budget: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
+               <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Budget Total (€)</label>
+               <input type="number" value={editData.budget} onChange={e => setEditData({...editData, budget: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none shadow-xl" />
              </div>
              <div className="space-y-2">
-               <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest">Dépensé (€)</label>
-               <input type="number" value={editData.spent} onChange={e => setEditData({...editData, spent: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
+               <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Dépenses Réelles (€)</label>
+               <input type="number" value={editData.spent} onChange={e => setEditData({...editData, spent: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none shadow-xl" />
              </div>
            </div>
-           <Button type="submit" variant="primary" className="w-full" isLoading={isSubmitting}>Enregistrer</Button>
+
+           <div className="flex gap-4 pt-8 border-t border-white/5">
+             <Button type="button" variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => setIsEditModalOpen(false)}>Annuler</Button>
+             <Button type="submit" variant="primary" className="flex-1 h-14 rounded-2xl uppercase font-black tracking-widest text-[10px]" isLoading={isSubmitting}>Enregistrer les modifs</Button>
+           </div>
         </form>
       </Modal>
 
-      {/* Confirmation Suppression */}
-      <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Supprimer Projet">
-        <div className="space-y-6 text-center">
-          <AlertTriangle size={32} className="mx-auto text-nexus-red" />
-          <p className="text-white">Confirmez la suppression irréversible du projet ?</p>
+      {/* MODAL: Delete Confirmation */}
+      <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="⚠️ ARCHIVAGE DÉFINITIF">
+        <div className="space-y-8 text-center py-6">
+          <AlertTriangle size={64} className="mx-auto text-nexus-red nexus-glow rounded-full p-2 bg-nexus-red/10" />
+          <div className="space-y-3">
+             <p className="text-white text-2xl font-heading font-extrabold">Confirmer la suppression irréversible du projet ?</p>
+             <p className="text-white/40 text-sm italic leading-relaxed">Toutes les tracks, tâches et historiques de sessions liés à "{project.title}" seront effacés définitivement.</p>
+          </div>
           <div className="flex gap-4">
-            <Button variant="ghost" className="flex-1" onClick={() => setIsDeleteModalOpen(false)}>Annuler</Button>
-            <Button variant="danger" className="flex-1" onClick={handleDeleteProject} isLoading={isSubmitting}>Supprimer</Button>
+            <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => setIsDeleteModalOpen(false)}>Annuler</Button>
+            <Button variant="danger" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px]" onClick={handleDeleteProject} isLoading={isSubmitting}>Supprimer des serveurs</Button>
           </div>
         </div>
       </Modal>
 
-      {/* Tâche Modal */}
-      <Modal isOpen={isTaskModalOpen} onClose={() => setIsTaskModalOpen(false)} title={editingTask?.id ? "Modifier Tâche" : "Nouvelle Tâche"}>
-        <form onSubmit={handleUpdateTask} className="space-y-4">
-           <input required type="text" placeholder="Titre..." value={editingTask?.title || ''} onChange={e => setEditingTask({...editingTask!, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
-           <div className="grid grid-cols-2 gap-4">
-             <select value={editingTask?.priority || 'medium'} onChange={e => setEditingTask({...editingTask!, priority: e.target.value as TaskPriority})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white">
-               <option value="low">Basse</option><option value="medium">Medium</option><option value="high">Haute</option><option value="urgent">Urgent</option>
-             </select>
-             <select value={editingTask?.status || 'todo'} onChange={e => setEditingTask({...editingTask!, status: e.target.value as TaskStatus})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white">
-               <option value="todo">Todo</option><option value="in_progress">En cours</option><option value="review">Review</option><option value="done">Terminé</option>
-             </select>
+      {/* MODAL: Track Management */}
+      <Modal isOpen={isTrackModalOpen} onClose={() => setIsTrackModalOpen(false)} title={editingTrack?.id ? "Studio: Piste Audio" : "Nouvel Enregistrement"}>
+         <form onSubmit={handleCreateOrUpdateTrack} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black">Titre de la track *</label>
+              <input required type="text" value={editingTrack?.title || ''} onChange={e => setEditingTrack({...editingTrack!, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none focus:border-nexus-purple" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+               <div className="space-y-2">
+                 <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black">BPM</label>
+                 <input type="number" value={editingTrack?.bpm || ''} onChange={e => setEditingTrack({...editingTrack!, bpm: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white outline-none" />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black">Statut Production</label>
+                 <select value={editingTrack?.status || 'demo'} onChange={e => setEditingTrack({...editingTrack!, status: e.target.value as TrackStatus})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white outline-none">
+                    {Object.entries(TRACK_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                 </select>
+               </div>
+            </div>
+            <div className="flex gap-3 pt-4">
+              {editingTrack?.id && <Button type="button" variant="ghost" className="text-nexus-red hover:bg-nexus-red/10 border-nexus-red/10 h-14 rounded-2xl flex-1" onClick={handleDeleteTrack}>Supprimer</Button>}
+              <Button type="submit" variant="primary" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px]" isLoading={isSubmitting}>Confirmer</Button>
+            </div>
+         </form>
+      </Modal>
+
+      {/* MODAL: Task Management */}
+      <Modal isOpen={isTaskModalOpen} onClose={() => setIsTaskModalOpen(false)} title={editingTask?.id ? "Mise à jour de Mission" : "Assigner Nouvelle Mission"}>
+        <form onSubmit={handleUpdateTask} className="space-y-5">
+           <div className="space-y-2">
+             <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black">Intitulé Mission *</label>
+             <input required type="text" value={editingTask?.title || ''} onChange={e => setEditingTask({...editingTask!, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white focus:border-nexus-cyan outline-none" />
            </div>
-           <div className="flex gap-2">
-             {editingTask?.id && <Button type="button" variant="danger" onClick={handleDeleteTask}>Supprimer</Button>}
-             <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}>Confirmer</Button>
+           <div className="grid grid-cols-2 gap-4">
+             <div className="space-y-2">
+               <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black">Priorité</label>
+               <select value={editingTask?.priority || 'medium'} onChange={e => setEditingTask({...editingTask!, priority: e.target.value as TaskPriority})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white outline-none appearance-none">
+                 <option value="low">Basse</option><option value="medium">Medium</option><option value="high">Haute</option><option value="urgent">Urgente</option><option value="overdue">Critique / Retard</option>
+               </select>
+             </div>
+             <div className="space-y-2">
+               <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black">Responsable</label>
+               <select value={editingTask?.assigned_to || ''} onChange={e => setEditingTask({...editingTask!, assigned_to: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white outline-none appearance-none">
+                 <option value="">Sélectionner agent...</option>
+                 {profiles.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+               </select>
+             </div>
+           </div>
+           <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black">Statut</label>
+                <select value={editingTask?.status || 'todo'} onChange={e => setEditingTask({...editingTask!, status: e.target.value as TaskStatus})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white outline-none">
+                  <option value="todo">À faire</option><option value="in_progress">En cours</option><option value="review">Review / Test</option><option value="done">Terminé</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black">Échéance</label>
+                <input type="date" value={editingTask?.due_date || ''} onChange={e => setEditingTask({...editingTask!, due_date: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white outline-none [color-scheme:dark]" />
+              </div>
+           </div>
+           <div className="flex gap-3 pt-4">
+             {editingTask?.id && <Button type="button" variant="ghost" className="text-nexus-red hover:bg-nexus-red/10 border-nexus-red/10 h-14 rounded-2xl flex-1" onClick={handleDeleteTask}>Annuler Mission</Button>}
+             <Button type="submit" variant="primary" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px]" isLoading={isSubmitting}>Confirmer l'ordre</Button>
            </div>
         </form>
       </Modal>
 
-      {/* Tracks Modal (Simple Placeholder) */}
-      <Modal isOpen={isTrackModalOpen} onClose={() => setIsTrackModalOpen(false)} title="Track Management">
-         <form onSubmit={handleCreateOrUpdateTrack} className="space-y-4">
-            <input required type="text" placeholder="Titre..." value={editingTrack?.title || ''} onChange={e => setEditingTrack({...editingTrack!, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
-            <Button type="submit" variant="primary" className="w-full" isLoading={isSubmitting}>Sauvegarder</Button>
-         </form>
-      </Modal>
-
-      {/* Ajout Membre Équipe */}
-      <Modal isOpen={isAddTeamModalOpen} onClose={() => setIsAddTeamModalOpen(false)} title="Ajouter Membre">
-         <div className="flex gap-2 mb-4">
-            <Button variant={addTeamType === 'internal' ? 'primary' : 'ghost'} onClick={() => setAddTeamType('internal')} className="flex-1">Interne</Button>
-            <Button variant={addTeamType === 'external' ? 'primary' : 'ghost'} onClick={() => setAddTeamType('external')} className="flex-1">Externe</Button>
+      {/* MODAL: Mobilize Agent */}
+      <Modal isOpen={isAddTeamModalOpen} onClose={() => setIsAddTeamModalOpen(false)} title="Assignation d'Agent au Hub Projet">
+         <div className="flex gap-2 p-1 glass rounded-2xl mb-6">
+            <button variant={addTeamType === 'internal' ? 'primary' : 'ghost'} onClick={() => setAddTeamType('internal')} className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${addTeamType === 'internal' ? 'bg-nexus-purple text-white shadow-lg' : 'text-white/30 hover:text-white'}`}>Agent Interne</button>
+            <button variant={addTeamType === 'external' ? 'primary' : 'ghost'} onClick={() => setAddTeamType('external')} className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${addTeamType === 'external' ? 'bg-nexus-cyan text-white shadow-lg' : 'text-white/30 hover:text-white'}`}>Expert Externe</button>
          </div>
-         <form onSubmit={handleAddTeamMember} className="space-y-4">
+         <form onSubmit={handleAddTeamMember} className="space-y-6">
             {addTeamType === 'internal' ? (
-               <select required value={newTeamMember.member_id} onChange={e => setNewTeamMember({...newTeamMember, member_id: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white">
-                  <option value="">Sélectionner un agent...</option>
-                  {profiles.map(p => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-               </select>
+               <div className="space-y-2">
+                  <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black">Agent Nexus *</label>
+                  <select required value={newTeamMember.member_id} onChange={e => setNewTeamMember({...newTeamMember, member_id: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none shadow-xl">
+                     <option value="" className="bg-nexus-surface">Identifier l'agent...</option>
+                     {profiles.map(p => <option key={p.id} value={p.id} className="bg-nexus-surface">{p.full_name} ({p.role})</option>)}
+                  </select>
+               </div>
             ) : (
-               <input required type="text" placeholder="Nom..." value={newTeamMember.external_name} onChange={e => setNewTeamMember({...newTeamMember, external_name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
+               <div className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black">Nom de l'intervenant *</label>
+                    <input required type="text" placeholder="ex: Studio Pulse" value={newTeamMember.external_name} onChange={e => setNewTeamMember({...newTeamMember, external_name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <input type="email" placeholder="Email contact" value={newTeamMember.external_email} onChange={e => setNewTeamMember({...newTeamMember, external_email: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white outline-none" />
+                    <input type="tel" placeholder="Téléphone" value={newTeamMember.external_phone} onChange={e => setNewTeamMember({...newTeamMember, external_phone: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white outline-none" />
+                  </div>
+               </div>
             )}
-            <input required type="text" placeholder="Rôle sur projet..." value={newTeamMember.role_on_project} onChange={e => setNewTeamMember({...newTeamMember, role_on_project: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
-            <Button type="submit" variant="primary" className="w-full" isLoading={isSubmitting}>Ajouter</Button>
+            <div className="space-y-2">
+               <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black">Rôle sur le projet *</label>
+               <input required type="text" placeholder="ex: Lead Mix Engineer" value={newTeamMember.role_on_project} onChange={e => setNewTeamMember({...newTeamMember, role_on_project: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none" />
+            </div>
+            <Button type="submit" variant="primary" className="w-full h-16 rounded-2xl font-black uppercase tracking-[0.2em]" isLoading={isSubmitting}>Lancer l'assignation</Button>
          </form>
       </Modal>
     </div>

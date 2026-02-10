@@ -161,19 +161,6 @@ export interface ProjectTeamMember {
   };
 }
 
-export interface ExternalResource {
-  id: string;
-  name: string;
-  service_type: string;
-  skills: string[];
-  phone?: string;
-  email?: string;
-  instagram?: string;
-  website?: string;
-  rating?: number;
-  notes?: string;
-}
-
 export interface Meeting {
   id: string;
   title: string;
@@ -182,17 +169,18 @@ export interface Meeting {
   attendees: string[];
   action_items: string[];
   project_id?: string;
+  project?: {
+    title: string;
+  };
 }
 
-// Added missing interfaces for artist assets and team management
 export interface ArtistAsset {
   id: string;
   artist_id: string;
   name: string;
+  type: string;
+  url: string;
   notes?: string;
-  file_url: string;
-  file_type: string;
-  file_size: number;
   created_at?: string;
 }
 
@@ -210,5 +198,23 @@ export interface ArtistTeamMember {
 export interface CustomRole {
   id: string;
   name: string;
+  created_at?: string;
+}
+
+/**
+ * Interface representing an external service provider or resource.
+ */
+export interface ExternalResource {
+  id: string;
+  name: string;
+  service_type: string;
+  skills: string[];
+  contact_info?: string;
+  website?: string;
+  rating: number;
+  notes?: string;
+  email?: string;
+  phone?: string;
+  instagram?: string;
   created_at?: string;
 }

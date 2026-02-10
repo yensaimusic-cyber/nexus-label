@@ -33,7 +33,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         </button>
 
         <div className="flex-1 max-w-xl hidden md:block">
-          {/* Barre de recherche supprimée car inutile selon les consignes */}
+          {/* SEARCH BAR REMOVED FOR CLEANER UI */}
         </div>
       </div>
 
@@ -45,7 +45,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-colors relative shadow-lg"
           >
             <Bell size={20} className="text-white/70" />
-            <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-nexus-pink rounded-full border-2 border-nexus-dark" />
+            <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-nexus-pink rounded-full border-2 border-nexus-dark shadow-[0_0_8px_#EC4899]" />
           </button>
           {showTooltip && (
             <div className="absolute top-12 right-0 bg-nexus-surface border border-white/10 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-white whitespace-nowrap shadow-2xl z-50">

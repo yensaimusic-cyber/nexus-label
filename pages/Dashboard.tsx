@@ -28,7 +28,7 @@ export const Dashboard: React.FC = () => {
   const fetchDashboardStats = async () => {
     try {
       setLoading(true);
-      const now = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0];
 
       // Stats Globales
       const [artistsCount, projectsCount, budgetData] = await Promise.all([
@@ -37,7 +37,7 @@ export const Dashboard: React.FC = () => {
         supabase.from('projects').select('budget, spent')
       ]);
 
-      // Tâches
+      // All active tasks
       const { data: allTasks } = await supabase
         .from('tasks')
         .select('*, project:projects(title, artist:artists(stage_name)), assignee:profiles(full_name, avatar_url)')
@@ -45,9 +45,11 @@ export const Dashboard: React.FC = () => {
 
       const tasks = (allTasks || []) as Task[];
 
-      // Filtrage intelligent
-      const overdue = tasks.filter(t => (t.due_date && t.due_date < now) || t.priority === 'overdue');
-      const urgent = tasks.filter(t => t.priority === 'urgent' && (!t.due_date || t.due_date >= now));
+      // Filter Overdue: (due_date < today AND status != done) OR priority = overdue
+      const overdue = tasks.filter(t => (t.due_date && t.due_date < today) || t.priority === 'overdue');
+      
+      // Filter Urgent: priority = urgent AND status != done
+      const urgent = tasks.filter(t => t.priority === 'urgent');
 
       const totalBudget = budgetData.data?.reduce((sum, p) => sum + (Number(p.budget) || 0), 0) || 0;
       const totalSpent = budgetData.data?.reduce((sum, p) => sum + (Number(p.spent) || 0), 0) || 0;
@@ -108,7 +110,7 @@ export const Dashboard: React.FC = () => {
 
         <Card className="p-5 border-white/5 hover:border-nexus-green/40">
           <div className="p-2.5 rounded-xl bg-nexus-green/10 text-nexus-green w-fit mb-3"><Wallet size={18} /></div>
-          <h3 className="text-white/30 text-[9px] font-mono uppercase tracking-widest font-bold mb-1">Dépenses Label</h3>
+          <h3 className="text-white/30 text-[9px] font-mono uppercase tracking-widest font-bold mb-1">Budget Total Label</h3>
           <p className="text-lg lg:text-xl font-bold font-heading truncate">
             {stats.totalSpent.toLocaleString()}€ <span className="text-white/20 text-[10px] font-normal font-mono">/ {stats.totalBudget.toLocaleString()}€</span>
           </p>
@@ -135,7 +137,7 @@ export const Dashboard: React.FC = () => {
                 </div>
               </div>
             ))}
-            {overdueTasks.length === 0 && <p className="text-[10px] text-white/20 italic text-center py-4">Aucun retard critique.</p>}
+            {overdueTasks.length === 0 && <p className="text-[10px] text-white/20 italic text-center py-4">Aucun retard critique détecté.</p>}
           </div>
         </Card>
 
@@ -158,9 +160,8 @@ export const Dashboard: React.FC = () => {
                 </div>
               </div>
             ))}
-            {urgentTasks.length === 0 && <p className="text-[10px] text-white/20 italic text-center py-4">Opérations fluides.</p>}
+            {urgentTasks.length === 0 && <p className="text-[10px] text-white/20 italic text-center py-4">Opérations fluides. Aucune urgence.</p>}
           </div>
-          <button className="w-full mt-5 py-2 text-[9px] font-black uppercase text-white/30 hover:text-nexus-orange transition-colors">Gérer tout le flux →</button>
         </Card>
       </div>
     </div>
