@@ -1,19 +1,39 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Filter, MoreHorizontal, Clock, Loader2, CheckCircle2, User, X } from 'lucide-react';
+// Add Save to the lucide-react imports
+import { Plus, Search, Filter, MoreHorizontal, Clock, Loader2, CheckCircle2, User, X, Check, Disc, Square, Save } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
-import { Task, TaskStatus, TaskPriority } from '../types';
+import { Task, TaskStatus, TaskPriority, STATUS_LABELS } from '../types';
 
-const COLUMNS: { label: string, value: TaskStatus }[] = [
-  { label: 'To Do', value: 'todo' },
-  { label: 'In Progress', value: 'in_progress' },
-  { label: 'Review', value: 'review' },
-  { label: 'Completed', value: 'done' }
+const GROUP_ORDER = [
+  'idee_brainstorm',
+  'maquette',
+  'rec',
+  'mix',
+  'master',
+  'prepa_promo',
+  'promo_sortie',
+  'promo_pre_sortie',
+  'fin',
+  'sans_projet'
 ];
+
+const GROUP_ICONS: Record<string, string> = {
+  idee_brainstorm: '💡',
+  maquette: '📝',
+  rec: '🎤',
+  mix: '🎛️',
+  master: '🎚️',
+  prepa_promo: '📋',
+  promo_sortie: '🚀',
+  promo_pre_sortie: '📢',
+  fin: '✅',
+  sans_projet: '❓'
+};
 
 export const Tasks: React.FC = () => {
   const [tasks, setTasks] = useState<any[]>([]);
@@ -44,31 +64,32 @@ export const Tasks: React.FC = () => {
       setLoading(true);
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
-        .select('*, project:projects(title, artist:artists(stage_name)), assignee:profiles(full_name, avatar_url)')
+        .select('*, project:projects(id, title, status, artist:artists(stage_name)), assignee:profiles(id, full_name, avatar_url)')
         .order('created_at', { ascending: false });
 
       if (tasksError) throw tasksError;
       setTasks(tasksData);
 
-      const { data: projData } = await supabase.from('projects').select('id, title').order('title');
+      const { data: projData } = await supabase.from('projects').select('id, title, status').order('title');
       const { data: profData } = await supabase.from('profiles').select('id, full_name').order('full_name');
       
       if (projData) setProjects(projData);
       if (profData) setProfiles(profData);
     } catch (err: any) {
-      alert("Error fetching tasks: " + err.message);
+      alert("Erreur lors de la récupération des tâches");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateStatus = async (taskId: string, newStatus: TaskStatus) => {
+  const handleToggleTaskStatus = async (taskId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'done' ? 'todo' : 'done';
     try {
       const { error } = await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
       if (error) throw error;
-      setTasks(tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
     } catch (err: any) {
-      alert("Failed to update task: " + err.message);
+      alert("Erreur de mise à jour");
     }
   };
 
@@ -81,90 +102,113 @@ export const Tasks: React.FC = () => {
       const { data, error } = await supabase
         .from('tasks')
         .insert([newTask])
-        .select('*, project:projects(title, artist:artists(stage_name)), assignee:profiles(full_name, avatar_url)')
+        .select('*, project:projects(id, title, status, artist:artists(stage_name)), assignee:profiles(id, full_name, avatar_url)')
         .single();
 
       if (error) throw error;
       setTasks([data, ...tasks]);
       setIsModalOpen(false);
       setNewTask({ title: '', description: '', status: 'todo', priority: 'medium', project_id: '', assigned_to: '', due_date: '' });
-      alert("Task created!");
+      alert("Tâche créée !");
     } catch (err: any) {
-      alert("Creation failed: " + err.message);
+      alert("Erreur lors de la création");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteTask = async (id: string) => {
-    if (!confirm("Delete this task?")) return;
+    if (!confirm("Supprimer cette tâche ?")) return;
     try {
       const { error } = await supabase.from('tasks').delete().eq('id', id);
       if (error) throw error;
       setTasks(tasks.filter(t => t.id !== id));
     } catch (err: any) {
-      alert("Delete failed: " + err.message);
+      alert("Erreur de suppression");
     }
   };
 
-  const filteredTasks = tasks.filter(t => 
-    t.title.toLowerCase().includes(search.toLowerCase()) || 
-    t.project?.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const groupedTasks = useMemo(() => {
+    const grouped: Record<string, any[]> = {};
+    
+    // Initialiser les groupes
+    GROUP_ORDER.forEach(g => grouped[g] = []);
+
+    tasks.filter(t => 
+      t.title?.toLowerCase().includes(search.toLowerCase()) || 
+      t.project?.title?.toLowerCase().includes(search.toLowerCase())
+    ).forEach(task => {
+      const status = task.project?.status || 'sans_projet';
+      if (!grouped[status]) grouped[status] = [];
+      grouped[status].push(task);
+    });
+
+    return grouped;
+  }, [tasks, search]);
 
   const priorityColors: Record<TaskPriority, string> = {
-    low: 'text-slate-400 bg-slate-400/10',
-    medium: 'text-nexus-cyan bg-nexus-cyan/10',
-    high: 'text-nexus-orange bg-nexus-orange/10',
+    low: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
+    medium: 'text-nexus-cyan bg-nexus-cyan/10 border-nexus-cyan/20',
+    high: 'text-nexus-orange bg-nexus-orange/10 border-nexus-orange/20',
     urgent: 'text-nexus-red bg-nexus-red/10 border-nexus-red/30',
   };
 
   return (
-    <div className="p-4 lg:p-8 h-[calc(100vh-80px)] overflow-hidden flex flex-col space-y-8">
+    <div className="p-4 lg:p-8 min-h-screen flex flex-col space-y-8">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-heading font-extrabold text-white">Label Workflow</h2>
-          <p className="text-nexus-lightGray text-sm">Assign, track, and optimize label operations.</p>
+          <h2 className="text-3xl lg:text-4xl font-heading font-extrabold text-white tracking-tight">Flux Opérationnel</h2>
+          <p className="text-nexus-lightGray text-sm mt-1">Gérez les tâches prioritaires par phase de production.</p>
         </div>
         <div className="flex gap-3">
-          <div className="relative group">
+          <div className="relative group hidden md:block">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" size={18} />
             <input 
               type="text" 
-              placeholder="Search workflow..." 
+              placeholder="Rechercher une tâche..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="glass rounded-2xl py-3 pl-12 pr-4 text-sm focus:border-nexus-purple transition-all outline-none w-full md:w-64 text-white"
+              className="glass rounded-2xl py-3 pl-12 pr-4 text-sm focus:border-nexus-purple transition-all outline-none w-64 text-white"
             />
           </div>
-          <Button variant="primary" className="gap-2 shadow-xl" onClick={() => setIsModalOpen(true)}><Plus size={18} /> New Task</Button>
+          <Button variant="primary" className="gap-2 shadow-xl" onClick={() => setIsModalOpen(true)}>
+            <span className="font-bold">Nouvelle Tâche</span>
+          </Button>
         </div>
       </header>
 
       {loading ? (
-        <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="flex-1 flex flex-col items-center justify-center py-20">
           <Loader2 className="animate-spin text-nexus-purple mb-4" size={40} />
-          <p className="text-[10px] font-mono tracking-widest text-white/30">SYNCING BOARDS...</p>
+          <p className="text-[10px] font-mono tracking-widest text-white/30 uppercase">Calcul des priorités...</p>
         </div>
       ) : (
-        <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4 custom-scrollbar">
-          <div className="flex gap-6 h-full min-w-max px-2">
-            {COLUMNS.map(col => (
-              <div key={col.value} className="w-80 flex flex-col gap-4">
-                <div className="flex items-center justify-between px-2">
-                  <div className="flex items-center gap-3">
-                     <h3 className="font-heading font-bold text-sm uppercase tracking-widest text-white/60">{col.label}</h3>
-                     <span className="text-[10px] bg-white/5 border border-white/5 px-2 py-0.5 rounded-full text-white/40 font-mono">
-                       {filteredTasks.filter(t => t.status === col.value).length}
-                     </span>
-                  </div>
+        <div className="space-y-12 pb-20">
+          {GROUP_ORDER.map(statusKey => {
+            const statusTasks = groupedTasks[statusKey];
+            if (statusTasks.length === 0 && search !== '') return null;
+            if (statusTasks.length === 0 && statusKey === 'sans_projet') return null;
+
+            return (
+              <section key={statusKey} className="space-y-4">
+                <div className="flex items-center gap-3 px-1 border-b border-white/5 pb-3">
+                  <span className="text-2xl">{GROUP_ICONS[statusKey]}</span>
+                  <h3 className="text-sm font-black font-mono uppercase tracking-[0.3em] text-white/60">
+                    {STATUS_LABELS[statusKey as any] || 'Sans Projet'} à faire
+                  </h3>
+                  <span className="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-full text-white/40 font-bold ml-2">
+                    {statusTasks.length}
+                  </span>
                 </div>
 
-                <div className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
-                  <AnimatePresence mode="popLayout">
-                    {filteredTasks
-                      .filter(t => t.status === col.value)
-                      .map(task => (
+                {statusTasks.length === 0 ? (
+                  <div className="py-8 text-center glass rounded-3xl border-dashed border-white/10 opacity-20 italic text-xs">
+                    Aucune tâche active dans cette phase.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <AnimatePresence mode="popLayout">
+                      {statusTasks.map(task => (
                         <motion.div
                           key={task.id}
                           layout
@@ -172,98 +216,99 @@ export const Tasks: React.FC = () => {
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.9 }}
                           whileHover={{ y: -4 }}
-                          className="glass p-5 rounded-[24px] border-white/5 hover:border-nexus-purple/40 group transition-all cursor-pointer relative"
+                          className={`glass p-5 rounded-[28px] border-white/5 hover:border-nexus-purple/40 group transition-all cursor-pointer relative shadow-xl ${task.status === 'done' ? 'opacity-40' : ''}`}
                         >
-                          <div className="flex justify-between items-start mb-3">
-                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-mono font-bold uppercase border ${priorityColors[task.priority as TaskPriority]}`}>
+                          <div className="flex justify-between items-start mb-4">
+                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase border tracking-widest ${priorityColors[task.priority as TaskPriority]}`}>
                               {task.priority}
                             </span>
-                            <div className="flex items-center gap-1">
-                              <select 
-                                onChange={(e) => handleUpdateStatus(task.id, e.target.value as TaskStatus)}
-                                className="bg-transparent text-[8px] font-mono uppercase text-white/20 hover:text-white outline-none cursor-pointer"
-                                value={task.status}
-                              >
-                                {COLUMNS.map(c => <option key={c.value} value={c.value} className="bg-nexus-surface">{c.label}</option>)}
-                              </select>
-                              <button onClick={() => handleDeleteTask(task.id)} className="text-white/20 hover:text-nexus-red p-1"><X size={12} /></button>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                               <button onClick={() => handleDeleteTask(task.id)} className="text-white/20 hover:text-nexus-red p-1"><X size={14} /></button>
                             </div>
                           </div>
                           
-                          <h4 className="font-bold text-sm text-white group-hover:text-nexus-cyan transition-colors mb-2 line-clamp-2">{task.title}</h4>
-                          <p className="text-[10px] text-white/30 line-clamp-1 mb-4 italic">Project: {task.project?.title || 'General'}</p>
-                          
-                          <div className="flex items-center gap-2 mb-4">
-                            <div className="w-5 h-5 rounded-lg bg-nexus-purple/20 flex items-center justify-center text-[8px] text-nexus-purple font-mono uppercase border border-nexus-purple/30">
-                              {task.project?.artist?.stage_name?.[0] || 'L'}
-                            </div>
-                            <span className="text-[10px] text-white/40 truncate tracking-tight">{task.project?.artist?.stage_name} Release Flow</span>
+                          <div className="flex gap-3 mb-3">
+                             <button 
+                               onClick={() => handleToggleTaskStatus(task.id, task.status)}
+                               className={`mt-0.5 w-5 h-5 rounded-lg flex items-center justify-center border transition-all ${task.status === 'done' ? 'bg-nexus-green border-nexus-green text-nexus-dark' : 'border-white/20 text-transparent hover:border-nexus-cyan hover:text-nexus-cyan/40'}`}
+                             >
+                               <Check size={14} strokeWidth={3} />
+                             </button>
+                             <div className="flex-1">
+                               <h4 className={`font-bold text-sm leading-snug group-hover:text-nexus-cyan transition-colors ${task.status === 'done' ? 'line-through text-white/30' : 'text-white/90'}`}>{task.title}</h4>
+                             </div>
                           </div>
 
-                          <div className="flex justify-between items-center pt-3 border-t border-white/5">
-                            <div className="flex items-center gap-1.5 text-white/40">
-                              <Clock size={12} className="text-nexus-orange" />
-                              <span className="text-[10px] font-mono">{task.due_date || 'No Date'}</span>
-                            </div>
+                          <div className="space-y-4 pt-3 border-t border-white/5">
                             <div className="flex items-center gap-2">
-                               <div className="w-7 h-7 rounded-xl overflow-hidden border border-white/10" title={task.assignee?.full_name}>
+                              <Disc size={12} className="text-nexus-purple" />
+                              <span className="text-[10px] font-black text-white/40 uppercase tracking-tighter truncate">{task.project?.title || 'Tâche Globale'}</span>
+                            </div>
+                            
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-1.5 text-nexus-orange/60">
+                                <Clock size={12} />
+                                <span className="text-[10px] font-bold font-mono">{task.due_date || 'ASAP'}</span>
+                              </div>
+                              <div className="w-7 h-7 rounded-xl overflow-hidden border border-white/10 shadow-lg" title={task.assignee?.full_name}>
                                  <img src={task.assignee?.avatar_url || `https://picsum.photos/seed/${task.assigned_to}/50`} alt="" className="w-full h-full object-cover" />
-                               </div>
+                              </div>
                             </div>
                           </div>
                         </motion.div>
                       ))}
-                  </AnimatePresence>
-                </div>
-              </div>
-            ))}
-          </div>
+                    </AnimatePresence>
+                  </div>
+                )}
+              </section>
+            );
+          })}
         </div>
       )}
 
       {/* New Task Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create Pipeline Task">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Nouvelle Tâche Opérationnelle">
         <form onSubmit={handleCreateTask} className="space-y-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Task Label *</label>
-            <input required type="text" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} placeholder="e.g. Master track for Spotify..." className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-nexus-purple" />
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Intitulé de la mission *</label>
+            <input required type="text" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} placeholder="ex: Finaliser le mixage du single..." className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:border-nexus-purple outline-none transition-all shadow-xl" />
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Project Alignment *</label>
-            <select required value={newTask.project_id} onChange={e => setNewTask({...newTask, project_id: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none">
-              <option value="" className="bg-nexus-surface">Select Project...</option>
-              {projects.map(p => <option key={p.id} value={p.id} className="bg-nexus-surface">{p.title}</option>)}
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Projet Associé *</label>
+            <select required value={newTask.project_id} onChange={e => setNewTask({...newTask, project_id: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:border-nexus-purple outline-none appearance-none">
+              <option value="" className="bg-nexus-surface">Lier à un projet...</option>
+              {projects.map(p => <option key={p.id} value={p.id} className="bg-nexus-surface">{p.title} ({STATUS_LABELS[p.status as any]})</option>)}
             </select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Assign To</label>
-              <select value={newTask.assigned_to} onChange={e => setNewTask({...newTask, assigned_to: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none">
-                <option value="" className="bg-nexus-surface">Internal Team...</option>
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Assigné à</label>
+              <select value={newTask.assigned_to} onChange={e => setNewTask({...newTask, assigned_to: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:border-nexus-purple outline-none appearance-none">
+                <option value="" className="bg-nexus-surface">Staff Nexus...</option>
                 {profiles.map(p => <option key={p.id} value={p.id} className="bg-nexus-surface">{p.full_name}</option>)}
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Priority</label>
-              <select value={newTask.priority} onChange={e => setNewTask({...newTask, priority: e.target.value as TaskPriority})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white appearance-none focus:outline-none">
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Priorité</label>
+              <select value={newTask.priority} onChange={e => setNewTask({...newTask, priority: e.target.value as TaskPriority})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none appearance-none">
+                <option value="low">Basse</option>
+                <option value="medium">Normale</option>
+                <option value="high">Haute</option>
+                <option value="urgent">Urgente</option>
               </select>
             </div>
           </div>
 
           <div className="space-y-2">
             <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Deadline</label>
-            <input type="date" value={newTask.due_date} onChange={e => setNewTask({...newTask, due_date: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none [color-scheme:dark]" />
+            <input type="date" value={newTask.due_date} onChange={e => setNewTask({...newTask, due_date: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none [color-scheme:dark]" />
           </div>
 
-          <div className="flex gap-3 pt-6">
-            <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}>Activate Task</Button>
+          <div className="flex gap-3 pt-6 border-t border-white/5">
+            <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsModalOpen(false)}>Annuler</Button>
+            <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}><Save size={18} className="mr-2" /> Activer la tâche</Button>
           </div>
         </form>
       </Modal>

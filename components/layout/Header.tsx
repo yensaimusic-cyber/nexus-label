@@ -13,8 +13,13 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const [showTooltip, setShowTooltip] = useState(false);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/login';
+    try {
+      await supabase.auth.signOut();
+      // Rediriger vers la racine pour laisser App.tsx gérer la redirection vers /login
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Erreur de déconnexion:', error);
+    }
   };
 
   return (
@@ -58,15 +63,14 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
         <div className="flex items-center gap-3 pl-2 lg:pl-4 lg:border-l border-white/10">
           <div className="text-right hidden lg:block">
-            <p className="text-sm font-bold text-white leading-none">Alex Rivera</p>
-            <p className="text-[9px] text-nexus-cyan font-mono uppercase tracking-[0.2em] mt-1">Directeur</p>
+            <p className="text-sm font-bold text-white leading-none">Utilisateur</p>
+            <p className="text-[9px] text-nexus-cyan font-mono uppercase tracking-[0.2em] mt-1">Nexus Staff</p>
           </div>
           <div className="group relative">
             <div className="w-10 h-10 rounded-xl overflow-hidden border-2 border-nexus-purple/30 cursor-pointer hover:border-nexus-purple transition-colors">
-              <img src="https://picsum.photos/seed/manager/100" alt="Avatar" className="w-full h-full object-cover" />
+              <img src="https://picsum.photos/seed/user/100" alt="Avatar" className="w-full h-full object-cover" />
             </div>
             
-            {/* Menu Dropdown déconnexion */}
             <div className="absolute top-12 right-0 w-48 bg-nexus-surface border border-white/10 rounded-2xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all p-2 z-50 translate-y-2 group-hover:translate-y-0">
               <button 
                 onClick={handleSignOut}
