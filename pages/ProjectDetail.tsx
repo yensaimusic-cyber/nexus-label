@@ -3,34 +3,36 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  ArrowLeft, Disc, CheckSquare, Users, MessageSquare, Settings, 
-  Play, Pause, Download, MoreVertical, Plus, Clock, DollarSign, 
-  Share2, Instagram, Youtube, Music, Trash2, Camera, Loader2, Save, FileAudio, Check, Square, X, ClipboardList
+  ArrowLeft, Disc, Users, Settings, 
+  Play, Plus, Clock, DollarSign, 
+  Trash2, Camera, Loader2, Save, FileAudio, Check, X, ClipboardList, Edit3, AlertTriangle, User, Calendar
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
-import { Waveform } from '../components/features/Waveform';
 import { supabase } from '../lib/supabase';
-import { uploadFile, deleteFileByUrl } from '../lib/storage';
-import { Project, Track, TrackStatus, STATUS_LABELS, ProjectStatus, CampaignTask, ProjectCollaborator } from '../types';
+import { uploadFile } from '../lib/storage';
+import { Project, Track, Task, ProjectStatus, ProjectType, STATUS_LABELS } from '../types';
 
 export const ProjectDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState<any>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
-  const [campaignTasks, setCampaignTasks] = useState<CampaignTask[]>([]);
-  const [collaborators, setCollaborators] = useState<ProjectCollaborator[]>([]);
-  const [allProfiles, setAllProfiles] = useState<any[]>([]);
+  const [projectTasks, setProjectTasks] = useState<Task[]>([]);
+  const [collaborators, setCollaborators] = useState<any[]>([]);
+  const [allArtists, setAllArtists] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'tracks' | 'tasks' | 'collaboration'>('tracks');
   
-  // States
-  const [isCollabModalOpen, setIsCollabModalOpen] = useState(false);
+  // Modals
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newCollab, setNewCollab] = useState({ profile_id: '', role: '' });
-  const [newTaskText, setNewTaskText] = useState('');
+  
+  // Edit Form State
+  const [editData, setEditData] = useState<Partial<Project>>({});
+  const [newCoverFile, setNewCoverFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (id) fetchProjectData();
@@ -39,94 +41,76 @@ export const ProjectDetail: React.FC = () => {
   const fetchProjectData = async () => {
     try {
       setLoading(true);
-      const [projRes, tracksRes, tasksRes, collabRes, profilesRes] = await Promise.all([
+      const [projRes, tracksRes, tasksRes, collabRes, artistsRes] = await Promise.all([
         supabase.from('projects').select('*, artist:artists(*)').eq('id', id).single(),
         supabase.from('tracks').select('*').eq('project_id', id).order('created_at'),
-        supabase.from('campaign_tasks').select('*').eq('project_id', id).order('order_index'),
+        supabase.from('tasks').select('*, assignee:profiles(full_name, avatar_url)').eq('project_id', id).order('due_date'),
         supabase.from('project_collaborators').select('*, profile:profiles(*)').eq('project_id', id),
-        supabase.from('profiles').select('*').order('full_name')
+        supabase.from('artists').select('id, stage_name').order('stage_name')
       ]);
 
       if (projRes.error) throw projRes.error;
       setProject(projRes.data);
+      setEditData(projRes.data);
       setTracks(tracksRes.data || []);
-      setCampaignTasks(tasksRes.data || []);
+      setProjectTasks(tasksRes.data || []);
       setCollaborators(collabRes.data || []);
-      setAllProfiles(profilesRes.data || []);
+      setAllArtists(artistsRes.data || []);
     } catch (err: any) {
-      alert("Erreur lors de l'accès au projet : " + err.message);
+      console.error("Fetch error:", err);
       navigate('/projects');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateStatus = async (newStatus: ProjectStatus) => {
-    try {
-      const { error } = await supabase.from('projects').update({ status: newStatus }).eq('id', id);
-      if (error) throw error;
-      setProject({ ...project, status: newStatus });
-      alert("Pipeline mis à jour !");
-    } catch (err: any) {
-      alert("Erreur de synchronisation du statut.");
-    }
-  };
-
-  const handleAddTask = async () => {
-    if (!newTaskText) return;
-    try {
-      const { data, error } = await supabase.from('campaign_tasks').insert([{
-        project_id: id,
-        task_text: newTaskText,
-        order_index: campaignTasks.length
-      }]).select().single();
-      if (error) throw error;
-      setCampaignTasks([...campaignTasks, data]);
-      setNewTaskText('');
-    } catch (err: any) {
-      alert("Erreur lors de l'ajout de la mission.");
-    }
-  };
-
-  const handleToggleTask = async (taskId: string, current: boolean) => {
-    try {
-      const { error } = await supabase.from('campaign_tasks').update({ is_completed: !current }).eq('id', taskId);
-      if (error) throw error;
-      setCampaignTasks(campaignTasks.map(t => t.id === taskId ? { ...t, is_completed: !current } : t));
-    } catch (err: any) {
-      alert("Erreur de mise à jour.");
-    }
-  };
-
-  const handleDeleteTask = async (taskId: string) => {
-    if(!confirm("Voulez-vous supprimer cette tâche ?")) return;
-    try {
-      const { error } = await supabase.from('campaign_tasks').delete().eq('id', taskId);
-      if (error) throw error;
-      setCampaignTasks(prev => prev.filter(t => t.id !== taskId));
-    } catch (err: any) {
-      alert("Erreur lors de la suppression.");
-    }
-  };
-
-  const handleAddCollaborator = async (e: React.FormEvent) => {
+  const handleUpdateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCollab.profile_id) return;
     try {
       setIsSubmitting(true);
-      const { data, error } = await supabase.from('project_collaborators').insert([{
-        project_id: id,
-        profile_id: newCollab.profile_id,
-        role: newCollab.role
-      }]).select('*, profile:profiles(*)').single();
+      let updates = { ...editData };
+      if (newCoverFile) {
+        const url = await uploadFile(newCoverFile, 'covers', 'project-covers');
+        updates.cover_url = url;
+      }
+
+      const { data, error } = await supabase
+        .from('projects')
+        .update(updates)
+        .eq('id', id)
+        .select('*, artist:artists(*)')
+        .single();
+
       if (error) throw error;
-      setCollaborators([...collaborators, data]);
-      setIsCollabModalOpen(false);
-      alert("Collaborateur assigné !");
+      setProject(data);
+      setIsEditModalOpen(false);
+      alert("Projet mis à jour !");
     } catch (err: any) {
-      alert("Erreur lors de l'assignation.");
+      alert("Erreur lors de la mise à jour.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    try {
+      setIsSubmitting(true);
+      const { error } = await supabase.from('projects').delete().eq('id', id);
+      if (error) throw error;
+      navigate('/projects');
+    } catch (err: any) {
+      alert("Suppression impossible.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getPriorityColor = (p: string) => {
+    switch(p) {
+      case 'urgent': return 'text-nexus-red border-nexus-red/30 bg-nexus-red/5';
+      case 'high': return 'text-nexus-orange border-nexus-orange/30 bg-nexus-orange/5';
+      case 'medium': return 'text-nexus-cyan border-nexus-cyan/30 bg-nexus-cyan/5';
+      default: return 'text-white/40 border-white/10 bg-white/5';
     }
   };
 
@@ -135,64 +119,66 @@ export const ProjectDetail: React.FC = () => {
   return (
     <div className="p-4 lg:p-8 space-y-8 max-w-[1400px] mx-auto min-h-screen">
       <header className="flex flex-col gap-6">
-        <Link to="/projects" className="flex items-center gap-2 text-white/30 hover:text-white transition-all w-fit group">
-          <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
-          <span className="text-[10px] font-black uppercase tracking-widest font-mono">Retour au Pipeline</span>
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link to="/projects" className="flex items-center gap-2 text-white/30 hover:text-white transition-all w-fit group">
+            <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="text-[10px] font-black uppercase tracking-widest font-mono">Retour au Pipeline</span>
+          </Link>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="gap-2 border border-white/10 hover:bg-white/5">
+              <Edit3 size={16} /> <span className="hidden sm:inline">Modifier</span>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setIsDeleteModalOpen(true)} className="gap-2 text-nexus-red hover:bg-nexus-red/10 border border-nexus-red/10">
+              <Trash2 size={16} /> <span className="hidden sm:inline">Supprimer</span>
+            </Button>
+          </div>
+        </div>
 
-        <div className="glass p-8 lg:p-12 rounded-[48px] border-white/10 flex flex-col lg:flex-row gap-8 lg:gap-12 relative overflow-hidden shadow-2xl">
+        <div className="glass p-6 lg:p-10 rounded-[32px] lg:rounded-[48px] border-white/10 flex flex-col md:flex-row gap-8 items-center md:items-start relative overflow-hidden shadow-2xl">
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-48 h-48 lg:w-64 lg:h-64 rounded-[40px] overflow-hidden border border-white/10 shrink-0 shadow-2xl relative z-10"
+            className="w-40 h-40 lg:w-56 lg:h-56 rounded-[32px] lg:rounded-[40px] overflow-hidden border border-white/10 shrink-0 shadow-2xl relative z-10"
           >
             <img src={project.cover_url || "https://picsum.photos/seed/project/400"} alt="Cover" className="w-full h-full object-cover" />
           </motion.div>
-          <div className="flex-1 space-y-6 relative z-10">
-            <div className="flex flex-col justify-between items-start gap-4">
-              <div>
-                <div className="flex flex-wrap items-center gap-3 mb-4">
-                  <span className="px-3.5 py-1.5 rounded-xl bg-nexus-purple/20 text-nexus-purple text-[10px] font-black uppercase border border-nexus-purple/30 tracking-widest shadow-lg">{project.type}</span>
-                  <div className="relative">
-                    <select 
-                      value={project.status} 
-                      onChange={(e) => handleUpdateStatus(e.target.value as ProjectStatus)}
-                      className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[10px] font-black text-nexus-cyan outline-none focus:border-nexus-cyan transition-all appearance-none cursor-pointer tracking-widest uppercase shadow-xl pr-8"
-                    >
-                      {Object.entries(STATUS_LABELS).map(([val, label]) => <option key={val} value={val} className="bg-nexus-surface">{label}</option>)}
-                    </select>
-                    <MoreVertical size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-nexus-cyan pointer-events-none" />
-                  </div>
-                </div>
-                <h2 className="text-4xl lg:text-6xl font-heading font-extrabold text-white tracking-tighter leading-tight">{project.title}</h2>
-                <p className="text-nexus-lightGray text-xl font-medium mt-1">Par <Link to={`/artists/${project.artist_id}`} className="text-nexus-cyan hover:underline transition-all">{project.artist?.stage_name}</Link></p>
+          <div className="flex-1 space-y-4 text-center md:text-left relative z-10 w-full">
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                <span className="px-3 py-1 rounded-lg bg-nexus-purple/20 text-nexus-purple text-[9px] font-black uppercase border border-nexus-purple/30 tracking-widest">{project.type}</span>
+                <span className="px-3 py-1 rounded-lg bg-nexus-cyan/10 text-nexus-cyan text-[9px] font-black uppercase border border-nexus-cyan/30 tracking-widest">
+                  {STATUS_LABELS[project.status as ProjectStatus] || project.status}
+                </span>
               </div>
+              <h2 className="text-3xl lg:text-5xl font-heading font-extrabold text-white tracking-tighter leading-tight">{project.title}</h2>
+              <p className="text-nexus-lightGray text-lg font-medium">Par <Link to={`/artists/${project.artist_id}`} className="text-nexus-cyan hover:underline">{project.artist?.stage_name}</Link></p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-               <div className="bg-white/5 p-6 rounded-3xl border border-white/5 glass shadow-xl">
-                 <p className="text-[9px] font-mono text-white/30 uppercase tracking-[0.2em] mb-1.5">Trésorerie Restante</p>
-                 <p className="text-3xl font-bold font-heading text-white">€{(project.budget - project.spent).toLocaleString()}</p>
+            
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
+               <div className="bg-white/5 p-4 rounded-2xl border border-white/5 shadow-xl">
+                 <p className="text-[8px] font-mono text-white/30 uppercase tracking-widest mb-1">Restant</p>
+                 <p className="text-xl font-bold font-heading text-white">€{(project.budget - project.spent).toLocaleString()}</p>
                </div>
-               <div className="bg-white/5 p-6 rounded-3xl border border-white/5 glass shadow-xl">
-                 <p className="text-[9px] font-mono text-white/30 uppercase tracking-[0.2em] mb-1.5">Date de sortie cible</p>
-                 <p className="text-xl font-bold font-heading text-white">{project.release_date ? new Date(project.release_date).toLocaleDateString('fr-FR') : 'Non planifiée'}</p>
+               <div className="bg-white/5 p-4 rounded-2xl border border-white/5 shadow-xl">
+                 <p className="text-[8px] font-mono text-white/30 uppercase tracking-widest mb-1">Sortie Cible</p>
+                 <p className="text-base font-bold font-heading text-white">{project.release_date || 'Non fixée'}</p>
                </div>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="flex gap-2 p-1.5 glass rounded-[24px] w-fit shadow-2xl">
+      <div className="flex overflow-x-auto no-scrollbar gap-2 p-1 glass rounded-2xl w-full sm:w-fit shadow-2xl">
         {[
-          { id: 'tracks', label: 'Morceaux', icon: <Music size={16} /> },
+          { id: 'tracks', label: 'Morceaux', icon: <Disc size={16} /> },
           { id: 'tasks', label: 'Tâches', icon: <ClipboardList size={16} /> },
           { id: 'collaboration', label: 'L\'Équipe', icon: <Users size={16} /> }
         ].map(tab => (
           <button 
             key={tab.id} 
             onClick={() => setActiveTab(tab.id as any)} 
-            className={`flex items-center gap-2 px-8 py-3.5 rounded-[18px] text-xs font-bold uppercase tracking-widest transition-all ${
-              activeTab === tab.id ? 'bg-nexus-purple text-white shadow-2xl scale-[1.05]' : 'text-white/40 hover:text-white hover:bg-white/5'
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${
+              activeTab === tab.id ? 'bg-nexus-purple text-white shadow-xl scale-[1.02]' : 'text-white/40 hover:text-white'
             }`}
           >
             {tab.icon} {tab.label}
@@ -209,36 +195,36 @@ export const ProjectDetail: React.FC = () => {
           transition={{ duration: 0.2 }}
         >
           {activeTab === 'tracks' && (
-            <div className="space-y-8">
-              <div className="flex justify-between items-center px-2">
-                <h3 className="text-3xl font-heading font-extrabold text-white">Tracklist du projet</h3>
-                <Button variant="outline" size="sm" className="gap-2 border-white/10 hover:border-nexus-purple text-nexus-purple">
-                  <Plus size={18} /> Ajouter une track
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-heading font-extrabold text-white">Tracklist</h3>
+                <Button variant="outline" size="sm" className="gap-2 border-white/10 hover:border-nexus-purple">
+                  <Plus size={16} /> Ajouter une track
                 </Button>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {tracks.map((track, i) => (
-                  <Card key={track.id} className="p-6 flex items-center gap-8 group hover:border-nexus-purple/40 transition-all border-white/5 shadow-xl bg-white/[0.02]">
-                    <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center font-mono text-base text-white/20 font-black border border-white/5 group-hover:text-nexus-purple transition-colors shrink-0">
+                  <Card key={track.id} className="p-4 flex items-center gap-6 group hover:border-nexus-purple/40 border-white/5 shadow-lg bg-white/[0.01]">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center font-mono text-sm text-white/20 font-black border border-white/5 group-hover:text-nexus-purple transition-colors">
                       {(i+1).toString().padStart(2, '0')}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-white text-xl truncate group-hover:text-nexus-cyan transition-colors">{track.title}</p>
-                      <p className="text-[10px] font-mono text-white/30 uppercase tracking-[0.2em] font-black mt-1">{track.status.replace('_', ' ')}</p>
+                      <p className="font-bold text-white text-base truncate">{track.title}</p>
+                      <p className="text-[8px] font-mono text-white/20 uppercase tracking-widest mt-0.5">{track.status}</p>
                     </div>
-                    <div className="hidden md:flex flex-col items-end gap-1 px-8 border-x border-white/5">
-                        <span className="text-[10px] font-mono text-white/20 uppercase">BPM</span>
-                        <span className="text-sm font-bold text-nexus-purple">{track.bpm || '--'}</span>
+                    <div className="hidden sm:flex flex-col items-end gap-1 px-4 border-l border-white/5">
+                        <span className="text-[8px] font-mono text-white/20 uppercase">BPM</span>
+                        <span className="text-xs font-bold text-nexus-purple">{track.bpm || '--'}</span>
                     </div>
-                    <button className="p-4 bg-nexus-purple/10 text-nexus-purple rounded-2xl opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-2xl shadow-purple-500/10">
-                      <Play size={24} fill="currentColor" />
+                    <button className="p-2.5 bg-nexus-purple/10 text-nexus-purple rounded-xl opacity-0 group-hover:opacity-100 transition-all">
+                      <Play size={18} fill="currentColor" />
                     </button>
                   </Card>
                 ))}
                 {tracks.length === 0 && (
-                   <div className="py-24 text-center glass rounded-[48px] border-dashed border-white/10 opacity-30 flex flex-col items-center justify-center">
-                     <FileAudio size={80} className="mb-6" />
-                     <p className="text-xl font-heading font-bold italic">Aucun enregistrement détecté pour ce projet</p>
+                   <div className="py-16 text-center glass rounded-[32px] border-dashed border-white/10 opacity-30 flex flex-col items-center justify-center">
+                     <FileAudio size={48} className="mb-4" />
+                     <p className="text-sm font-bold italic">Aucun enregistrement pour ce projet</p>
                    </div>
                 )}
               </div>
@@ -246,50 +232,53 @@ export const ProjectDetail: React.FC = () => {
           )}
 
           {activeTab === 'tasks' && (
-            <div className="space-y-8 max-w-4xl mx-auto">
-              <div className="px-2">
-                <h3 className="text-3xl font-heading font-extrabold text-white mb-2">Tâches opérationnelles</h3>
-                <p className="text-nexus-lightGray text-base">Planifiez les actions spécifiques de production et de marketing.</p>
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-heading font-extrabold text-white">Opérations du projet</h3>
+                <Link to="/tasks">
+                  <Button variant="outline" size="sm" className="gap-2 border-white/10 hover:border-nexus-cyan text-nexus-cyan">
+                    <Plus size={16} /> Gérer les tâches
+                  </Button>
+                </Link>
               </div>
               
-              <div className="flex gap-3">
-                <input 
-                  type="text" 
-                  placeholder="Définir une nouvelle mission..." 
-                  value={newTaskText} 
-                  onChange={e => setNewTaskText(e.target.value)} 
-                  onKeyDown={e => e.key === 'Enter' && handleAddTask()} 
-                  className="flex-1 bg-white/5 border border-white/10 rounded-[20px] px-6 py-4 text-sm text-white focus:border-nexus-purple outline-none shadow-2xl transition-all" 
-                />
-                <Button variant="primary" onClick={handleAddTask} className="px-8 rounded-[20px] shadow-2xl">
-                  <Plus size={24} />
-                </Button>
-              </div>
-
-              <div className="space-y-3 pt-6">
-                {campaignTasks.map(task => (
-                  <div key={task.id} className="flex items-center gap-5 p-6 glass rounded-[32px] hover:border-nexus-purple/30 transition-all group shadow-2xl bg-white/[0.01]">
-                    <button 
-                      onClick={() => handleToggleTask(task.id, task.is_completed)} 
-                      className={`w-7 h-7 flex items-center justify-center rounded-xl border-2 transition-all ${task.is_completed ? 'bg-nexus-green border-nexus-green text-nexus-dark shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'border-white/10 text-transparent hover:border-nexus-cyan hover:text-nexus-cyan/40'}`}
-                    >
-                      <Check size={18} strokeWidth={4} />
-                    </button>
-                    <span className={`flex-1 text-lg font-medium transition-all ${task.is_completed ? 'line-through text-white/10' : 'text-white/80'}`}>
-                      {task.task_text}
-                    </span>
-                    <button 
-                      onClick={() => handleDeleteTask(task.id)} 
-                      className="p-2.5 text-white/5 hover:text-nexus-red transition-all opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 size={20} />
-                    </button>
+              <div className="space-y-3">
+                {projectTasks.map(task => (
+                  <div key={task.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-5 glass rounded-2xl hover:border-nexus-purple/30 transition-all group shadow-xl bg-white/[0.01]">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className={`w-2 h-10 rounded-full shrink-0 ${task.status === 'done' ? 'bg-nexus-green' : 'bg-white/10'}`} />
+                      <div className="min-w-0">
+                        <p className={`font-bold text-base transition-all ${task.status === 'done' ? 'line-through text-white/20' : 'text-white/80'}`}>
+                          {task.title}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1.5">
+                           <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase border tracking-widest ${getPriorityColor(task.priority)}`}>
+                             {task.priority}
+                           </span>
+                           <span className="text-[9px] font-mono text-white/20 flex items-center gap-1">
+                             <Calendar size={10} /> {task.due_date || 'Pas de deadline'}
+                           </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between sm:justify-end gap-6 pt-4 sm:pt-0 border-t sm:border-t-0 border-white/5">
+                      <div className="flex items-center gap-2">
+                         <div className="w-7 h-7 rounded-lg overflow-hidden border border-white/10">
+                            <img src={task.assignee?.avatar_url || `https://picsum.photos/seed/${task.id}/50`} className="w-full h-full object-cover opacity-60" />
+                         </div>
+                         <span className="text-[10px] text-white/30 font-bold">{task.assignee?.full_name?.split(' ')[0]}</span>
+                      </div>
+                      <div className="text-[9px] font-black uppercase text-nexus-cyan bg-nexus-cyan/10 px-2 py-1 rounded">
+                        {task.status}
+                      </div>
+                    </div>
                   </div>
                 ))}
-                {campaignTasks.length === 0 && (
-                  <div className="text-center py-24 opacity-20 italic flex flex-col items-center gap-6">
-                    <CheckSquare size={64} />
-                    <p className="text-xl">Le plan d'action est vide. Démarrez la production !</p>
+                {projectTasks.length === 0 && (
+                  <div className="text-center py-20 glass rounded-[32px] border-dashed border-white/10 opacity-30 flex flex-col items-center gap-4">
+                    <ClipboardList size={40} />
+                    <p className="text-sm">Aucune tâche assignée. Créez-en une sur la page Tâches.</p>
                   </div>
                 )}
               </div>
@@ -297,37 +286,21 @@ export const ProjectDetail: React.FC = () => {
           )}
 
           {activeTab === 'collaboration' && (
-            <div className="space-y-8">
-              <div className="flex justify-between items-center px-2">
-                <h3 className="text-3xl font-heading font-extrabold text-white">L'Équipe dédiée</h3>
-                <Button variant="primary" size="sm" onClick={() => setIsCollabModalOpen(true)} className="gap-2 shadow-2xl px-8">
-                  <Plus size={18} /> Assigner un expert
-                </Button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="space-y-6">
+              <h3 className="text-2xl font-heading font-extrabold text-white">Équipe</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {collaborators.map(c => (
-                  <Card key={c.id} className="text-center p-10 border-white/5 hover:border-nexus-cyan/30 transition-all group relative overflow-hidden shadow-2xl">
-                    <div className="w-24 h-24 rounded-[32px] overflow-hidden mx-auto mb-6 border-2 border-white/10 group-hover:border-nexus-cyan/40 transition-all shadow-2xl bg-nexus-surface">
+                  <Card key={c.id} className="text-center p-8 border-white/5 hover:border-nexus-cyan/30 bg-white/[0.01]">
+                    <div className="w-20 h-20 rounded-[24px] overflow-hidden mx-auto mb-4 border-2 border-white/10 group-hover:border-nexus-cyan/40 transition-all shadow-2xl bg-nexus-surface">
                       <img src={c.profile?.avatar_url || `https://picsum.photos/seed/${c.profile_id}/200`} className="w-full h-full object-cover" alt="" />
                     </div>
-                    <p className="font-heading font-extrabold text-white truncate text-xl leading-none">{c.profile?.full_name}</p>
-                    <p className="text-[10px] text-nexus-cyan font-mono uppercase mt-2.5 tracking-[0.2em] font-black">{c.role || 'Expert Nexus'}</p>
-                    
-                    <button 
-                      onClick={async () => { 
-                        if(!confirm("Retirer ce collaborateur du projet ?")) return;
-                        await supabase.from('project_collaborators').delete().eq('id', c.id); 
-                        setCollaborators(collaborators.filter(col => col.id !== c.id)); 
-                      }} 
-                      className="mt-8 text-[9px] text-nexus-red hover:underline uppercase font-black tracking-widest opacity-0 group-hover:opacity-100 transition-all"
-                    >
-                      Désassigner
-                    </button>
+                    <p className="font-heading font-extrabold text-white truncate text-base">{c.profile?.full_name}</p>
+                    <p className="text-[9px] text-nexus-cyan font-mono uppercase mt-1.5 tracking-[0.2em] font-black">{c.role || 'Expert Nexus'}</p>
                   </Card>
                 ))}
                 {collaborators.length === 0 && (
-                   <div className="col-span-full py-24 text-center glass rounded-[48px] border-dashed border-white/10 opacity-30 italic">
-                     Aucune expertise assignée pour le moment.
+                   <div className="col-span-full py-16 text-center glass rounded-[32px] border-dashed border-white/10 opacity-30 italic text-sm">
+                     Aucun collaborateur assigné.
                    </div>
                 )}
               </div>
@@ -336,36 +309,89 @@ export const ProjectDetail: React.FC = () => {
         </motion.div>
       </AnimatePresence>
 
-      {/* Collaboration Modal */}
-      <Modal isOpen={isCollabModalOpen} onClose={() => setIsCollabModalOpen(false)} title="Assignation d'Expertise">
-        <form onSubmit={handleAddCollaborator} className="space-y-6">
+      {/* Edit Modal */}
+      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Modifier le Projet">
+        <form onSubmit={handleUpdateProject} className="space-y-5 max-h-[75vh] overflow-y-auto px-1 custom-scrollbar">
           <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Expert du Staff *</label>
-            <select 
-              required 
-              className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-nexus-purple transition-all appearance-none shadow-xl" 
-              value={newCollab.profile_id} 
-              onChange={e => setNewCollab({...newCollab, profile_id: e.target.value})}
-            >
-              <option value="" className="bg-nexus-surface">Parcourir l'annuaire...</option>
-              {allProfiles.map(p => <option key={p.id} value={p.id} className="bg-nexus-surface">{p.full_name}</option>)}
-            </select>
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Visuel de Couverture</label>
+            <div className="relative h-24 rounded-xl overflow-hidden bg-white/5 border border-dashed border-white/20 flex items-center justify-center group cursor-pointer">
+              {newCoverFile ? (
+                <img src={URL.createObjectURL(newCoverFile)} className="w-full h-full object-cover" />
+              ) : project.cover_url ? (
+                <img src={project.cover_url} className="w-full h-full object-cover" />
+              ) : (
+                <Camera className="text-white/20 group-hover:text-nexus-purple transition-all" />
+              )}
+              <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => setNewCoverFile(e.target.files?.[0] || null)} />
+            </div>
           </div>
+
           <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Définition du rôle sur {project.title}</label>
-            <input 
-              type="text" 
-              placeholder="ex: Lead Audio, Visual Director, PR Strategist..." 
-              value={newCollab.role} 
-              onChange={e => setNewCollab({...newCollab, role: e.target.value})} 
-              className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-sm text-white outline-none focus:border-nexus-purple transition-all shadow-2xl" 
-            />
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Titre du Projet *</label>
+            <input required type="text" value={editData.title} onChange={e => setEditData({...editData, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none focus:border-nexus-purple" />
           </div>
-          <div className="flex gap-4 pt-8">
-            <Button type="button" variant="ghost" className="flex-1 h-14" onClick={() => setIsCollabModalOpen(false)}>Annuler</Button>
-            <Button type="submit" variant="primary" className="flex-1 h-14 font-black uppercase tracking-widest text-xs" isLoading={isSubmitting}>Confirmer l'Assignation</Button>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Artiste Associé</label>
+              <select value={editData.artist_id} onChange={e => setEditData({...editData, artist_id: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white appearance-none outline-none">
+                {allArtists.map(a => <option key={a.id} value={a.id} className="bg-nexus-surface">{a.stage_name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Type de Sortie</label>
+              <select value={editData.type} onChange={e => setEditData({...editData, type: e.target.value as ProjectType})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white appearance-none outline-none">
+                <option value="single">Single</option><option value="ep">EP</option><option value="album">Album</option><option value="mixtape">Mixtape</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Date de Sortie</label>
+              <input type="date" value={editData.release_date} onChange={e => setEditData({...editData, release_date: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none [color-scheme:dark]" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Statut de Pipeline</label>
+              <select value={editData.status} onChange={e => setEditData({...editData, status: e.target.value as ProjectStatus})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white appearance-none outline-none">
+                {Object.entries(STATUS_LABELS).map(([val, label]) => <option key={val} value={val} className="bg-nexus-surface">{label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Budget Total (€)</label>
+              <input type="number" value={editData.budget} onChange={e => setEditData({...editData, budget: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Déjà Dépensé (€)</label>
+              <input type="number" value={editData.spent} onChange={e => setEditData({...editData, spent: Number(e.target.value)})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white outline-none" />
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsEditModalOpen(false)}>Annuler</Button>
+            <Button type="submit" variant="primary" className="flex-1" isLoading={isSubmitting}><Save size={18} className="mr-2" /> Enregistrer</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Confirmer la Suppression">
+        <div className="space-y-6 text-center py-4">
+          <div className="w-16 h-16 bg-nexus-red/10 text-nexus-red rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle size={32} />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xl font-bold text-white">Supprimer {project.title} ?</p>
+            <p className="text-sm text-white/40">Cette action est irréversible et supprimera tout l'historique de production associé.</p>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button variant="ghost" className="flex-1" onClick={() => setIsDeleteModalOpen(false)}>Annuler</Button>
+            <Button variant="danger" className="flex-1" onClick={handleDeleteProject} isLoading={isSubmitting}>Supprimer Définitivement</Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
