@@ -28,9 +28,18 @@ serve(async (req: Request) => {
 
     let { access_token, refresh_token, expires_at } = data as any;
 
+    // Normalize expires_at to seconds since epoch for checking
+    let expiresAtSeconds: number | null = null;
+    if (typeof expires_at === 'string') {
+      const parsed = Date.parse(expires_at);
+      if (!isNaN(parsed)) expiresAtSeconds = Math.floor(parsed / 1000);
+    } else if (typeof expires_at === 'number') {
+      expiresAtSeconds = expires_at;
+    }
+
     // refresh if expired (with small buffer)
     const now = Math.floor(Date.now() / 1000);
-    if (!access_token || (expires_at && expires_at - 60 < now)) {
+    if (!access_token || (expiresAtSeconds && expiresAtSeconds - 60 < now)) {
       const clientId = Deno.env.get('GOOGLE_CLIENT_ID') || '';
       const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET') || '';
       const params = new URLSearchParams({
@@ -48,8 +57,8 @@ serve(async (req: Request) => {
       const tokenJson = await tokenRes.json();
       if (!tokenJson.error) {
         access_token = tokenJson.access_token;
-        expires_at = Math.floor(Date.now() / 1000) + (tokenJson.expires_in || 3600);
-        await supabase.from('google_tokens').update({ access_token, expires_at, updated_at: new Date().toISOString() }).eq('user_id', userId);
+        const newExpiresIso = new Date(Date.now() + (tokenJson.expires_in || 3600) * 1000).toISOString();
+        await supabase.from('google_tokens').update({ access_token, expires_at: newExpiresIso, updated_at: new Date().toISOString() }).eq('user_id', userId);
       }
     }
 

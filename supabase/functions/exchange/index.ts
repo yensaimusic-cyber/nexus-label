@@ -62,7 +62,7 @@ serve(async (req: Request) => {
     }
 
     const { access_token, refresh_token, expires_in } = tokenJson;
-    const expiresAt = Math.floor(Date.now() / 1000) + (expires_in || 3600);
+    const expiresAtIso = new Date(Date.now() + (expires_in || 3600) * 1000).toISOString();
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
@@ -77,7 +77,7 @@ serve(async (req: Request) => {
       user_id,
       access_token,
       refresh_token,
-      expires_at: expiresAt,
+      expires_at: expiresAtIso,
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' });
     if (upsertError) {
