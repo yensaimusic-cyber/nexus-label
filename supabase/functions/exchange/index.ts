@@ -73,13 +73,18 @@ serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('[exchange] upserting google_tokens for user', user_id);
-    await supabase.from('google_tokens').upsert({
+    const { data: upsertData, error: upsertError } = await supabase.from('google_tokens').upsert({
       user_id,
       access_token,
       refresh_token,
       expires_at: expiresAt,
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' });
+    if (upsertError) {
+      console.error('[exchange] upsert google_tokens error', upsertError, { upsertData });
+    } else {
+      console.log('[exchange] upsert google_tokens success', { user_id });
+    }
 
     // If this was a browser GET from Google OAuth redirect, forward user to app
     // Always redirect to the canonical Netlify app calendar URL after OAuth exchange
