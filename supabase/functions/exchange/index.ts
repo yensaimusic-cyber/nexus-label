@@ -1,8 +1,19 @@
 import { serve } from 'https://deno.land/std@0.201.0/http/server.ts';
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
+const ALLOWED_ORIGIN = 'https://heartfelt-madeleine-35cf1b.netlify.app';
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+};
+
 serve(async (req: Request) => {
   try {
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
     let code = '';
     let user_id = '';
 
@@ -16,14 +27,14 @@ serve(async (req: Request) => {
       user_id = body.state || body.user_id;
     }
 
-    if (!code || !user_id) return new Response(JSON.stringify({ error: 'missing_params' }), { status: 400 });
+    if (!code || !user_id) return new Response(JSON.stringify({ error: 'missing_params' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
 
     const clientId = Deno.env.get('GOOGLE_CLIENT_ID') || '';
     const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET') || '';
     const redirectUri = Deno.env.get('GOOGLE_OAUTH_REDIRECT_URI') || Deno.env.get('REDIRECT_URI') || '';
 
     if (!clientId || !clientSecret || !redirectUri) {
-      return new Response(JSON.stringify({ error: 'Missing Google OAuth config' }), { status: 500 });
+      return new Response(JSON.stringify({ error: 'Missing Google OAuth config' }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
     }
 
     const params = new URLSearchParams({
@@ -42,7 +53,7 @@ serve(async (req: Request) => {
 
     const tokenJson = await tokenRes.json();
     if (tokenJson.error) {
-      return new Response(JSON.stringify({ error: 'token_error', details: tokenJson }), { status: 400 });
+      return new Response(JSON.stringify({ error: 'token_error', details: tokenJson }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
     }
 
     const { access_token, refresh_token, expires_in } = tokenJson;
@@ -51,7 +62,7 @@ serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     if (!supabaseUrl || !supabaseKey) {
-      return new Response(JSON.stringify({ error: 'missing_supabase_config' }), { status: 500 });
+      return new Response(JSON.stringify({ error: 'missing_supabase_config' }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -68,12 +79,12 @@ serve(async (req: Request) => {
     const netlifyApp = Deno.env.get('NETLIFY_APP_URL') || 'https://heartfelt-madeleine-35cf1b.netlify.app';
     if (req.method === 'GET') {
       const redirectTo = `${netlifyApp}/calendar?connected=1`;
-      return new Response(null, { status: 302, headers: { Location: redirectTo } });
+      return new Response(null, { status: 302, headers: { Location: redirectTo, ...CORS_HEADERS } });
     }
 
-    return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500 });
+    return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
   }
 });

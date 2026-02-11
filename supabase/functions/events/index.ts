@@ -1,19 +1,30 @@
 import { serve } from 'https://deno.land/std@0.201.0/http/server.ts';
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
+const ALLOWED_ORIGIN = 'https://heartfelt-madeleine-35cf1b.netlify.app';
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+};
+
 serve(async (req: Request) => {
   try {
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
     const url = new URL(req.url);
     const userId = url.searchParams.get('user_id') || '';
-    if (!userId) return new Response(JSON.stringify({ error: 'missing_user_id' }), { status: 400 });
+    if (!userId) return new Response(JSON.stringify({ error: 'missing_user_id' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    if (!supabaseUrl || !supabaseKey) return new Response(JSON.stringify({ error: 'missing_supabase_config' }), { status: 500 });
+    if (!supabaseUrl || !supabaseKey) return new Response(JSON.stringify({ error: 'missing_supabase_config' }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data, error } = await supabase.from('google_tokens').select('*').eq('user_id', userId).single();
-    if (error || !data) return new Response(JSON.stringify({ error: 'no_tokens' }), { status: 404 });
+    if (error || !data) return new Response(JSON.stringify({ error: 'no_tokens' }), { status: 404, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
 
     let { access_token, refresh_token, expires_at } = data as any;
 
@@ -53,9 +64,9 @@ serve(async (req: Request) => {
     });
     const eventsJson = await eventsRes.json();
 
-    return new Response(JSON.stringify({ events: eventsJson.items || [] }), { headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ events: eventsJson.items || [] }), { headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500 });
+    return new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
   }
 });
