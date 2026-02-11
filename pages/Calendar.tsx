@@ -44,10 +44,33 @@ export const Calendar: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Handle OAuth callback (code & state)
+    // Handle OAuth callback (code & state) and the redirect marker ?connected=1
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const state = params.get('state');
+    const connected = params.get('connected');
+
+    // If Netlify redirect included connected=1, show toast and refresh events
+    if (connected === '1') {
+      (async () => {
+        try {
+          toast.addToast('Google Calendar connecté !', 'success');
+          setGoogleLoading(true);
+          await fetchEvents();
+        } catch (err) {
+          console.error('Failed to load Google events after connect', err);
+        } finally {
+          setGoogleLoading(false);
+          // remove the connected param from the URL
+          const url = new URL(window.location.href);
+          url.searchParams.delete('connected');
+          window.history.replaceState({}, document.title, url.toString());
+        }
+      })();
+      return;
+    }
+
+    // Handle normal OAuth code exchange
     if (code && state) {
       (async () => {
         try {
