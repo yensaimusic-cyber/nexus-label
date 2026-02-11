@@ -1,9 +1,11 @@
-import { serve } from 'std/server';
+import { serve } from 'https://deno.land/std@0.201.0/http/server.ts';
 
 serve(async (req) => {
+  const ALLOWED_ORIGIN = 'https://heartfelt-madeleine-35cf1b.netlify.app';
   const CORS_HEADERS = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
   };
 
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });

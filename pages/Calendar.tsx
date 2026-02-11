@@ -38,7 +38,7 @@ export const Calendar: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<LabelEvent | null>(null);
   const [editForm, setEditForm] = useState<{ title: string; date: string; time?: string; description?: string; color?: string }>({ title: '', date: '', time: '', description: '', color: 'blue' });
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createForm, setCreateForm] = useState<{ title: string; date: string; time?: string; summary?: string; syncToGoogle?: boolean; color?: string }>({ title: '', date: new Date().toISOString().split('T')[0], time: '', summary: '', syncToGoogle: true, color: 'blue' });
+  const [createForm, setCreateForm] = useState<{ title: string; date: string; time?: string; summary?: string; syncToGoogle?: boolean }>({ title: '', date: new Date().toISOString().split('T')[0], time: '', summary: '', syncToGoogle: true });
   const [activeFilter, setActiveFilter] = useState<EventType | 'all'>('all');
   const toast = useToast();
 
@@ -377,7 +377,7 @@ export const Calendar: React.FC = () => {
   };
 
   const openCreateModalForDate = (dateString: string) => {
-    setCreateForm({ title: '', date: dateString, time: '', summary: '', syncToGoogle: true, color: 'blue' });
+    setCreateForm({ title: '', date: dateString, time: '', summary: '', syncToGoogle: true });
     setIsCreateModalOpen(true);
   };
 
@@ -392,7 +392,6 @@ export const Calendar: React.FC = () => {
         action_items: [],
         project_id: null
       };
-      if (createForm.color) meetingPayload.color = createForm.color;
       const { data: inserted, error } = await supabase.from('meetings').insert([meetingPayload]).select().single();
       if (error) throw error;
       if (createForm.syncToGoogle && inserted) {
@@ -694,21 +693,9 @@ export const Calendar: React.FC = () => {
             <label className="text-[10px] font-mono uppercase text-white/60">Description</label>
             <textarea value={createForm.summary} onChange={e => setCreateForm(f => ({ ...f, summary: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" rows={4} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-3">
-              <input id="syncGoogleCreate" type="checkbox" checked={createForm.syncToGoogle} onChange={e => setCreateForm(f => ({ ...f, syncToGoogle: e.target.checked }))} className="w-4 h-4" />
-              <label htmlFor="syncGoogleCreate" className="text-[12px] text-white/70">Synchroniser avec Google Calendar</label>
-            </div>
-            <div>
-              <label className="text-[10px] font-mono uppercase text-white/60 mb-2 block">Couleur</label>
-              <div className="flex items-center gap-2">
-                {colorOptions.map(c => (
-                  <button key={c.key} type="button" onClick={() => setCreateForm(f => ({ ...f, color: c.key }))} className={`w-10 h-8 rounded-lg flex items-center justify-center border ${createForm.color === c.key ? 'ring-2 ring-white' : 'border-white/10'}`}>
-                    <span className={`${c.uiClass} w-8 h-6 rounded-md`} />
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="flex items-center gap-3">
+            <input id="syncGoogleCreate" type="checkbox" checked={createForm.syncToGoogle} onChange={e => setCreateForm(f => ({ ...f, syncToGoogle: e.target.checked }))} className="w-4 h-4" />
+            <label htmlFor="syncGoogleCreate" className="text-[12px] text-white/70">Synchroniser avec Google Calendar</label>
           </div>
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsCreateModalOpen(false)}>Annuler</Button>
