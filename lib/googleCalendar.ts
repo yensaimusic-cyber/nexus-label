@@ -68,8 +68,17 @@ const callFunction = async (name: string, opts: { method?: string; body?: any; q
 };
 
 export const googleCalendarService = {
-  getAuthUrl: async (userId: string) => {
-    const { ok, json } = await callFunction('oauth_url', { qs: { user_id: userId } });
+  getAuthUrl: async (userId?: string) => {
+    // ensure we have a user id (fallback to session)
+    let uid = userId;
+    if (!uid) {
+      const { data: { session } } = await supabase.auth.getSession();
+      uid = session?.user?.id;
+    }
+    if (!uid) throw new Error('Missing user id for Google OAuth state');
+
+    console.debug('[googleCalendar] getAuthUrl sending user_id in state', { user_id: uid });
+    const { ok, json } = await callFunction('oauth_url', { qs: { user_id: uid } });
     if (!ok) throw new Error(json?.error || 'Failed to get auth url');
     return json.url as string;
   },
