@@ -11,6 +11,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
+import { googleCalendarService } from '../lib/googleCalendar';
 
 type EventType = 'release' | 'session' | 'promo' | 'meeting' | 'task';
 
@@ -28,12 +29,41 @@ export const Calendar: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<LabelEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleEvents, setGoogleEvents] = useState<any[]>([]);
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<LabelEvent | null>(null);
   const [activeFilter, setActiveFilter] = useState<EventType | 'all'>('all');
 
   useEffect(() => {
     fetchEvents();
+  }, []);
+
+  useEffect(() => {
+    // Handle OAuth callback (code & state)
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    if (code && state) {
+      (async () => {
+        try {
+          setGoogleLoading(true);
+          await googleCalendarService.exchangeCode(code, state);
+          // remove code from url
+          const url = new URL(window.location.href);
+          url.search = '';
+          window.history.replaceState({}, document.title, url.toString());
+          // refresh events
+          await fetchEvents();
+        } catch (err) {
+          console.error('OAuth exchange failed', err);
+        } finally {
+          setGoogleLoading(false);
+        }
+      })();
+    }
   }, []);
 
   const fetchEvents = async () => {
@@ -73,10 +103,83 @@ export const Calendar: React.FC = () => {
       }));
 
       setEvents([...taskEvents, ...meetingEvents, ...releaseEvents]);
+      // try fetching Google events for the logged user
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id;
+        if (userId) {
+          setGoogleLoading(true);
+          const gEvents = await googleCalendarService.fetchEvents(userId).catch((e) => { throw e; });
+          setGoogleEvents(gEvents || []);
+          setGoogleConnected(true);
+          // map google events into LabelEvent shape
+          const mappedG = (gEvents || []).map((ge: any) => ({
+            id: `gcal_${ge.id}`,
+            title: ge.summary || 'Google Event',
+            type: 'meeting' as EventType,
+            artist: ge.organizer?.displayName || 'Google Calendar',
+            date: (ge.start?.date || ge.start?.dateTime || '').split('T')[0],
+            metadata: { google: true, raw: ge }
+          }));
+          setEvents(prev => [...prev, ...mappedG]);
+        }
+      } catch (gErr) {
+        console.warn('No Google connection or failed to fetch Google events', gErr);
+        setGoogleConnected(false);
+      } finally {
+        setGoogleLoading(false);
+      }
     } catch (err) {
       console.error("Calendar sync error:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConnectGoogle = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) return alert('Please sign in first.');
+      setGoogleLoading(true);
+      const url = await googleCalendarService.getAuthUrl(userId);
+      // redirect to Google OAuth
+      window.location.href = url;
+    } catch (err) {
+      console.error('Failed to get Google auth url', err);
+      alert('Impossible de démarrer la connexion Google Calendar.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleSyncMeetings = async () => {
+    try {
+      setSyncing(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) return alert('Veuillez vous connecter.');
+
+      // fetch local meetings not yet synced
+      const { data: meetings } = await supabase.from('meetings').select('*').is('google_event_id', null).gte('date', new Date().toISOString().split('T')[0]);
+      if (!meetings || meetings.length === 0) return alert('Aucun meeting à synchroniser.');
+
+      for (const m of meetings) {
+        try {
+          await googleCalendarService.createEvent(userId, m);
+        } catch (err) {
+          console.error('Failed to create event for meeting', m.id, err);
+        }
+      }
+
+      // refresh events after sync
+      await fetchEvents();
+      alert('Synchronisation terminée.');
+    } catch (err) {
+      console.error(err);
+      alert('Erreur pendant la synchronisation.');
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -121,6 +224,21 @@ export const Calendar: React.FC = () => {
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             <span className="font-bold uppercase tracking-widest">Actualiser</span>
           </Button>
+
+          {!googleConnected ? (
+            <Button variant="secondary" onClick={handleConnectGoogle} className="gap-2 text-[10px] lg:text-xs">
+              {googleLoading ? <Loader2 size={16} className="animate-spin" /> : <CalendarIcon size={16} />}
+              <span className="font-bold uppercase tracking-widest">Connecter Google Calendar</span>
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={handleSyncMeetings} className="gap-2 border-white/10 hover:bg-nexus-purple/10 text-[10px] lg:text-xs">
+                <ListChecks size={16} className={syncing ? 'animate-spin' : ''} />
+                <span className="font-bold uppercase tracking-widest">Synchroniser meetings</span>
+              </Button>
+              <span className="px-2 py-1 text-[11px] rounded bg-green-600/20 text-green-300 font-bold">Google connecté</span>
+            </div>
+          )}
         </div>
       </header>
 
