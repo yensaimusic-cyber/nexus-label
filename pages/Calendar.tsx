@@ -163,6 +163,14 @@ export const Calendar: React.FC = () => {
     }
   };
 
+  // auto-refresh every 5 minutes
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetchEvents();
+    }, 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const handleConnectGoogle = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -258,20 +266,45 @@ export const Calendar: React.FC = () => {
             <span className="font-bold uppercase tracking-widest">Actualiser</span>
           </Button>
 
-          {!googleConnected ? (
-            <Button variant="secondary" onClick={handleConnectGoogle} className="gap-2 text-[10px] lg:text-xs">
-              {googleLoading ? <Loader2 size={16} className="animate-spin" /> : <CalendarIcon size={16} />}
-              <span className="font-bold uppercase tracking-widest">Connecter Google Calendar</span>
-            </Button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handleSyncMeetings} className="gap-2 border-white/10 hover:bg-nexus-purple/10 text-[10px] lg:text-xs">
-                <ListChecks size={16} className={syncing ? 'animate-spin' : ''} />
-                <span className="font-bold uppercase tracking-widest">Synchroniser meetings</span>
-              </Button>
-              <span className="px-2 py-1 text-[11px] rounded bg-green-600/20 text-green-300 font-bold">Google connecté</span>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {!googleConnected ? (
+              <>
+                <Button variant="secondary" onClick={handleConnectGoogle} className="gap-2 text-[10px] lg:text-xs">
+                  {googleLoading ? <Loader2 size={16} className="animate-spin" /> : <CalendarIcon size={16} />}
+                  <span className="font-bold uppercase tracking-widest">Connecter Google Calendar</span>
+                </Button>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-red-500" />
+                  <span className="text-[11px] text-white/50">Non connecté</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-3">
+                <Button variant="outline" onClick={handleSyncMeetings} className="gap-2 border-white/10 hover:bg-nexus-purple/10 text-[10px] lg:text-xs">
+                  <ListChecks size={16} className={syncing ? 'animate-spin' : ''} />
+                  <span className="font-bold uppercase tracking-widest">Synchroniser meetings</span>
+                </Button>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-green-500" />
+                  <span className="text-[11px] text-green-300 font-bold">Google connecté</span>
+                </div>
+                <Button variant="ghost" onClick={async () => {
+                  try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const userId = session?.user?.id;
+                    if (!userId) return;
+                    await googleCalendarService.disconnect(userId);
+                    setGoogleConnected(false);
+                    setGoogleEvents([]);
+                    toast.addToast('Google Calendar déconnecté.', 'info');
+                  } catch (err) {
+                    console.error('Disconnect failed', err);
+                    toast.addToast('Échec de la déconnexion.', 'error');
+                  }
+                }} className="text-[10px]">Déconnecter</Button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -340,16 +373,21 @@ export const Calendar: React.FC = () => {
                     </div>
                     
                     <div className="space-y-1 overflow-hidden">
-                      {dayEvents.slice(0, 3).map((event) => (
+                      {dayEvents.slice(0, 3).map((event) => {
+                        const isGoogle = event.metadata?.google;
+                        const gradient = isGoogle ? 'from-blue-600 to-blue-400' : eventTypeConfig[event.type].gradient;
+                        return (
                         <motion.div 
                           key={event.id}
                           onClick={() => handleEventClick(event)}
                           whileHover={{ scale: 1.02, x: 2 }}
-                          className={`px-2 py-1 rounded-md lg:rounded-lg text-[8px] lg:text-[9px] font-bold tracking-tight flex items-center gap-1.5 truncate border border-white/5 shadow-lg cursor-pointer bg-gradient-to-r ${eventTypeConfig[event.type].gradient} text-white`}
+                          className={`px-2 py-1 rounded-md lg:rounded-lg text-[8px] lg:text-[9px] font-bold tracking-tight flex items-center gap-1.5 truncate border border-white/5 shadow-lg cursor-pointer bg-gradient-to-r ${gradient} text-white`}
                         >
                           <span className="truncate">{event.title}</span>
+                          {isGoogle && <span className="ml-2 text-[9px] font-black bg-white/10 px-1 rounded-full">G</span>}
                         </motion.div>
-                      ))}
+                        );
+                      })}
                       {dayEvents.length > 3 && (
                         <p className="text-[8px] font-black text-white/20 text-center uppercase tracking-widest mt-1">
                           + {dayEvents.length - 3}
@@ -384,9 +422,9 @@ export const Calendar: React.FC = () => {
                     onClick={() => handleEventClick(event)}
                     className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-nexus-purple/40 transition-all group cursor-pointer relative overflow-hidden"
                   >
-                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${eventTypeConfig[event.type].color}`} />
+                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${event.metadata?.google ? 'bg-blue-500' : eventTypeConfig[event.type].color}`} />
                     <div className="flex justify-between items-start mb-2">
-                      <span className={`px-2 py-0.5 rounded text-[7px] lg:text-[8px] font-black uppercase tracking-widest ${eventTypeConfig[event.type].color} text-white`}>
+                      <span className={`px-2 py-0.5 rounded text-[7px] lg:text-[8px] font-black uppercase tracking-widest ${event.metadata?.google ? 'bg-blue-500 text-white' : eventTypeConfig[event.type].color} text-white`}>
                         {eventTypeConfig[event.type].label}
                       </span>
                       <span className="text-[9px] font-mono text-white/30 font-bold">

@@ -20,7 +20,7 @@ export const Meetings: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [syncToGoogle, setSyncToGoogle] = useState(false);
+  const [syncToGoogle, setSyncToGoogle] = useState(true);
   const toast = useToast();
   const [formData, setFormData] = useState<Partial<Meeting>>({
     title: '',
@@ -121,7 +121,7 @@ export const Meetings: React.FC = () => {
           <h2 className="text-3xl lg:text-4xl font-heading font-extrabold text-white tracking-tight">Meeting Logs</h2>
           <p className="text-nexus-lightGray text-sm mt-1">Archive of strategic decisions and executive summaries.</p>
         </div>
-        <Button variant="primary" className="gap-2 shadow-xl" onClick={() => { setEditingId(null); setFormData({ title: '', date: new Date().toISOString().split('T')[0], summary: '', attendees: [], action_items: [], project_id: '' }); setSyncToGoogle(false); setIsModalOpen(true); }}>
+        <Button variant="primary" className="gap-2 shadow-xl" onClick={() => { setEditingId(null); setFormData({ title: '', date: new Date().toISOString().split('T')[0], summary: '', attendees: [], action_items: [], project_id: '' }); setSyncToGoogle(true); setIsModalOpen(true); }}>
           <Plus size={20} />
           <span>New Session</span>
         </Button>

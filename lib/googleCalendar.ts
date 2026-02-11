@@ -36,9 +36,13 @@ const callFunction = async (name: string, opts: { method?: string; body?: any; q
       'Content-Type': 'application/json',
       'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwaHRqdnVhY3puZm1vb29temhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NjU0NDYsImV4cCI6MjA4NjI0MTQ0Nn0.chsRiPNzXZ6tK02ZgF_s5ONCQk5sEwf-A8c4ci-z9IY'
     };
-    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    } else {
+      console.warn('[googleCalendar] no access token in session; calling functions with anon key only');
+    }
 
-    console.debug('[googleCalendar] fetch', fullUrl, opts.method || 'GET');
+    console.debug('[googleCalendar] fetch', fullUrl, opts.method || 'GET', { headers: Object.assign({}, headers, { Authorization: headers['Authorization'] ? 'REDACTED' : undefined }) });
     const res = await fetch(fullUrl, {
       method: opts.method || 'GET',
       mode: 'cors',
@@ -46,7 +50,16 @@ const callFunction = async (name: string, opts: { method?: string; body?: any; q
       body: opts.body ? JSON.stringify(opts.body) : undefined
     });
 
-    const json = await res.json().catch(() => ({}));
+    let text = '';
+    try {
+      text = await res.text();
+    } catch (e) {
+      console.error('[googleCalendar] failed to read response text', e);
+    }
+    let json: any = {};
+    try { json = text ? JSON.parse(text) : {}; } catch (e) { json = { raw: text }; }
+
+    console.debug('[googleCalendar] response', { status: res.status, ok: res.ok, body: json });
     return { ok: res.ok, status: res.status, json };
   } catch (err: any) {
     console.error('[googleCalendar] callFunction error', err);
@@ -80,5 +93,11 @@ export const googleCalendarService = {
     const { ok, json } = await callFunction('create_event', { method: 'POST', body: { user_id: userId, meeting } });
     if (!ok) throw new Error(json?.error || 'Failed to create event');
     return json.event;
+  }
+  ,
+  disconnect: async (userId: string) => {
+    const { ok, json } = await callFunction('disconnect', { method: 'POST', body: { user_id: userId } });
+    if (!ok) throw new Error(json?.error || 'Failed to disconnect Google Calendar');
+    return json;
   }
 };
