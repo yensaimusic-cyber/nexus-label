@@ -57,13 +57,15 @@ serve(async (req: Request) => {
     // Build Google event from meeting
     const startDate = new Date(meeting.date);
     const endDate = new Date(startDate.getTime() + (60 * 60 * 1000));
-    const eventBody = {
+    const colorMap: Record<string, number> = { red: 11, orange: 6, yellow: 5, green: 10, blue: 9, violet: 1, pink: 3, white: 8 };
+    const eventBody: any = {
       summary: meeting.title,
       description: meeting.summary || '',
       start: { dateTime: startDate.toISOString() },
       end: { dateTime: endDate.toISOString() },
       attendees: (meeting.attendees || []).map((email: string) => ({ email }))
     };
+    if (meeting.color && colorMap[meeting.color]) eventBody.colorId = String(colorMap[meeting.color]);
 
     const createRes = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
       method: 'POST',
@@ -74,8 +76,10 @@ serve(async (req: Request) => {
     const created = await createRes.json();
     if (created.error) return new Response(JSON.stringify({ error: 'create_failed', details: created }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
 
-    // update meeting row with google_event_id and synced_at
-    await supabase.from('meetings').update({ google_event_id: created.id, synced_at: new Date().toISOString() }).eq('id', meeting.id);
+    // update meeting row with google_event_id, synced_at and color if provided
+    const updatePayload: any = { google_event_id: created.id, synced_at: new Date().toISOString() };
+    if (meeting.color) updatePayload.color = meeting.color;
+    await supabase.from('meetings').update(updatePayload).eq('id', meeting.id);
 
     return new Response(JSON.stringify({ event: created }), { headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
   } catch (err) {

@@ -36,8 +36,9 @@ export const Calendar: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<LabelEvent | null>(null);
+  const [editForm, setEditForm] = useState<{ title: string; date: string; time?: string; description?: string; color?: string }>({ title: '', date: '', time: '', description: '', color: 'blue' });
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createForm, setCreateForm] = useState<{ title: string; date: string; time?: string; summary?: string; syncToGoogle?: boolean }>({ title: '', date: new Date().toISOString().split('T')[0], time: '', summary: '', syncToGoogle: true });
+  const [createForm, setCreateForm] = useState<{ title: string; date: string; time?: string; summary?: string; syncToGoogle?: boolean; color?: string }>({ title: '', date: new Date().toISOString().split('T')[0], time: '', summary: '', syncToGoogle: true, color: 'blue' });
   const [activeFilter, setActiveFilter] = useState<EventType | 'all'>('all');
   const toast = useToast();
 
@@ -119,7 +120,7 @@ export const Calendar: React.FC = () => {
         type: 'meeting' as EventType,
         artist: 'Board / Team',
         date: m.date,
-        metadata: { summary: m.summary, attendees: m.attendees, action_items: m.action_items, project: m.project?.title }
+        metadata: { summary: m.summary, attendees: m.attendees, action_items: m.action_items, project: m.project?.title, google_event_id: m.google_event_id, color: m.color }
       }));
 
       const releaseEvents = (projectsRes.data || []).filter(p => p.release_date).map(p => ({
@@ -148,7 +149,7 @@ export const Calendar: React.FC = () => {
             type: 'meeting' as EventType,
             artist: ge.organizer?.displayName || 'Google Calendar',
             date: (ge.start?.date || ge.start?.dateTime || '').split('T')[0],
-            metadata: { google: true, raw: ge }
+            metadata: { google: true, raw: ge, colorId: ge.colorId }
           }));
           setEvents(prev => [...prev, ...mappedG]);
         }
@@ -248,11 +249,135 @@ export const Calendar: React.FC = () => {
 
   const handleEventClick = (event: LabelEvent) => {
     setSelectedEvent(event);
+    // prefill edit form
+    setEditForm({
+      title: event.title,
+      date: event.date,
+      time: event.time || '',
+      description: event.metadata?.summary || event.metadata?.description || '',
+      color: event.metadata?.color || (event.metadata?.colorId ? String(event.metadata.colorId) : 'blue')
+    });
     setIsDetailModalOpen(true);
   };
 
+  const colorOptions: { key: string; label: string; uiClass: string; googleColorId?: number }[] = [
+    { key: 'red', label: 'Rouge', uiClass: 'bg-red-500', googleColorId: 11 },
+    { key: 'orange', label: 'Orange', uiClass: 'bg-orange-400', googleColorId: 6 },
+    { key: 'yellow', label: 'Jaune', uiClass: 'bg-yellow-300', googleColorId: 5 },
+    { key: 'green', label: 'Vert', uiClass: 'bg-green-500', googleColorId: 10 },
+    { key: 'blue', label: 'Bleu', uiClass: 'bg-blue-500', googleColorId: 9 },
+    { key: 'violet', label: 'Violet', uiClass: 'bg-purple-500', googleColorId: 1 },
+    { key: 'pink', label: 'Rose', uiClass: 'bg-pink-400', googleColorId: 3 },
+    { key: 'white', label: 'Blanc', uiClass: 'bg-white', googleColorId: 8 },
+  ];
+
+  const handleEventUpdate = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!selectedEvent) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
+      // If this is a Google-only event (id starts with gcal_), call update_event directly
+      if (selectedEvent.id.startsWith('gcal_')) {
+        const geId = selectedEvent.metadata?.raw?.id;
+        if (!geId || !userId) throw new Error('Impossible de mettre à jour l\'événement Google');
+        const updatesForGoogle: any = {
+          summary: editForm.title,
+          description: editForm.description,
+          start: { dateTime: editForm.date + (editForm.time ? 'T' + editForm.time + ':00' : 'T00:00:00'), timeZone: 'UTC' },
+          end: { dateTime: editForm.date + (editForm.time ? 'T' + editForm.time + ':00' : 'T01:00:00'), timeZone: 'UTC' },
+          colorId: colorOptions.find(c => String(c.key) === String(editForm.color))?.googleColorId
+        };
+        await googleCalendarService.updateEvent(userId, geId, updatesForGoogle);
+        toast.addToast('Événement Google mis à jour.', 'success');
+        setIsDetailModalOpen(false);
+        await fetchEvents();
+        return;
+      }
+
+      // Local meeting update
+      const meetingId = selectedEvent.id;
+      const updates: any = {
+        title: editForm.title,
+        date: editForm.date,
+        summary: editForm.description,
+        color: editForm.color,
+      };
+      await supabase.from('meetings').update(updates).eq('id', meetingId);
+
+      // fetch meeting to see if it has google_event_id
+      const { data: meetingRow } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
+      if (meetingRow?.google_event_id && userId) {
+        const updatesForGoogle: any = {
+          summary: editForm.title,
+          description: editForm.description,
+          start: { dateTime: editForm.date + (editForm.time ? 'T' + editForm.time + ':00' : 'T00:00:00'), timeZone: 'UTC' },
+          end: { dateTime: editForm.date + (editForm.time ? 'T' + editForm.time + ':00' : 'T01:00:00'), timeZone: 'UTC' },
+          colorId: colorOptions.find(c => c.key === editForm.color)?.googleColorId,
+          id: meetingId,
+          color: editForm.color
+        };
+        try {
+          await googleCalendarService.updateEvent(userId, meetingRow.google_event_id, updatesForGoogle);
+        } catch (gErr) {
+          console.error('Failed to update google event', gErr);
+          toast.addToast('Échec de la mise à jour Google, modifications locales enregistrées.', 'error');
+        }
+      }
+
+      toast.addToast('Événement mis à jour.', 'success');
+      setIsDetailModalOpen(false);
+      await fetchEvents();
+    } catch (err) {
+      console.error(err);
+      toast.addToast('Échec de la mise à jour.', 'error');
+    }
+  };
+
+  const handleEventDelete = async () => {
+    if (!selectedEvent) return;
+    const ok = window.confirm('Confirmer la suppression de cet événement ?');
+    if (!ok) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+
+      if (selectedEvent.id.startsWith('gcal_')) {
+        const geId = selectedEvent.metadata?.raw?.id;
+        if (!geId || !userId) throw new Error('Impossible de supprimer l\'événement Google');
+        await googleCalendarService.deleteEvent(userId, geId);
+        toast.addToast('Événement Google supprimé.', 'success');
+        setIsDetailModalOpen(false);
+        await fetchEvents();
+        return;
+      }
+
+      // local meeting
+      const meetingId = selectedEvent.id;
+      // check google_event_id
+      const { data: meetingRow } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
+      if (meetingRow?.google_event_id && userId) {
+        try {
+          await googleCalendarService.deleteEvent(userId, meetingRow.google_event_id);
+        } catch (gErr) {
+          console.error('Failed to delete google event', gErr);
+          toast.addToast('Suppression Google échouée, suppression locale tentée.', 'error');
+        }
+      }
+
+      await supabase.from('meetings').delete().eq('id', meetingId);
+      toast.addToast('Événement supprimé localement.', 'success');
+      setIsDetailModalOpen(false);
+      await fetchEvents();
+    } catch (err) {
+      console.error(err);
+      toast.addToast('Échec de la suppression.', 'error');
+    }
+  };
+
   const openCreateModalForDate = (dateString: string) => {
-    setCreateForm({ title: '', date: dateString, time: '', summary: '', syncToGoogle: true });
+    setCreateForm({ title: '', date: dateString, time: '', summary: '', syncToGoogle: true, color: 'blue' });
     setIsCreateModalOpen(true);
   };
 
@@ -267,6 +392,7 @@ export const Calendar: React.FC = () => {
         action_items: [],
         project_id: null
       };
+      if (createForm.color) meetingPayload.color = createForm.color;
       const { data: inserted, error } = await supabase.from('meetings').insert([meetingPayload]).select().single();
       if (error) throw error;
       if (createForm.syncToGoogle && inserted) {
@@ -342,7 +468,7 @@ export const Calendar: React.FC = () => {
                     toast.addToast('Échec de la déconnexion.', 'error');
                   }
                 }} className="text-[10px]">Déconnecter</Button>
-                <Button variant="outline" onClick={fetchEvents} className="ml-2 text-[10px]">Actualiser</Button>
+                
               </div>
             )}
           </div>
@@ -487,9 +613,9 @@ export const Calendar: React.FC = () => {
         </div>
       </div>
 
-      <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title="Détails de l'événement">
+      <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title={selectedEvent ? 'Modifier l\'événement' : 'Événement'}>
         {selectedEvent && (
-          <div className="space-y-6">
+          <form onSubmit={handleEventUpdate} className="space-y-6">
             <div className="flex items-start gap-4">
                <div className={`p-4 rounded-2xl ${eventTypeConfig[selectedEvent.type].color} text-white shadow-lg shrink-0`}>
                  {eventTypeConfig[selectedEvent.type].icon}
@@ -501,7 +627,7 @@ export const Calendar: React.FC = () => {
                     </span>
                     <span className="text-[10px] font-mono font-bold text-white/40">{selectedEvent.date}</span>
                   </div>
-                  <h3 className="text-xl lg:text-2xl font-heading font-extrabold text-white leading-tight">{selectedEvent.title}</h3>
+                  <input required value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-xl font-bold" />
                   <div className="flex items-center gap-2 text-nexus-cyan font-bold uppercase text-[9px] mt-1">
                     <Users size={12} />
                     {selectedEvent.artist}
@@ -510,56 +636,41 @@ export const Calendar: React.FC = () => {
             </div>
 
             <div className="glass p-5 rounded-2xl border-white/10">
-              {selectedEvent.type === 'meeting' && (
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-[9px] font-mono font-black uppercase text-nexus-purple mb-2">Résumé</h4>
-                    <p className="text-xs text-white/70 italic">{selectedEvent.metadata.summary || "Aucun compte-rendu."}</p>
-                  </div>
-                  {selectedEvent.metadata.action_items?.length > 0 && (
-                    <div>
-                      <h4 className="text-[9px] font-mono font-black uppercase text-nexus-green mb-2">Actions</h4>
-                      <ul className="space-y-1.5">
-                        {selectedEvent.metadata.action_items.map((item: string, idx: number) => (
-                          <li key={idx} className="flex items-start gap-2 text-[11px] text-white/80">
-                            <span className="text-nexus-green">•</span> {item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-white/60">Date</label>
+                  <input type="date" value={editForm.date} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
                 </div>
-              )}
+                <div>
+                  <label className="text-[10px] font-mono uppercase text-white/60">Heure</label>
+                  <input type="time" value={editForm.time} onChange={e => setEditForm(f => ({ ...f, time: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
+                </div>
+              </div>
 
-              {selectedEvent.type === 'task' && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-[8px] font-mono uppercase text-white/30">Priorité</p>
-                      <p className="text-xs font-bold text-nexus-red uppercase">{selectedEvent.metadata.priority}</p>
-                    </div>
-                    <div>
-                      <p className="text-[8px] font-mono uppercase text-white/30">Statut</p>
-                      <p className="text-xs font-bold text-nexus-cyan uppercase">{selectedEvent.metadata.status}</p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-white/70 leading-relaxed">{selectedEvent.metadata.description || "Aucune description."}</p>
-                </div>
-              )}
+              <div className="mb-4">
+                <label className="text-[10px] font-mono uppercase text-white/60">Description</label>
+                <textarea value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" rows={4} />
+              </div>
 
-              {selectedEvent.type === 'release' && (
-                <div className="text-center py-4">
-                   <Link to={`/projects/${selectedEvent.id}`} className="block">
-                    <Button variant="primary" className="w-full gap-2 text-xs uppercase font-black">
-                      Voir le projet <ArrowUpRight size={16} />
-                    </Button>
-                   </Link>
+              <div className="mb-4">
+                <label className="text-[10px] font-mono uppercase text-white/60 mb-2 block">Couleur</label>
+                <div className="flex flex-wrap gap-2">
+                  {colorOptions.map(c => (
+                    <button key={c.key} type="button" onClick={() => setEditForm(f => ({ ...f, color: c.key }))} className={`w-10 h-8 rounded-lg flex items-center justify-center border ${editForm.color === c.key ? 'ring-2 ring-white' : 'border-white/10'}`}>
+                      <span className={`${c.uiClass} w-8 h-6 rounded-md`} />
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Button type="button" variant="destructive" onClick={handleEventDelete} className="flex-1">Supprimer</Button>
+                <div className="flex-1" />
+                <Button type="button" variant="ghost" onClick={() => setIsDetailModalOpen(false)}>Annuler</Button>
+                <Button type="submit" variant="primary">Enregistrer</Button>
+              </div>
             </div>
-
-            <Button variant="ghost" className="w-full" onClick={() => setIsDetailModalOpen(false)}>Fermer</Button>
-          </div>
+          </form>
         )}
       </Modal>
 
@@ -583,9 +694,21 @@ export const Calendar: React.FC = () => {
             <label className="text-[10px] font-mono uppercase text-white/60">Description</label>
             <textarea value={createForm.summary} onChange={e => setCreateForm(f => ({ ...f, summary: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" rows={4} />
           </div>
-          <div className="flex items-center gap-3">
-            <input id="syncGoogleCreate" type="checkbox" checked={createForm.syncToGoogle} onChange={e => setCreateForm(f => ({ ...f, syncToGoogle: e.target.checked }))} className="w-4 h-4" />
-            <label htmlFor="syncGoogleCreate" className="text-[12px] text-white/70">Synchroniser avec Google Calendar</label>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-3">
+              <input id="syncGoogleCreate" type="checkbox" checked={createForm.syncToGoogle} onChange={e => setCreateForm(f => ({ ...f, syncToGoogle: e.target.checked }))} className="w-4 h-4" />
+              <label htmlFor="syncGoogleCreate" className="text-[12px] text-white/70">Synchroniser avec Google Calendar</label>
+            </div>
+            <div>
+              <label className="text-[10px] font-mono uppercase text-white/60 mb-2 block">Couleur</label>
+              <div className="flex items-center gap-2">
+                {colorOptions.map(c => (
+                  <button key={c.key} type="button" onClick={() => setCreateForm(f => ({ ...f, color: c.key }))} className={`w-10 h-8 rounded-lg flex items-center justify-center border ${createForm.color === c.key ? 'ring-2 ring-white' : 'border-white/10'}`}>
+                    <span className={`${c.uiClass} w-8 h-6 rounded-md`} />
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsCreateModalOpen(false)}>Annuler</Button>

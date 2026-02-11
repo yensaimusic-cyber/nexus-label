@@ -109,4 +109,15 @@ export const googleCalendarService = {
     if (!ok) throw new Error(json?.error || 'Failed to disconnect Google Calendar');
     return json;
   }
+  ,
+  updateEvent: async (userId: string, googleEventId: string, updates: any) => {
+    const { ok, json } = await callFunction('update_event', { method: 'POST', body: { user_id: userId, event_id: googleEventId, updates } });
+    if (!ok) throw new Error(json?.error || 'Failed to update google event');
+    return json.event;
+  },
+  deleteEvent: async (userId: string, googleEventId: string) => {
+    const { ok, json } = await callFunction('delete_event', { method: 'POST', body: { user_id: userId, event_id: googleEventId } });
+    if (!ok) throw new Error(json?.error || 'Failed to delete google event');
+    return json;
+  }
 };
