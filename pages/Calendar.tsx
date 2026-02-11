@@ -111,7 +111,8 @@ export const Calendar: React.FC = () => {
         type: 'task' as EventType,
         artist: t.project?.artist?.stage_name || 'Nexus Internal',
         date: t.due_date,
-        metadata: { description: t.description, priority: t.priority, status: t.status, project: t.project?.title }
+        time: t.time,
+        metadata: { description: t.description, priority: t.priority, status: t.status, project: t.project?.title, isNexus: true }
       }));
 
       const meetingEvents = (meetingsRes.data || []).map(m => ({
@@ -120,7 +121,8 @@ export const Calendar: React.FC = () => {
         type: 'meeting' as EventType,
         artist: 'Board / Team',
         date: m.date,
-        metadata: { summary: m.summary, attendees: m.attendees, action_items: m.action_items, project: m.project?.title, google_event_id: m.google_event_id, color: m.color }
+        time: m.time,
+        metadata: { summary: m.summary, attendees: m.attendees, action_items: m.action_items, project: m.project?.title, google_event_id: m.google_event_id, color: m.color, isNexus: true }
       }));
 
       const releaseEvents = (projectsRes.data || []).filter(p => p.release_date).map(p => ({
@@ -129,10 +131,12 @@ export const Calendar: React.FC = () => {
         type: 'release' as EventType,
         artist: p.artist?.stage_name || 'Unknown Artist',
         date: p.release_date,
-        metadata: { type: p.type, status: p.status }
+        metadata: { type: p.type, status: p.status, isNexus: true }
       }));
 
-      setEvents([...taskEvents, ...meetingEvents, ...releaseEvents]);
+      const localEvents = [...taskEvents, ...meetingEvents, ...releaseEvents];
+      setEvents(localEvents);
+      
       // try fetching Google events for the logged user
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -142,14 +146,15 @@ export const Calendar: React.FC = () => {
           const gEvents = await googleCalendarService.fetchEvents(userId).catch((e) => { throw e; });
           setGoogleEvents(gEvents || []);
           setGoogleConnected(true);
-          // map google events into LabelEvent shape
+          // map google events into LabelEvent shape - Google events are treated as meetings in the calendar
           const mappedG = (gEvents || []).map((ge: any) => ({
             id: `gcal_${ge.id}`,
             title: ge.summary || 'Google Event',
             type: 'meeting' as EventType,
             artist: ge.organizer?.displayName || 'Google Calendar',
             date: (ge.start?.date || ge.start?.dateTime || '').split('T')[0],
-            metadata: { google: true, raw: ge, colorId: ge.colorId }
+            time: (ge.start?.dateTime || '').split('T')[1]?.substring(0, 5),
+            metadata: { google: true, raw: ge, colorId: ge.colorId, isGoogle: true }
           }));
           setEvents(prev => [...prev, ...mappedG]);
         }
@@ -518,7 +523,7 @@ export const Calendar: React.FC = () => {
                 const dayNum = i - firstDayOfMonth + 1;
                 const isCurrentMonth = dayNum > 0 && dayNum <= daysInMonth;
                 const dateString = `${year}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-                const dayEvents = events.filter(e => e.date === dateString);
+                const dayEvents = filteredEvents.filter(e => e.date === dateString);
                 const isToday = new Date().toISOString().split('T')[0] === dateString;
 
                 return (
