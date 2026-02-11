@@ -14,6 +14,8 @@ serve(async (req: Request) => {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
+    console.log('[exchange] incoming request', { method: req.method, url: req.url });
+
     let code = '';
     let user_id = '';
 
@@ -26,6 +28,8 @@ serve(async (req: Request) => {
       code = body.code;
       user_id = body.state || body.user_id;
     }
+
+    console.log('[exchange] parsed params', { code: code ? 'REDACTED' : null, state: user_id });
 
     if (!code || !user_id) return new Response(JSON.stringify({ error: 'missing_params' }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
 
@@ -52,6 +56,7 @@ serve(async (req: Request) => {
     });
 
     const tokenJson = await tokenRes.json();
+    console.log('[exchange] token endpoint response', tokenJson);
     if (tokenJson.error) {
       return new Response(JSON.stringify({ error: 'token_error', details: tokenJson }), { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
     }
@@ -67,6 +72,7 @@ serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    console.log('[exchange] upserting google_tokens for user', user_id);
     await supabase.from('google_tokens').upsert({
       user_id,
       access_token,
