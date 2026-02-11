@@ -71,11 +71,18 @@ export const Meetings: React.FC = () => {
             const { data: { session } } = await supabase.auth.getSession();
             const userId = session?.user?.id;
             if (userId) {
-              await googleCalendarService.createEvent(userId, inserted);
+              const createdEvent = await googleCalendarService.createEvent(userId, inserted);
+              // If the create_event Edge Function didn't update the meeting row, update it here
+              if (createdEvent?.id) {
+                await supabase.from('meetings').update({ google_event_id: createdEvent.id, synced_at: new Date().toISOString() }).eq('id', inserted.id);
+                toast.addToast('Meeting synchronisé avec Google Calendar !', 'success');
+              } else {
+                toast.addToast('Meeting créé mais pas d\'identifiant Google retourné.', 'warning');
+              }
             }
           } catch (gErr) {
             console.error('Google sync failed:', gErr);
-            toast.addToast('Meeting created but Google Calendar sync failed.', 'error');
+            toast.addToast('Meeting créé mais la synchronisation Google a échoué.', 'error');
           }
         }
       }
