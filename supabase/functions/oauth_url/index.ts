@@ -6,7 +6,7 @@ serve(async (req: Request) => {
     const userId = url.searchParams.get('user_id') || '';
 
     const clientId = Deno.env.get('GOOGLE_CLIENT_ID') || '';
-    const redirectUri = Deno.env.get('GOOGLE_OAUTH_REDIRECT_URI') || '';
+    const redirectUri = Deno.env.get('GOOGLE_OAUTH_REDIRECT_URI') || Deno.env.get('REDIRECT_URI') || '';
 
     if (!clientId || !redirectUri) {
       return new Response(JSON.stringify({ error: 'Missing Google OAuth config' }), { status: 500 });

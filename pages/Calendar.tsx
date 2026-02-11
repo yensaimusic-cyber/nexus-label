@@ -12,6 +12,7 @@ import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
 import { googleCalendarService } from '../lib/googleCalendar';
+import { useToast } from '../components/ui/Toast';
 
 type EventType = 'release' | 'session' | 'promo' | 'meeting' | 'task';
 
@@ -36,6 +37,7 @@ export const Calendar: React.FC = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<LabelEvent | null>(null);
   const [activeFilter, setActiveFilter] = useState<EventType | 'all'>('all');
+  const toast = useToast();
 
   useEffect(() => {
     fetchEvents();
@@ -57,8 +59,10 @@ export const Calendar: React.FC = () => {
           window.history.replaceState({}, document.title, url.toString());
           // refresh events
           await fetchEvents();
+          toast.addToast('Connexion Google Calendar établie.', 'success');
         } catch (err) {
           console.error('OAuth exchange failed', err);
+          toast.addToast('Échec de la connexion Google Calendar.', 'error');
         } finally {
           setGoogleLoading(false);
         }
@@ -140,14 +144,17 @@ export const Calendar: React.FC = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
-      if (!userId) return alert('Please sign in first.');
+      if (!userId) {
+        toast.addToast('Veuillez vous connecter.', 'error');
+        return;
+      }
       setGoogleLoading(true);
       const url = await googleCalendarService.getAuthUrl(userId);
       // redirect to Google OAuth
       window.location.href = url;
     } catch (err) {
       console.error('Failed to get Google auth url', err);
-      alert('Impossible de démarrer la connexion Google Calendar.');
+      toast.addToast('Impossible de démarrer la connexion Google Calendar.', 'error');
     } finally {
       setGoogleLoading(false);
     }
@@ -162,7 +169,10 @@ export const Calendar: React.FC = () => {
 
       // fetch local meetings not yet synced
       const { data: meetings } = await supabase.from('meetings').select('*').is('google_event_id', null).gte('date', new Date().toISOString().split('T')[0]);
-      if (!meetings || meetings.length === 0) return alert('Aucun meeting à synchroniser.');
+      if (!meetings || meetings.length === 0) {
+        toast.addToast('Aucun meeting à synchroniser.', 'info');
+        return;
+      }
 
       for (const m of meetings) {
         try {
@@ -174,14 +184,16 @@ export const Calendar: React.FC = () => {
 
       // refresh events after sync
       await fetchEvents();
-      alert('Synchronisation terminée.');
+      toast.addToast('Synchronisation terminée.', 'success');
     } catch (err) {
       console.error(err);
-      alert('Erreur pendant la synchronisation.');
+      toast.addToast('Erreur pendant la synchronisation.', 'error');
     } finally {
       setSyncing(false);
     }
   };
+
+  const toast = useToast();
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();

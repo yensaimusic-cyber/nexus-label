@@ -6,6 +6,8 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
+import { googleCalendarService } from '../lib/googleCalendar';
+import { useToast } from '../components/ui/Toast';
 import { Meeting } from '../types';
 
 export const Meetings: React.FC = () => {
@@ -18,6 +20,8 @@ export const Meetings: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [syncToGoogle, setSyncToGoogle] = useState(false);
+  const toast = useToast();
   const [formData, setFormData] = useState<Partial<Meeting>>({
     title: '',
     date: new Date().toISOString().split('T')[0],
@@ -45,7 +49,7 @@ export const Meetings: React.FC = () => {
       const { data: projData } = await supabase.from('projects').select('id, title').order('title');
       if (projData) setProjects(projData);
     } catch (err: any) {
-      alert("Error fetching meetings: " + err.message);
+      toast.addToast("Error fetching meetings: " + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -59,14 +63,27 @@ export const Meetings: React.FC = () => {
         const { error } = await supabase.from('meetings').update(formData).eq('id', editingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('meetings').insert([formData]);
+        const { data: inserted, error } = await supabase.from('meetings').insert([formData]).select().single();
         if (error) throw error;
+        // Optionally sync to Google Calendar
+        if (syncToGoogle && inserted) {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const userId = session?.user?.id;
+            if (userId) {
+              await googleCalendarService.createEvent(userId, inserted);
+            }
+          } catch (gErr) {
+            console.error('Google sync failed:', gErr);
+            toast.addToast('Meeting created but Google Calendar sync failed.', 'error');
+          }
+        }
       }
       setIsModalOpen(false);
       fetchData();
-      alert(`Meeting record ${editingId ? 'updated' : 'archived'}!`);
+      toast.addToast(`Meeting record ${editingId ? 'updated' : 'archived'}!`, 'success');
     } catch (err: any) {
-      alert("Action failed: " + err.message);
+      toast.addToast("Action failed: " + err.message, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -79,7 +96,7 @@ export const Meetings: React.FC = () => {
       if (error) throw error;
       setMeetings(meetings.filter(m => m.id !== id));
     } catch (err: any) {
-      alert("Delete failed: " + err.message);
+      toast.addToast("Delete failed: " + err.message, 'error');
     }
   };
 
@@ -93,6 +110,7 @@ export const Meetings: React.FC = () => {
       action_items: meeting.action_items || [],
       project_id: meeting.project_id || ''
     });
+    setSyncToGoogle(false);
     setIsModalOpen(true);
   };
 
@@ -103,7 +121,7 @@ export const Meetings: React.FC = () => {
           <h2 className="text-3xl lg:text-4xl font-heading font-extrabold text-white tracking-tight">Meeting Logs</h2>
           <p className="text-nexus-lightGray text-sm mt-1">Archive of strategic decisions and executive summaries.</p>
         </div>
-        <Button variant="primary" className="gap-2 shadow-xl" onClick={() => { setEditingId(null); setFormData({ title: '', date: new Date().toISOString().split('T')[0], summary: '', attendees: [], action_items: [], project_id: '' }); setIsModalOpen(true); }}>
+        <Button variant="primary" className="gap-2 shadow-xl" onClick={() => { setEditingId(null); setFormData({ title: '', date: new Date().toISOString().split('T')[0], summary: '', attendees: [], action_items: [], project_id: '' }); setSyncToGoogle(false); setIsModalOpen(true); }}>
           <Plus size={20} />
           <span>New Session</span>
         </Button>
@@ -241,6 +259,11 @@ export const Meetings: React.FC = () => {
           <div className="space-y-2">
             <label className="text-[10px] font-mono uppercase tracking-widest text-white/40">Action Items (One per line)</label>
             <textarea rows={3} value={formData.action_items?.join('\n')} onChange={e => setFormData({...formData, action_items: e.target.value.split('\n').filter(s => s.trim() !== '')})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none resize-none font-mono text-xs" />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <input id="syncGoogle" type="checkbox" checked={syncToGoogle} onChange={e => setSyncToGoogle(e.target.checked)} className="w-4 h-4" />
+            <label htmlFor="syncGoogle" className="text-[12px]">Synchroniser avec Google Calendar</label>
           </div>
 
           <div className="flex gap-3 pt-4">

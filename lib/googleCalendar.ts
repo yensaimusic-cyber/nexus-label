@@ -15,8 +15,9 @@ export interface GoogleCalendarEvent {
 
 import { supabase } from './supabase';
 
-const supabaseUrl = (supabase as any).url || '';
-const functionsBase = supabaseUrl ? supabaseUrl.replace('.supabase.co', '.functions.supabase.co') : '';
+// Explicit Supabase project URL (functions base derived from this)
+const SUPABASE_PROJECT_URL = 'https://uphtjvuacznfmooomzhe.supabase.co';
+const functionsBase = SUPABASE_PROJECT_URL.replace('.supabase.co', '.functions.supabase.co');
 
 const callFunction = async (name: string, opts: { method?: string; body?: any; qs?: Record<string,string> } = {}) => {
   const url = functionsBase ? `${functionsBase}/${name}` : `/api/${name}`;

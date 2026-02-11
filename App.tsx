@@ -15,6 +15,7 @@ import { Meetings } from './pages/Meetings';
 import { Resources } from './pages/Resources';
 import { Login } from './pages/Login';
 import { useAuth } from './hooks/useAuth';
+import { ToastProvider } from './components/ui/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 
@@ -64,8 +65,9 @@ const App: React.FC = () => {
   if (loading) return null;
 
   return (
-    <Router>
-      <div className="flex min-h-screen bg-nexus-dark text-white font-sans selection:bg-nexus-purple selection:text-white">
+    <ToastProvider>
+      <Router>
+        <div className="flex min-h-screen bg-nexus-dark text-white font-sans selection:bg-nexus-purple selection:text-white">
         {user && <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />}
         
         <main className={`flex-1 ${user ? 'lg:ml-64' : ''} min-h-screen flex flex-col relative overflow-hidden`}>
@@ -98,8 +100,9 @@ const App: React.FC = () => {
             </AnimatePresence>
           </div>
         </main>
-      </div>
-    </Router>
+        </div>
+      </Router>
+    </ToastProvider>
   );
 };
 
