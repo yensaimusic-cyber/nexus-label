@@ -235,11 +235,11 @@ export const Calendar: React.FC = () => {
   const handleNextMonth = () => setCurrentDate(new Date(year, currentDate.getMonth() + 1));
 
   const eventTypeConfig: Record<EventType, { color: string; gradient: string; icon: React.ReactNode; label: string }> = {
-    release: { color: 'bg-white', gradient: '', icon: <Disc size={14} />, label: 'Sortie' },
-    session: { color: 'bg-white', gradient: '', icon: <Music size={14} />, label: 'Studio' },
-    promo: { color: 'bg-white', gradient: '', icon: <Radio size={14} />, label: 'Promotion' },
-    meeting: { color: 'bg-white', gradient: '', icon: <Users size={14} />, label: 'Réunion' },
-    task: { color: 'bg-white', gradient: '', icon: <Check size={14} />, label: 'Deadline' },
+    release: { color: 'bg-nexus-purple', gradient: 'from-nexus-purple to-purple-400', icon: <Disc size={14} />, label: 'Sortie' },
+    session: { color: 'bg-nexus-cyan', gradient: 'from-nexus-cyan to-blue-400', icon: <Music size={14} />, label: 'Studio' },
+    promo: { color: 'bg-nexus-pink', gradient: 'from-nexus-pink to-rose-400', icon: <Radio size={14} />, label: 'Promotion' },
+    meeting: { color: 'bg-nexus-orange', gradient: 'from-nexus-orange to-amber-400', icon: <Users size={14} />, label: 'Réunion' },
+    task: { color: 'bg-nexus-red', gradient: 'from-nexus-red to-orange-500', icon: <Check size={14} />, label: 'Deadline' },
   };
 
   const filteredEvents = useMemo(() => {
@@ -297,7 +297,7 @@ export const Calendar: React.FC = () => {
   const selectedDayEvents = events.filter(e => e.date === selectedDateString);
 
   return (
-    <div className="p-4 lg:p-8 space-y-6 lg:space-y-8 max-w-[1700px] mx-auto min-h-screen flex flex-col relative">
+    <div className="p-4 lg:p-8 space-y-6 lg:space-y-8 w-full mx-auto min-h-screen flex flex-col relative" style={{background: '#050505'}}>
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h2 className="text-3xl lg:text-5xl font-heading font-extrabold text-white tracking-tighter">Nexus <span className="text-nexus-purple italic">Hub</span></h2>
@@ -351,8 +351,8 @@ export const Calendar: React.FC = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 lg:gap-8 flex-1">
         {/* Calendar Core */}
-        <Card className="xl:col-span-4 flex flex-col p-0 overflow-hidden border-white/10 shadow-2xl bg-white/[0.01]">
-          <div className="p-4 lg:p-8 border-b border-white/5 bg-white/[0.02] flex flex-col md:flex-row md:items-center justify-between gap-4 lg:gap-6">
+        <Card className="xl:col-span-4 flex flex-col p-0 overflow-hidden border-white/10 shadow-2xl bg-transparent">
+          <div className="p-4 lg:p-8 border-b border-white/10 bg-[#070707] flex flex-col md:flex-row md:items-center justify-between gap-4 lg:gap-6">
             <div className="flex items-center gap-4 lg:gap-6">
                 <div className="flex bg-black rounded-xl lg:rounded-2xl p-1 border border-white/5 shadow-inner">
                 <button onClick={handlePrevMonth} className="p-2 hover:bg-white/10 rounded-lg lg:rounded-xl text-white/40 hover:text-white transition-all"><ChevronLeft size={20} /></button>
@@ -381,8 +381,8 @@ export const Calendar: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-1 overflow-x-auto custom-scrollbar">
-            <div className="grid grid-cols-7 min-w-[700px]">
+          <div className="flex-1 overflow-x-auto custom-scrollbar" style={{ height: 'calc(100vh - 240px)' }}>
+            <div className="grid grid-cols-7 min-w-[700px] gap-0">
               {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map(day => (
                 <div key={day} className="py-3 lg:py-5 text-center text-[9px] lg:text-[10px] font-mono uppercase tracking-[0.3em] text-white/30 border-b border-white/5 font-black">
                   {day}
@@ -399,21 +399,21 @@ export const Calendar: React.FC = () => {
                 return (
                   <div 
                     key={i} 
-                    className={`min-h-[100px] lg:min-h-[160px] p-2 border-r border-b border-white/5 transition-all relative group/cell ${
-                      !isCurrentMonth ? 'bg-black/20 pointer-events-none' : 'bg-black'
+                    className={`min-h-[100px] lg:min-h-[160px] p-2 border-r border-b border-white/10 transition-all relative group/cell flex flex-col ${
+                      !isCurrentMonth ? 'bg-black/20 pointer-events-none' : 'bg-[#0b0b0b]'
                     }`} onClick={() => isCurrentMonth && openCreateModalForDate(dateString)}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span className={`text-xs lg:text-sm font-heading font-black transition-colors ${
                         isToday 
-                        ? 'w-7 h-7 lg:w-9 lg:h-9 rounded-full bg-white text-black flex items-center justify-center shadow-sm scale-110' 
+                        ? 'w-7 h-7 lg:w-9 lg:h-9 rounded-full bg-nexus-purple text-white flex items-center justify-center shadow-sm scale-110' 
                         : isCurrentMonth ? 'text-white/60 group-hover/cell:text-white/80' : 'text-white/10'
                       }`}>
                         {isCurrentMonth ? dayNum : ''}
                       </span>
                     </div>
                     
-                    <div className="space-y-1 overflow-hidden">
+                    <div className="space-y-1 overflow-y-auto" style={{ maxHeight: '180px' }}>
                       {dayEvents.slice(0, 3).map((event) => {
                         const isGoogle = event.metadata?.google;
                         return (
@@ -421,7 +421,7 @@ export const Calendar: React.FC = () => {
                           key={event.id}
                           onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
                           whileHover={{ scale: 1.02, x: 2 }}
-                          className={`px-2 py-1 rounded-md lg:rounded-lg text-[8px] lg:text-[9px] font-bold tracking-tight flex items-center gap-1.5 truncate border border-white/10 shadow-sm cursor-pointer ${isGoogle ? 'bg-[rgb(229,229,229)] text-black' : 'bg-white text-black'}`}
+                          className={`px-2 py-1 rounded-md lg:rounded-lg text-[8px] lg:text-[9px] font-bold tracking-tight flex items-center gap-1.5 truncate shadow-sm cursor-pointer ${isGoogle ? 'bg-[rgb(229,229,229)] text-black' : `bg-gradient-to-r ${eventTypeConfig[event.type].gradient} text-white`}`}
                         >
                           <span className="truncate">{event.title}</span>
                           {isGoogle && <span className="ml-2 text-[9px] font-black px-1 rounded-full" style={{background:'#1a73e8', color: 'white'}}>G</span>}
@@ -451,7 +451,7 @@ export const Calendar: React.FC = () => {
               Agenda
             </h3>
             
-            <div className="flex-1 space-y-4 lg:space-y-6 overflow-y-auto custom-scrollbar pr-2">
+                <div className="flex-1 space-y-4 lg:space-y-6 overflow-y-auto custom-scrollbar pr-2">
               {filteredEvents
                 .filter(e => new Date(e.date) >= new Date(new Date().setHours(0,0,0,0)))
                 .sort((a,b) => a.date.localeCompare(b.date))
@@ -460,18 +460,18 @@ export const Calendar: React.FC = () => {
                   <motion.div 
                     key={event.id} 
                     onClick={() => handleEventClick(event)}
-                    className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-nexus-purple/40 transition-all group cursor-pointer relative overflow-hidden"
+                    className={`p-4 rounded-2xl ${event.metadata?.google ? 'bg-[rgb(229,229,229)] text-black' : eventTypeConfig[event.type].color + ' text-white'} border border-white/5 hover:opacity-90 transition-all group cursor-pointer relative overflow-hidden`}
                   >
-                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${event.metadata?.google ? 'bg-[#1a73e8]' : 'bg-white'}`} />
+                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${event.metadata?.google ? 'bg-[#1a73e8]' : (eventTypeConfig[event.type].color.replace('bg-', 'bg-') || 'bg-white')}`} />
                     <div className="flex justify-between items-start mb-2">
-                      <span className={`px-2 py-0.5 rounded text-[7px] lg:text-[8px] font-black uppercase tracking-widest ${event.metadata?.google ? 'bg-[rgb(229,229,229)] text-black' : 'bg-white text-black'}`}>
+                      <span className={`px-2 py-0.5 rounded text-[7px] lg:text-[8px] font-black uppercase tracking-widest ${event.metadata?.google ? 'bg-[rgb(229,229,229)] text-black' : eventTypeConfig[event.type].color + ' text-white'}`}>
                         {eventTypeConfig[event.type].label}
                       </span>
                       <span className="text-[9px] font-mono text-white/30 font-bold">
                         {new Date(event.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
                       </span>
                     </div>
-                    <h4 className="font-bold text-xs lg:text-sm group-hover:text-nexus-cyan transition-colors leading-snug truncate">{event.title}</h4>
+                    <h4 className="font-bold text-xs lg:text-sm leading-snug truncate">{event.title}</h4>
                     <p className="text-[9px] text-white/30 mt-1 uppercase font-black tracking-tighter truncate">{event.artist}</p>
                   </motion.div>
                 ))}
