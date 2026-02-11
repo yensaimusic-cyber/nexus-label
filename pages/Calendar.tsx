@@ -193,8 +193,6 @@ export const Calendar: React.FC = () => {
     }
   };
 
-  const toast = useToast();
-
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
   const monthName = currentDate.toLocaleString('fr-FR', { month: 'long' });
