@@ -83,7 +83,7 @@ export const Dashboard: React.FC = () => {
     <div className="p-4 lg:p-8 space-y-6 lg:space-y-8 max-w-[1600px] mx-auto min-h-screen">
       <header>
         <h2 className="text-3xl lg:text-4xl font-heading font-extrabold text-white tracking-tight">Poste de Pilotage</h2>
-        <p className="text-nexus-lightGray text-sm mt-1 uppercase tracking-widest font-mono opacity-60">Nexus Label Central Command</p>
+        <p className="text-nexus-lightGray text-sm mt-1 uppercase tracking-widest font-mono opacity-60">Indigo Records Central Command</p>
       </header>
 
       {/* Stats Grid */}

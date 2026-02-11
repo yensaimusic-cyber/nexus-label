@@ -1,6 +1,6 @@
 
 /**
- * NEXUS LABEL - Google Calendar API Integration
+ * INDIGO RECORDS - Google Calendar API Integration
  */
 
 export interface GoogleCalendarEvent {

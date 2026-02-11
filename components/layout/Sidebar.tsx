@@ -31,7 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <Music className="text-white" size={24} />
           </div>
           <h1 className="text-xl font-heading font-extrabold tracking-tighter text-white">
-            NEXUS<span className="text-nexus-cyan font-light">LABEL</span>
+            INDIGO<span className="text-nexus-cyan font-light">RECORDS</span>
           </h1>
         </div>
         <button onClick={onClose} className="lg:hidden p-2 text-white/40 hover:text-white">
