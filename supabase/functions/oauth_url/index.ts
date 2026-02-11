@@ -34,6 +34,7 @@ serve(async (req: Request) => {
     });
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    console.log('[oauth_url] user_id', userId, 'authUrl', authUrl);
     return new Response(JSON.stringify({ url: authUrl }), { headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
   } catch (err) {
     console.error(err);
