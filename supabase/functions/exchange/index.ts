@@ -76,9 +76,9 @@ serve(async (req: Request) => {
     }, { onConflict: 'user_id' });
 
     // If this was a browser GET from Google OAuth redirect, forward user to app
-    const netlifyApp = Deno.env.get('NETLIFY_APP_URL') || 'https://heartfelt-madeleine-35cf1b.netlify.app';
+    // Always redirect to the canonical Netlify app calendar URL after OAuth exchange
     if (req.method === 'GET') {
-      const redirectTo = `${netlifyApp}/calendar?connected=1`;
+      const redirectTo = 'https://heartfelt-madeleine-35cf1b.netlify.app/calendar?connected=1';
       return new Response(null, { status: 302, headers: { Location: redirectTo, ...CORS_HEADERS } });
     }
 
