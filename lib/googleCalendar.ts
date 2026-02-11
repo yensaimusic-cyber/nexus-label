@@ -17,7 +17,8 @@ import { supabase } from './supabase';
 
 // Explicit Supabase project URL (functions base derived from this)
 const SUPABASE_PROJECT_URL = 'https://uphtjvuacznfmooomzhe.supabase.co';
-const functionsBase = SUPABASE_PROJECT_URL.replace('.supabase.co', '.functions.supabase.co');
+// Use the /functions/v1 path on the main Supabase host (not the .functions subdomain)
+const functionsBase = `${SUPABASE_PROJECT_URL}/functions/v1`;
 
 const callFunction = async (name: string, opts: { method?: string; body?: any; qs?: Record<string,string> } = {}) => {
   const url = functionsBase ? `${functionsBase}/${name}` : `/api/${name}`;
