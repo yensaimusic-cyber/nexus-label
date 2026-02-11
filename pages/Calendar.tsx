@@ -248,6 +248,19 @@ export const Calendar: React.FC = () => {
     task: { color: 'bg-nexus-red', gradient: 'from-nexus-red to-orange-500', icon: <Check size={14} />, label: 'Deadline' },
   };
 
+  // Helper to get event background style based on custom color or type
+  const getEventStyle = (event: LabelEvent) => {
+    if (event.metadata?.google) {
+      return { className: 'bg-[rgb(229,229,229)] text-black', style: {} };
+    }
+    const customColor = event.metadata?.color;
+    if (customColor) {
+      // Parse custom color (could be hex like #FF0000 or named color like 'red')
+      return { className: '', style: { backgroundColor: customColor, color: '#fff' } };
+    }
+    return { className: `bg-gradient-to-r ${eventTypeConfig[event.type].gradient} text-white`, style: {} };
+  };
+
   const filteredEvents = useMemo(() => {
     return events.filter(e => activeFilter === 'all' || e.type === activeFilter);
   }, [events, activeFilter]);
@@ -546,12 +559,14 @@ export const Calendar: React.FC = () => {
                     <div className="space-y-1 overflow-y-auto" style={{ maxHeight: '180px' }}>
                       {dayEvents.slice(0, 3).map((event) => {
                         const isGoogle = event.metadata?.google;
+                        const eventStyle = getEventStyle(event);
                         return (
                         <motion.div 
                           key={event.id}
                           onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
                           whileHover={{ scale: 1.02, x: 2 }}
-                          className={`px-2 py-1 rounded-md lg:rounded-lg text-[8px] lg:text-[9px] font-bold tracking-tight flex items-center gap-1.5 truncate shadow-sm cursor-pointer ${isGoogle ? 'bg-[rgb(229,229,229)] text-black' : `bg-gradient-to-r ${eventTypeConfig[event.type].gradient} text-white`}`}
+                          className={`px-2 py-1 rounded-md lg:rounded-lg text-[8px] lg:text-[9px] font-bold tracking-tight flex items-center gap-1.5 truncate shadow-sm cursor-pointer ${eventStyle.className}`}
+                          style={eventStyle.style}
                         >
                           <span className="truncate">{event.title}</span>
                           {isGoogle && <span className="ml-2 text-[9px] font-black px-1 rounded-full" style={{background:'#1a73e8', color: 'white'}}>G</span>}
@@ -586,15 +601,18 @@ export const Calendar: React.FC = () => {
                 .filter(e => new Date(e.date) >= new Date(new Date().setHours(0,0,0,0)))
                 .sort((a,b) => a.date.localeCompare(b.date))
                 .slice(0, 8)
-                .map((event) => (
+                .map((event) => {
+                  const eventStyle = getEventStyle(event);
+                  return (
                   <motion.div 
                     key={event.id} 
                     onClick={() => handleEventClick(event)}
-                    className={`p-4 rounded-2xl ${event.metadata?.google ? 'bg-[rgb(229,229,229)] text-black' : eventTypeConfig[event.type].color + ' text-white'} border border-white/5 hover:opacity-90 transition-all group cursor-pointer relative overflow-hidden`}
+                    className={`p-4 rounded-2xl ${eventStyle.className} border border-white/5 hover:opacity-90 transition-all group cursor-pointer relative overflow-hidden`}
+                    style={eventStyle.style}
                   >
-                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${event.metadata?.google ? 'bg-[#1a73e8]' : (eventTypeConfig[event.type].color.replace('bg-', 'bg-') || 'bg-white')}`} />
+                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${event.metadata?.google ? 'bg-[#1a73e8]' : (event.metadata?.color ? '' : eventTypeConfig[event.type].color.replace('bg-', 'bg-'))}`} style={event.metadata?.color ? { backgroundColor: event.metadata.color } : {}} />
                     <div className="flex justify-between items-start mb-2">
-                      <span className={`px-2 py-0.5 rounded text-[7px] lg:text-[8px] font-black uppercase tracking-widest ${event.metadata?.google ? 'bg-[rgb(229,229,229)] text-black' : eventTypeConfig[event.type].color + ' text-white'}`}>
+                      <span className={`px-2 py-0.5 rounded text-[7px] lg:text-[8px] font-black uppercase tracking-widest ${event.metadata?.google ? 'bg-[rgb(229,229,229)] text-black' : event.metadata?.color ? '' : eventTypeConfig[event.type].color + ' text-white'}`} style={event.metadata?.color ? { backgroundColor: event.metadata.color, color: '#fff' } : {}}>
                         {eventTypeConfig[event.type].label}
                       </span>
                       <span className="text-[9px] font-mono text-white/30 font-bold">
@@ -604,7 +622,8 @@ export const Calendar: React.FC = () => {
                     <h4 className="font-bold text-xs lg:text-sm leading-snug truncate">{event.title}</h4>
                     <p className="text-[9px] text-white/30 mt-1 uppercase font-black tracking-tighter truncate">{event.artist}</p>
                   </motion.div>
-                ))}
+                  );
+                })}
               
               {filteredEvents.length === 0 && (
                 <div className="py-12 text-center opacity-20 italic flex flex-col items-center gap-3">
