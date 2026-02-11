@@ -27,13 +27,30 @@ const callFunction = async (name: string, opts: { method?: string; body?: any; q
     fullUrl = `${url}?${params}`;
   }
 
-  const res = await fetch(fullUrl, {
-    method: opts.method || 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    body: opts.body ? JSON.stringify(opts.body) : undefined
-  });
-  const json = await res.json().catch(() => ({}));
-  return { ok: res.ok, status: res.status, json };
+  // build headers including Supabase anon/apikey and current session token
+  try {
+    const sessionResp = await supabase.auth.getSession();
+    const accessToken = sessionResp?.data?.session?.access_token;
+    const headers: Record<string,string> = {
+      'Content-Type': 'application/json',
+      'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVwaHRqdnVhY3puZm1vb29temhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NjU0NDYsImV4cCI6MjA4NjI0MTQ0Nn0.chsRiPNzXZ6tK02ZgF_s5ONCQk5sEwf-A8c4ci-z9IY'
+    };
+    if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+    console.debug('[googleCalendar] fetch', fullUrl, opts.method || 'GET');
+    const res = await fetch(fullUrl, {
+      method: opts.method || 'GET',
+      mode: 'cors',
+      headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+
+    const json = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, json };
+  } catch (err: any) {
+    console.error('[googleCalendar] callFunction error', err);
+    return { ok: false, status: 0, json: { error: err.message || String(err) } };
+  }
 };
 
 export const googleCalendarService = {
