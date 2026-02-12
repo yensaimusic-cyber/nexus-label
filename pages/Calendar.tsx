@@ -519,8 +519,6 @@ export const Calendar: React.FC = () => {
   return (
     <div className="p-4 lg:p-8 space-y-6 lg:space-y-8 w-full mx-auto min-h-screen flex flex-col relative" style={{background: '#050505'}}>
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    </div>
-        </div>
         
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" onClick={fetchEvents} className="gap-2 border-white/10 hover:bg-nexus-purple/10 text-[10px] lg:text-xs">
