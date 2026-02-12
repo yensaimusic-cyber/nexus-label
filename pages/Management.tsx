@@ -5,7 +5,7 @@ import { ChevronLeft, Plus, X, Users, ListTodo, Briefcase } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Modal from '../components/ui/Modal';
-import { useToast } from '../hooks/useToast';
+import { useToast } from '../components/ui/Toast';
 
 interface Artist {
   id: string;
