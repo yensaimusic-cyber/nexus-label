@@ -641,9 +641,9 @@ export const Calendar: React.FC = () => {
                     <div className="flex flex-col gap-1 overflow-y-auto min-w-0" style={{ maxHeight: isLarge ? '180px' : 'none' }}>
                       {dayEvents.map((event) => {
                         const isGoogle = event.metadata?.google;
-                    <div className="flex flex-col gap-1 overflow-y-auto min-w-0" style={{ maxHeight: isLarge ? '260px' : 'none' }}>
+                        const eventStyle = getEventStyle(event);
                         // Affiche seulement les deux premiers mots sur mobile, tout sur desktop
-                        const words = event.title.split(' ');
+                        const words = (event.title || '').split(' ');
                         const shortTitle = words.slice(0, 2).join(' ');
                         return (
                           <div 
