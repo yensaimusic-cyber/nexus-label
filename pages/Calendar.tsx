@@ -640,10 +640,9 @@ export const Calendar: React.FC = () => {
                             key={event.id}
                             onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
                             whileHover={{ scale: 1.02, x: 2 }}
-                            className={`px-3 py-2 text-[13px] rounded-md font-bold tracking-tight flex items-start gap-2 whitespace-pre-line break-words shadow-sm cursor-pointer ${eventStyle.className}`}
-                            style={{...eventStyle.style, wordBreak: 'break-word', whiteSpace: 'pre-line', lineHeight: '1.3', minHeight: 0}}
-                          >
-                            <span>{event.title}</span>
+                            className={`px-3 py-2 text-[13px] rounded-md font-bold tracking-tight flex items-start gap-2 whitespace-normal break-words text-left w-full shadow-sm cursor-pointer ${eventStyle.className}`}
+                            style={{...eventStyle.style, wordBreak: 'break-word', whiteSpace: 'normal', lineHeight: '1.3', minHeight: 0, maxWidth: '100%'}}>
+                            <span className="w-full block">{event.title}</span>
                             {isGoogle && <span className="ml-2 text-[10px] font-black px-1 rounded-full" style={{background:'#1a73e8', color: 'white'}}>G</span>}
                           </motion.div>
                         );
