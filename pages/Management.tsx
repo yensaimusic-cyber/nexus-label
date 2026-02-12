@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Profile } from '../types';
 import { ChevronLeft, Plus, X, Users, ListTodo, Briefcase } from 'lucide-react';
-import Card from '../components/ui/Card';
-import Button from '../components/ui/Button';
-import Modal from '../components/ui/Modal';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
 
 interface Artist {
@@ -344,7 +344,7 @@ const Management: React.FC = () => {
         )}
 
         {/* Link Artist Modal */}
-        <Modal open={showLinkModal} onClose={() => setShowLinkModal(false)} title="Lier un artiste">
+        <Modal isOpen={showLinkModal} onClose={() => setShowLinkModal(false)} title="Lier un artiste">
           <div className="space-y-6">
             <div className="space-y-2">
               <label className="text-[10px] font-mono uppercase tracking-widest text-white/40 font-black">Artiste *</label>
@@ -397,23 +397,25 @@ const Management: React.FC = () => {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {profiles.map(profile => (
-          <Card 
+          <div 
             key={profile.id}
             onClick={() => setSelectedProfile(profile)}
-            className="cursor-pointer hover:border-nexus-purple/50 transition-all"
+            className="cursor-pointer"
           >
-            <div className="flex flex-col items-center text-center">
-              {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt={profile.full_name} className="w-24 h-24 rounded-2xl object-cover mb-4" />
-              ) : (
-                <div className="w-24 h-24 glass rounded-2xl flex items-center justify-center mb-4">
-                  <Users className="w-10 h-10 text-white/30" />
-                </div>
-              )}
-              <h3 className="text-lg font-black text-white mb-1">{profile.full_name}</h3>
-              <p className="text-white/60 text-sm">{profile.role || 'Agent Indigo'}</p>
-            </div>
-          </Card>
+            <Card className="hover:border-nexus-purple/50 transition-all">
+              <div className="flex flex-col items-center text-center">
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt={profile.full_name} className="w-24 h-24 rounded-2xl object-cover mb-4" />
+                ) : (
+                  <div className="w-24 h-24 glass rounded-2xl flex items-center justify-center mb-4">
+                    <Users className="w-10 h-10 text-white/30" />
+                  </div>
+                )}
+                <h3 className="text-lg font-black text-white mb-1">{profile.full_name}</h3>
+                <p className="text-white/60 text-sm">{profile.role || 'Agent Indigo'}</p>
+              </div>
+            </Card>
+          </div>
         ))}
       </div>
 
