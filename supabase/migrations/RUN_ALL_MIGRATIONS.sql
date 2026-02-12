@@ -1,0 +1,107 @@
+-- ⚡ INDIGO RECORDS - MIGRATIONS BATCH
+-- Exécutez ce fichier complet dans Supabase SQL Editor
+-- Il appliquera toutes les migrations en attente de manière sécurisée
+
+-- ============================================================
+-- MIGRATION 1: Support membres internes dans artist_team_members
+-- ============================================================
+
+-- Add member_type column (internal = profile from team, external = manual entry)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='artist_team_members' AND column_name='member_type') THEN
+        ALTER TABLE artist_team_members 
+        ADD COLUMN member_type TEXT DEFAULT 'external';
+    END IF;
+END $$;
+
+-- Add check constraint for member_type
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'artist_team_members_member_type_check') THEN
+        ALTER TABLE artist_team_members 
+        ADD CONSTRAINT artist_team_members_member_type_check CHECK (member_type IN ('internal', 'external'));
+    END IF;
+END $$;
+
+-- Add profile_id for internal team members
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='artist_team_members' AND column_name='profile_id') THEN
+        ALTER TABLE artist_team_members 
+        ADD COLUMN profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
+-- Make name nullable since internal members will use profile data
+DO $$
+BEGIN
+    ALTER TABLE artist_team_members 
+    ALTER COLUMN name DROP NOT NULL;
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END $$;
+
+-- Make role nullable since it can come from profile
+DO $$
+BEGIN
+    ALTER TABLE artist_team_members 
+    ALTER COLUMN role DROP NOT NULL;
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END $$;
+
+-- Create index for faster lookups
+CREATE INDEX IF NOT EXISTS idx_artist_team_members_profile_id ON artist_team_members(profile_id);
+CREATE INDEX IF NOT EXISTS idx_artist_team_members_member_type ON artist_team_members(member_type);
+
+-- ============================================================
+-- MIGRATION 2: Lier artistes aux profils team
+-- ============================================================
+
+-- Add profile_id to artists table
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='artists' AND column_name='profile_id') THEN
+        ALTER TABLE artists 
+        ADD COLUMN profile_id UUID REFERENCES profiles(id) ON DELETE SET NULL;
+    END IF;
+END $$;
+
+-- Create index for faster lookups
+CREATE INDEX IF NOT EXISTS idx_artists_profile_id ON artists(profile_id);
+
+-- ============================================================
+-- MIGRATION 3: Flag is_manager pour gestion indépendante
+-- ============================================================
+
+-- Add is_manager column (defaults to false)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name='profiles' AND column_name='is_manager') THEN
+        ALTER TABLE profiles 
+        ADD COLUMN is_manager BOOLEAN DEFAULT false;
+    END IF;
+END $$;
+
+-- Create index for faster filtering
+CREATE INDEX IF NOT EXISTS idx_profiles_is_manager ON profiles(is_manager);
+
+-- Update existing profiles to set is_manager=true for those who manage artists
+UPDATE profiles 
+SET is_manager = true 
+WHERE id IN (
+    SELECT DISTINCT profile_id 
+    FROM artist_team_members 
+    WHERE profile_id IS NOT NULL 
+    AND member_type = 'internal'
+);
+
+-- ============================================================
+-- ✅ MIGRATIONS TERMINÉES
+-- ============================================================
+-- Vous pouvez maintenant fermer cet onglet et retourner sur votre app
