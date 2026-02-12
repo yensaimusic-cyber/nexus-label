@@ -14,7 +14,8 @@ import {
   Layers,
   Rocket,
   MessageSquareText,
-  Briefcase
+  Briefcase,
+  UserCheck
 } from 'lucide-react';
 
 export const COLORS = {
@@ -37,6 +38,7 @@ export const NAVIGATION = [
   { name: 'Calendrier', icon: <Calendar size={20} />, path: '/calendar' },
   { name: 'Ressources', icon: <Briefcase size={20} />, path: '/resources' },
   { name: 'Équipe', icon: <Shield size={20} />, path: '/team' },
+  { name: 'Management', icon: <UserCheck size={20} />, path: '/management' },
 ];
 
 export const STATUS_COLORS: Record<string, string> = {

@@ -377,7 +377,7 @@ export const ArtistDetail: React.FC = () => {
                 {artistTeam.map(member => {
                   const isInternal = member.member_type === 'internal';
                   const displayName = isInternal ? member.profile?.full_name : member.name;
-                  const displayRole = isInternal ? member.profile?.role : member.role;
+                  const displayRole = member.role; // Toujours afficher le rôle de la relation, pas celui du profil
                   const avatarUrl = isInternal ? member.profile?.avatar_url : null;
                   
                   return (
@@ -402,7 +402,7 @@ export const ArtistDetail: React.FC = () => {
                               {displayRole}
                             </span>
                             <span className={`text-[9px] px-2 py-0.5 rounded-full border ${isInternal ? 'bg-nexus-purple/10 text-nexus-purple border-nexus-purple/20' : 'bg-nexus-cyan/10 text-nexus-cyan border-nexus-cyan/20'}`}>
-                              {isInternal ? 'Agent Nexus' : 'Externe'}
+                              {isInternal ? 'Agent Indigo' : 'Externe'}
                             </span>
                           </div>
                         </div>
@@ -630,7 +630,7 @@ export const ArtistDetail: React.FC = () => {
                 onClick={() => setNewTeamMember({...newTeamMember, member_type: 'internal', name: '', role: '', email: '', phone: '', notes: ''})}
                 className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${newTeamMember.member_type === 'internal' ? 'bg-nexus-purple text-white shadow-lg' : 'text-white/30 hover:text-white'}`}
               >
-                Agent Nexus
+                Agent Indigo
               </button>
               <button 
                 type="button"
@@ -643,7 +643,7 @@ export const ArtistDetail: React.FC = () => {
 
            {newTeamMember.member_type === 'internal' ? (
              <div className="space-y-2">
-               <label className="text-[10px] font-mono uppercase tracking-widest text-white/40 font-black">Agent Nexus *</label>
+               <label className="text-[10px] font-mono uppercase tracking-widest text-white/40 font-black">Agent Indigo *</label>
                <select 
                  required 
                  value={newTeamMember.profile_id || ''} 

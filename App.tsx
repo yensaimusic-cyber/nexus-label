@@ -12,6 +12,7 @@ import { Tasks } from './pages/Tasks';
 import { Calendar } from './pages/Calendar';
 import { Team } from './pages/Team';
 import { Meetings } from './pages/Meetings';
+import Management from './pages/Management';
 import { Resources } from './pages/Resources';
 import { Login } from './pages/Login';
 import { useAuth } from './hooks/useAuth';
@@ -94,6 +95,7 @@ const App: React.FC = () => {
                 <Route path="/calendar" element={<ProtectedRoute><PageWrapper><Calendar /></PageWrapper></ProtectedRoute>} />
                 <Route path="/resources" element={<ProtectedRoute><PageWrapper><Resources /></PageWrapper></ProtectedRoute>} />
                 <Route path="/team" element={<ProtectedRoute><PageWrapper><Team /></PageWrapper></ProtectedRoute>} />
+                <Route path="/management" element={<ProtectedRoute><PageWrapper><Management /></PageWrapper></ProtectedRoute>} />
                 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
