@@ -513,8 +513,8 @@ export const Calendar: React.FC = () => {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-12 gap-6 lg:gap-8 flex-1 items-start">
-        <Card className="lg:col-span-2 xl:col-span-9 flex flex-col p-0 overflow-hidden border-white/10 shadow-2xl bg-transparent w-full">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1 items-start w-full">
+        <Card className="col-span-1 lg:col-span-9 flex flex-col p-0 overflow-hidden border-white/10 shadow-2xl bg-transparent w-full">
           <div className="p-4 lg:p-8 border-b border-white/10 bg-[#070707] flex flex-col md:flex-row md:items-center justify-between gap-4 lg:gap-6">
             <div className="flex items-center gap-4 lg:gap-6">
               <div className="flex bg-black rounded-xl lg:rounded-2xl p-1 border border-white/5 shadow-inner">
@@ -607,7 +607,7 @@ export const Calendar: React.FC = () => {
           </div>
         </Card>
 
-        <div className="space-y-6 lg:col-span-1 xl:col-span-3 w-full">
+        <div className="space-y-6 col-span-1 lg:col-span-3 w-full">
           <Card className="h-full flex flex-col p-6 lg:p-8 border-white/10 shadow-2xl glass overflow-hidden">
             <h3 className="font-heading font-extrabold text-xl lg:text-2xl mb-6 lg:mb-8 flex items-center gap-3">
               <div className="p-2 rounded-lg lg:rounded-xl bg-nexus-purple/10 text-nexus-purple">
