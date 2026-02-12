@@ -97,8 +97,8 @@ const Management: React.FC = () => {
         .select('id, name, stage_name, cover_url, status')
         .order('stage_name');
       
-      // Si erreur sur stage_name, réessayer avec juste name
-      if (error && error.message.includes('stage_name')) {
+      // Si erreur sur stage_name ou profile_id, réessayer avec juste name
+      if (error && (error.message.includes('stage_name') || error.message.includes('profile_id'))) {
         const result = await supabase
           .from('artists')
           .select('id, name, cover_url, status')
@@ -152,8 +152,8 @@ const Management: React.FC = () => {
         .eq('profile_id', selectedProfile.id)
         .eq('member_type', 'internal');
       
-      // Si erreur sur stage_name, réessayer sans
-      if (error && error.message.includes('stage_name')) {
+      // Si erreur sur stage_name ou profile_id, réessayer sans
+      if (error && (error.message.includes('stage_name') || error.message.includes('profile_id') || error.message.includes('member_type'))) {
         const result = await supabase
           .from('artist_team_members')
           .select(`

@@ -22,8 +22,8 @@ export const useArtists = () => {
         `)
         .order('name', { ascending: true });
 
-      // Si erreur sur profile_id_fkey (colonne n'existe pas), réessayer sans jointure
-      if (error && error.message.includes('profile_id_fkey')) {
+      // Si erreur sur profile_id ou linked_profile (colonne n'existe pas), réessayer sans jointure
+      if (error && (error.message.includes('profile_id') || error.message.includes('linked_profile'))) {
         const result = await supabase
           .from('artists')
           .select(`
@@ -75,12 +75,27 @@ export const useArtists = () => {
         avatarUrl = publicUrl;
       }
 
-      // 2. Insertion en base
-      const { data, error } = await supabase
+      // 2. Insertion en base - essayer d'abord avec tous les champs
+      let { data, error } = await supabase
         .from('artists')
         .insert([{ ...artistData, avatar_url: avatarUrl }])
         .select()
         .single();
+
+      // Si erreur sur profile_id (colonne n'existe pas encore), retenter sans
+      if (error && (error.message.includes('profile_id') || error.message.includes('unknown column'))) {
+        const dataWithoutProfileId = { ...artistData, avatar_url: avatarUrl };
+        delete (dataWithoutProfileId as any).profile_id;
+        
+        const retryResult = await supabase
+          .from('artists')
+          .insert([dataWithoutProfileId])
+          .select()
+          .single();
+        
+        data = retryResult.data;
+        error = retryResult.error;
+      }
 
       if (error) throw error;
       
@@ -120,9 +135,28 @@ export const useArtists = () => {
         .select()
         .single();
 
+      // Si erreur sur profile_id (colonne n'existe pas encore), retenter sans
+      if (error && (error.message.includes('profile_id') || error.message.includes('unknown column'))) {
+        const updatesWithoutProfileId = { ...updates, avatar_url: avatarUrl };
+        delete (updatesWithoutProfileId as any).profile_id;
+        
+        const retryResult = await supabase
+          .from('artists')
+          .update(updatesWithoutProfileId)
+          .eq('id', id)
+          .select()
+          .single();
+        
+        if (retryResult.error) throw retryResult.error;
+        
+        setArtists(prev => prev.map(a => a.id === id ? { ...a, ...retryResult.data } : a));
+        return retryResult.data;
+      }
+
       if (error) throw error;
 
       setArtists(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
+      return data;
       return data;
     } catch (err: any) {
       throw new Error(handleSupabaseError(err));

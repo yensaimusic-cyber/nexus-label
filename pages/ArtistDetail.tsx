@@ -67,8 +67,8 @@ export const ArtistDetail: React.FC = () => {
         .eq('id', id)
         .single();
       
-      // Si erreur sur profile_id, réessayer sans jointure
-      if (artistRes.error && artistRes.error.message.includes('profile_id_fkey')) {
+      // Si erreur sur profile_id ou linked_profile, réessayer sans jointure
+      if (artistRes.error && (artistRes.error.message.includes('profile_id') || artistRes.error.message.includes('linked_profile'))) {
         artistRes = await supabase
           .from('artists')
           .select('*')
