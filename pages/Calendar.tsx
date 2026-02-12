@@ -637,7 +637,7 @@ export const Calendar: React.FC = () => {
                     </div>
                     
                     <div className="space-y-1 overflow-y-auto" style={{ maxHeight: isLarge ? '180px' : '320px' }}>
-                      {dayEvents.slice(0, 3).map((event) => {
+                      {dayEvents.slice(0, isLarge ? 3 : 6).map((event) => {
                         const isGoogle = event.metadata?.google;
                         const eventStyle = getEventStyle(event);
                         return (
@@ -645,7 +645,7 @@ export const Calendar: React.FC = () => {
                             key={event.id}
                             onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
                             whileHover={{ scale: 1.02, x: 2 }}
-                            className={`${isLarge ? 'px-2 py-1 text-[8px]' : 'px-3 py-2 text-[12px]'} rounded-md lg:rounded-lg font-bold tracking-tight flex items-center gap-2 truncate shadow-sm cursor-pointer ${eventStyle.className}`}
+                            className={`${isLarge ? 'px-2 py-1 text-[8px]' : 'px-3 py-2 text-[12px]'} rounded-md lg:rounded-lg font-bold tracking-tight flex items-center gap-2 ${isLarge ? 'truncate' : 'whitespace-normal'} shadow-sm cursor-pointer ${eventStyle.className}`}
                             style={eventStyle.style}
                           >
                             <span className="truncate">{event.title}</span>
