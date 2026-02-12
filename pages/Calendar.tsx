@@ -426,6 +426,15 @@ export const Calendar: React.FC = () => {
     setLinkedItems(items);
   };
 
+  // When a selectedEvent changes, load its linked items so the detail modal can show dependencies
+  useEffect(() => {
+    if (selectedEvent) {
+      prepareLinkedItems(selectedEvent);
+    } else {
+      setLinkedItems([]);
+    }
+  }, [selectedEvent]);
+
   const confirmDelete = async (deleteLinked = false) => {
     if (!selectedEvent) return;
     setDeleteInProgress(true);
@@ -830,6 +839,29 @@ export const Calendar: React.FC = () => {
                 <label className="text-[10px] font-mono uppercase text-white/60">Description</label>
                 <textarea value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" rows={4} />
               </div>
+              {linkedItems && linkedItems.length > 0 && (
+                <div className="mb-4">
+                  <label className="text-[10px] font-mono uppercase text-white/60">Dépendances liées</label>
+                  <div className="mt-2 grid gap-2">
+                    {linkedItems.map(li => (
+                      <div key={li.type + li.id} className="flex items-center justify-between bg-white/3 p-2 rounded">
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold text-white truncate">{li.title}</div>
+                          <div className="text-[11px] text-white/40 uppercase tracking-widest">{li.type === 'project' ? 'Projet' : li.type === 'task' ? 'Tâche' : li.type}</div>
+                        </div>
+                        <div className="ml-3 flex items-center gap-2">
+                          {li.type === 'project' && (
+                            <Link to={`/projects/${li.id}`} onClick={() => setIsDetailModalOpen(false)} className="text-[12px] text-nexus-cyan">Ouvrir</Link>
+                          )}
+                          {li.type === 'task' && (
+                            <Link to={`/tasks`} onClick={() => setIsDetailModalOpen(false)} className="text-[12px] text-nexus-cyan">Ouvrir</Link>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="mb-4">
                 <label className="text-[10px] font-mono uppercase text-white/60 mb-2 block">Couleur</label>
                 <div className="flex flex-wrap gap-2">
