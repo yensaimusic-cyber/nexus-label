@@ -281,7 +281,7 @@ export const ProjectDetail: React.FC = () => {
   if (loading || !project) return <div className="min-h-[80vh] flex items-center justify-center"><Loader2 className="animate-spin text-nexus-purple" size={48} /></div>;
 
   return (
-    <div className="p-2 lg:p-8 space-y-4 max-w-[1400px] mx-auto min-h-screen">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-4 max-w-[1000px] mx-auto min-h-screen">
       <header className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <Link to="/projects" className="flex items-center gap-2 text-white/30 hover:text-white transition-all w-fit group">
@@ -298,8 +298,8 @@ export const ProjectDetail: React.FC = () => {
           </div>
         </div>
 
-        <div className="glass p-2 md:p-4 lg:p-10 rounded-2xl border-white/10 flex flex-col md:flex-row gap-3 items-center md:items-start relative overflow-hidden shadow-2xl">
-          <div className="w-20 h-20 sm:w-32 sm:h-32 lg:w-60 lg:h-60 rounded-2xl overflow-hidden border-2 border-white/10 shrink-0 shadow-2xl relative z-10 nexus-glow">
+        <div className="glass p-3 sm:p-4 md:p-6 lg:p-10 rounded-2xl border-white/10 flex flex-col md:flex-row gap-3 items-center md:items-start relative overflow-hidden shadow-sm sm:shadow-2xl">
+          <div className="w-20 h-20 sm:w-28 sm:h-28 md:w-40 md:h-40 lg:w-60 lg:h-60 rounded-2xl overflow-hidden border-2 border-white/10 shrink-0 shadow-2xl relative z-10 nexus-glow">
             <img src={project.cover_url || 'https://picsum.photos/seed/project/400'} alt="Cover" className="w-full h-full object-cover" />
           </div>
           <div className="flex-1 space-y-2 text-center md:text-left relative z-10 w-full">
@@ -310,7 +310,7 @@ export const ProjectDetail: React.FC = () => {
                   {STATUS_LABELS[project.status as ProjectStatus] || project.status}
                 </span>
               </div>
-              <h2 className="text-lg sm:text-2xl lg:text-6xl font-heading font-extrabold text-white tracking-tighter leading-none">{project.title}</h2>
+              <h2 className="text-lg sm:text-2xl md:text-4xl lg:text-6xl font-heading font-extrabold text-white tracking-tighter leading-none">{project.title}</h2>
               <p className="text-nexus-lightGray text-base font-medium">Par <Link to={`/artists/${project.artist_id}`} className="text-nexus-cyan hover:underline">{project.artist?.stage_name}</Link></p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2">
@@ -327,7 +327,7 @@ export const ProjectDetail: React.FC = () => {
         </div>
       </header>
 
-      <div className="flex overflow-x-auto no-scrollbar gap-2 p-1.5 glass rounded-[28px] w-full lg:w-fit shadow-2xl">
+      <div className="flex flex-wrap sm:flex-nowrap overflow-x-auto no-scrollbar gap-2 p-1 glass rounded-[20px] w-full lg:w-fit shadow-sm sm:shadow-2xl">
         {[
           { id: 'tracks', label: 'Discographie', icon: <Disc size={16} /> },
           { id: 'tasks', label: 'Opérations', icon: <ClipboardList size={16} /> },
@@ -337,7 +337,7 @@ export const ProjectDetail: React.FC = () => {
           <button 
             key={tab.id} 
             onClick={() => setActiveTab(tab.id as any)} 
-            className={`flex items-center gap-2 px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shrink-0 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shrink-0 w-full sm:w-auto justify-center ${
               activeTab === tab.id ? 'bg-nexus-purple text-white shadow-xl nexus-glow' : 'text-white/40 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -358,7 +358,7 @@ export const ProjectDetail: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 gap-4">
                 {tracks.map((track, i) => (
-                  <Card key={track.id} className="p-5 flex flex-col md:flex-row md:items-center gap-6 group hover:border-nexus-purple/40 cursor-pointer shadow-xl border-white/5" onClick={() => handleOpenTrackModal(track)}>
+                  <Card key={track.id} className="p-4 md:p-5 flex flex-col md:flex-row md:items-center gap-6 group hover:border-nexus-purple/40 cursor-pointer shadow-xl border-white/5" onClick={() => handleOpenTrackModal(track)}>
                     <div className="flex items-center gap-6 flex-1">
                       <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center font-mono text-sm text-white/20 font-black border border-white/5 group-hover:text-nexus-purple transition-all group-hover:scale-105">
                         {(i+1).toString().padStart(2, '0')}
@@ -393,7 +393,7 @@ export const ProjectDetail: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {projectTasks.map(task => (
-                  <Card key={task.id} className="p-6 glass rounded-3xl hover:border-nexus-purple/40 transition-all group cursor-pointer border-white/5 shadow-xl flex flex-col justify-between" onClick={() => handleOpenTaskModal(task)}>
+                  <Card key={task.id} className="p-4 md:p-6 glass rounded-3xl hover:border-nexus-purple/40 transition-all group cursor-pointer border-white/5 shadow-xl flex flex-col justify-between" onClick={() => handleOpenTaskModal(task)}>
                     <div>
                       <div className="flex justify-between items-start mb-4">
                         <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase border tracking-widest inline-block ${getPriorityColor(task.priority)}`}>{task.priority}</span>
@@ -428,7 +428,7 @@ export const ProjectDetail: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {teamMembers.map(member => (
-                  <Card key={member.id} className="p-8 border-white/5 hover:border-nexus-purple/30 group relative shadow-2xl">
+                  <Card key={member.id} className="p-4 md:p-8 border-white/5 hover:border-nexus-purple/30 group relative shadow-2xl">
                     <button onClick={() => handleRemoveTeamMember(member.id)} className="absolute top-6 right-6 p-2 text-white/10 hover:text-nexus-red transition-all opacity-0 group-hover:opacity-100"><X size={18} /></button>
                     <div className="flex items-center gap-5 mb-6">
                       <div className="w-16 h-16 rounded-3xl overflow-hidden border-2 border-white/10 shrink-0 shadow-2xl">
@@ -457,7 +457,7 @@ export const ProjectDetail: React.FC = () => {
               <h3 className="text-2xl font-heading font-extrabold text-white">Logs de Sessions & Stratégie</h3>
               <div className="space-y-6">
                 {meetings.map(meeting => (
-                  <Card key={meeting.id} className="p-8 border-white/5 hover:border-nexus-purple/40 shadow-2xl group transition-all">
+                  <Card key={meeting.id} className="p-6 md:p-8 border-white/5 hover:border-nexus-purple/40 shadow-2xl group transition-all">
                     <div className="flex flex-col lg:flex-row items-start justify-between gap-6">
                        <div className="space-y-4">
                           <div className="flex items-center gap-3">
