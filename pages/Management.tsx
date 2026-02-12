@@ -10,6 +10,7 @@ import { useToast } from '../components/ui/Toast';
 interface Artist {
   id: string;
   name: string;
+  stage_name: string;
   cover_image?: string;
   status?: string;
 }
@@ -92,8 +93,8 @@ const Management: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('artists')
-        .select('id, name, cover_image, status')
-        .order('name');
+        .select('id, name, stage_name, cover_image, status')
+        .order('stage_name');
       
       if (error) throw error;
       setAllArtists(data || []);
@@ -128,7 +129,7 @@ const Management: React.FC = () => {
           artist_id,
           profile_id,
           role,
-          artist:artists(id, name, cover_image, status)
+          artist:artists(id, name, stage_name, cover_image, status)
         `)
         .eq('profile_id', selectedProfile.id)
         .eq('member_type', 'internal');
@@ -366,12 +367,12 @@ const Management: React.FC = () => {
                 <div key={link.id} className="glass rounded-2xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     {link.artist?.cover_image ? (
-                      <img src={link.artist.cover_image} alt={link.artist?.name} className="w-16 h-16 rounded-xl object-cover" />
+                      <img src={link.artist.cover_image} alt={link.artist?.stage_name} className="w-16 h-16 rounded-xl object-cover" />
                     ) : (
                       <div className="w-16 h-16 glass rounded-xl" />
                     )}
                     <div>
-                      <h3 className="text-white font-bold">{link.artist?.name}</h3>
+                      <h3 className="text-white font-bold">{link.artist?.stage_name}</h3>
                       <p className="text-white/60 text-sm">{link.role}</p>
                       {link.artist?.status && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-nexus-purple/20 text-nexus-purple border border-nexus-purple/30 mt-1 inline-block">
@@ -403,7 +404,8 @@ const Management: React.FC = () => {
 
             <div className="space-y-2">
               {tasks.map(task => {
-                const artistName = managedArtists.find(ma => ma.artist_id === task.project?.artist_id)?.artist?.name;
+                const artistLink = managedArtists.find(ma => ma.artist_id === task.project?.artist_id);
+                const artistName = artistLink?.artist?.stage_name;
                 return (
                   <div key={task.id} className="glass rounded-xl p-4">
                     <div className="flex items-start justify-between gap-4">
@@ -456,9 +458,12 @@ const Management: React.FC = () => {
               >
                 <option value="">Sélectionner un artiste</option>
                 {getAvailableArtists().map(artist => (
-                  <option key={artist.id} value={artist.id}>{artist.name}</option>
+                  <option key={artist.id} value={artist.id}>
+                    {artist.stage_name} ({artist.name})
+                  </option>
                 ))}
               </select>
+              <p className="text-white/30 text-xs italic">{allArtists.length} artiste(s) au roster, {getAvailableArtists().length} disponible(s)</p>
             </div>
 
             <div className="space-y-2">
