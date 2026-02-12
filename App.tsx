@@ -79,7 +79,7 @@ const App: React.FC = () => {
             </>
           )}
           
-          <div className="relative z-10 flex-1 overflow-x-hidden">
+          <div className="relative z-10 flex-1 overflow-auto">
             <AnimatePresence mode="wait">
               <Routes>
                 <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
