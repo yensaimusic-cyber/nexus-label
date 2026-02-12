@@ -91,15 +91,32 @@ const Management: React.FC = () => {
 
   const fetchAllArtists = async () => {
     try {
-      const { data, error } = await supabase
+      // Essayer d'abord avec stage_name, sinon utiliser name
+      let { data, error } = await supabase
         .from('artists')
         .select('id, name, stage_name, cover_image, status')
         .order('stage_name');
       
+      // Si erreur sur stage_name, réessayer avec juste name
+      if (error && error.message.includes('stage_name')) {
+        const result = await supabase
+          .from('artists')
+          .select('id, name, cover_image, status')
+          .order('name');
+        data = result.data;
+        error = result.error;
+        
+        // Ajouter stage_name = name pour compatibilité
+        if (data) {
+          data = data.map(a => ({ ...a, stage_name: a.name }));
+        }
+      }
+      
       if (error) throw error;
       setAllArtists(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching artists:', err);
+      addToast(`Erreur de chargement: ${err.message}`, 'error');
     }
   };
 
@@ -122,7 +139,8 @@ const Management: React.FC = () => {
     if (!selectedProfile) return;
     
     try {
-      const { data, error } = await supabase
+      // Essayer d'abord avec stage_name
+      let { data, error } = await supabase
         .from('artist_team_members')
         .select(`
           id,
@@ -134,11 +152,37 @@ const Management: React.FC = () => {
         .eq('profile_id', selectedProfile.id)
         .eq('member_type', 'internal');
       
+      // Si erreur sur stage_name, réessayer sans
+      if (error && error.message.includes('stage_name')) {
+        const result = await supabase
+          .from('artist_team_members')
+          .select(`
+            id,
+            artist_id,
+            profile_id,
+            role,
+            artist:artists(id, name, cover_image, status)
+          `)
+          .eq('profile_id', selectedProfile.id)
+          .eq('member_type', 'internal');
+        
+        data = result.data;
+        error = result.error;
+        
+        // Ajouter stage_name = name
+        if (data) {
+          data = data.map(item => ({
+            ...item,
+            artist: item.artist ? { ...item.artist, stage_name: item.artist.name } : null
+          }));
+        }
+      }
+      
       if (error) throw error;
       setManagedArtists(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching managed artists:', err);
-      addToast('Erreur lors du chargement des artistes', 'error');
+      addToast(`Erreur: ${err.message}`, 'error');
     }
   };
 
