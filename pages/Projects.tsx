@@ -85,17 +85,17 @@ export const Projects: React.FC = () => {
       </div>
 
       {loading ? <div className="flex justify-center py-24"><Loader2 className="animate-spin text-nexus-purple" size={48} /></div> : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {projects.filter(p => p.title.toLowerCase().includes(search.toLowerCase()) || p.artist?.stage_name.toLowerCase().includes(search.toLowerCase())).map(project => (
             <Card key={project.id} className="p-0 overflow-hidden group">
-              <Link to={`/projects/${project.id}`}>
-                <div className="h-40 overflow-hidden relative">
-                  <img src={project.cover_url || "https://picsum.photos/seed/project/400"} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                  <div className="absolute top-3 right-3 px-2 py-1 rounded bg-nexus-purple text-[8px] font-black uppercase tracking-widest">{STATUS_LABELS[project.status as ProjectStatus]}</div>
+              <Link to={`/projects/${project.id}`}> 
+                <div className="h-32 overflow-hidden relative">
+                  <img src={project.cover_url || "https://picsum.photos/seed/project/400"} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  <div className="absolute top-2 right-2 px-2 py-1 rounded bg-nexus-purple text-[8px] font-black uppercase tracking-widest">{STATUS_LABELS[project.status as ProjectStatus]}</div>
                 </div>
-                <div className="p-5">
-                  <h4 className="font-bold text-white group-hover:text-nexus-cyan transition-colors">{project.title}</h4>
-                  <p className="text-xs text-white/40 uppercase font-mono mt-1">{project.artist?.stage_name}</p>
+                <div className="p-3">
+                  <h4 className="font-bold text-white text-base text-center group-hover:text-nexus-cyan transition-colors">{project.title}</h4>
+                  <p className="text-xs text-white/40 uppercase font-mono mt-1 text-center">{project.artist?.stage_name}</p>
                 </div>
               </Link>
             </Card>

@@ -604,7 +604,7 @@ export const Calendar: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-x-auto custom-scrollbar w-full" style={{ height: calendarHeight }}>
-            <div className="grid grid-cols-4 lg:grid-cols-7 min-w-0 w-full gap-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 min-w-0 w-full gap-0">
               {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map(day => (
                 <div key={day} className="py-3 lg:py-5 text-center text-[9px] lg:text-[10px] font-mono uppercase tracking-[0.3em] text-white/30 border-b border-white/5 font-black">
                   {day}
@@ -621,8 +621,8 @@ export const Calendar: React.FC = () => {
                 return (
                   <div 
                     key={i} 
-                    className={`min-h-[220px] lg:min-h-[200px] p-2 border-r border-b border-white/10 transition-all relative group/cell flex flex-col ${
-                      !isCurrentMonth ? 'bg-black/20 pointer-events-none' : 'bg-[#0b0b0b]'
+                    className={`min-h-[120px] sm:min-h-[140px] md:min-h-[160px] lg:min-h-[200px] p-1 sm:p-2 border-r border-b border-white/10 transition-all relative group/cell flex flex-col ${
+                      !isCurrentMonth ? 'bg-black/10 pointer-events-none' : 'bg-[#0b0b0b]'
                     }`}
                     onClick={() => isCurrentMonth && openCreateModalForDate(dateString)}
                   >
@@ -636,8 +636,8 @@ export const Calendar: React.FC = () => {
                       </span>
                     </div>
                     
-                    <div className="space-y-1 overflow-y-auto" style={{ maxHeight: isLarge ? '180px' : '320px' }}>
-                      {dayEvents.slice(0, isLarge ? 3 : 6).map((event) => {
+                    <div className="space-y-1 overflow-y-auto" style={{ maxHeight: isLarge ? '180px' : '120px' }}>
+                      {dayEvents.slice(0, isLarge ? 3 : 2).map((event) => {
                         const isGoogle = event.metadata?.google;
                         const eventStyle = getEventStyle(event);
                         return (

@@ -176,57 +176,33 @@ export const Team: React.FC = () => {
           <p className="text-[10px] font-mono uppercase text-white/30 tracking-[0.4em]">Lecture de la base profiles...</p>
         </div>
       ) : (
-        <div className="glass rounded-[40px] overflow-hidden border-white/5 shadow-2xl">
-          <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-white/[0.02] border-b border-white/5">
-                  <th className="px-10 py-8 text-[10px] font-mono uppercase text-white/30 tracking-[0.3em] font-black italic">Agent Hub</th>
-                  <th className="px-10 py-8 text-[10px] font-mono uppercase text-white/30 tracking-[0.3em] font-black italic">Rôles Attribués</th>
-                  <th className="px-10 py-8 text-[10px] font-mono uppercase text-white/30 tracking-[0.3em] font-black italic">Expertises</th>
-                  <th className="px-10 py-8"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {filteredProfiles.map((member) => (
-                  <tr key={member.id} className="group hover:bg-white/[0.04] transition-all">
-                    <td className="px-10 py-6">
-                      <div className="flex items-center gap-5">
-                        <div className="w-16 h-16 rounded-[24px] overflow-hidden border-2 border-white/10 bg-nexus-surface group-hover:border-nexus-purple/50 transition-all shadow-2xl">
-                          <img src={member.avatar_url || `https://picsum.photos/seed/${member.id}/100`} className="w-full h-full object-cover" alt="" />
-                        </div>
-                        <div>
-                          <p className="font-heading font-extrabold text-white text-lg group-hover:text-nexus-cyan transition-colors">{member.full_name}</p>
-                          <p className="text-[10px] font-mono text-white/20 mt-1 uppercase tracking-widest">{member.email || 'Pas de canal email'}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-10 py-6">
-                      <div className="flex flex-wrap gap-2">
-                        {Array.isArray(member.role) && member.role.map((r: string) => (
-                          <span key={r} className="px-3 py-1 rounded-lg bg-nexus-purple/10 text-nexus-purple text-[9px] font-black uppercase tracking-[0.2em] border border-nexus-purple/20">{r}</span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-10 py-6">
-                      <div className="flex flex-wrap gap-2">
-                        {(member.skills || []).map((s: string) => (
-                          <span key={s} className="px-3 py-1 rounded-lg bg-white/5 text-[10px] font-bold text-white/40 border border-white/5">{s}</span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-10 py-6 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <button onClick={() => { setEditingId(member.id); setFormData(member); setPreviewUrl(member.avatar_url); setIsModalOpen(true); }} className="p-3 bg-white/5 hover:bg-nexus-purple/20 rounded-xl text-nexus-purple transition-all"><Edit3 size={20} /></button>
-                         <button onClick={() => handleDeleteMember(member.id)} className="p-3 bg-white/5 hover:bg-nexus-red/10 rounded-xl text-nexus-red transition-all"><Trash2 size={20} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="glass rounded-[24px] border-white/5 shadow-2xl">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
+            {filteredProfiles.map((member) => (
+              <div key={member.id} className="bg-white/[0.02] rounded-2xl p-4 flex flex-col items-center gap-3 shadow-md">
+                <div className="w-14 h-14 rounded-full overflow-hidden border border-white/10 bg-nexus-surface">
+                  <img src={member.avatar_url || `https://picsum.photos/seed/${member.id}/100`} className="w-full h-full object-cover" alt="" />
+                </div>
+                <p className="font-heading font-extrabold text-white text-base text-center">{member.full_name}</p>
+                <p className="text-[10px] font-mono text-white/20 uppercase tracking-widest text-center">{member.email || 'Pas de canal email'}</p>
+                <div className="flex flex-wrap gap-1 justify-center">
+                  {Array.isArray(member.role) && member.role.map((r: string) => (
+                    <span key={r} className="px-2 py-0.5 rounded bg-nexus-purple/10 text-nexus-purple text-[9px] font-black uppercase tracking-[0.2em] border border-nexus-purple/20">{r}</span>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-1 justify-center">
+                  {(member.skills || []).map((s: string) => (
+                    <span key={s} className="px-2 py-0.5 rounded bg-white/5 text-[10px] font-bold text-white/40 border border-white/5">{s}</span>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <button onClick={() => { setEditingId(member.id); setFormData(member); setPreviewUrl(member.avatar_url); setIsModalOpen(true); }} className="p-2 bg-white/5 hover:bg-nexus-purple/20 rounded-xl text-nexus-purple transition-all"><Edit3 size={18} /></button>
+                  <button onClick={() => handleDeleteMember(member.id)} className="p-2 bg-white/5 hover:bg-nexus-red/10 rounded-xl text-nexus-red transition-all"><Trash2 size={18} /></button>
+                </div>
+              </div>
+            ))}
           </div>
-          {filteredProfiles.length === 0 && <div className="py-32 text-center opacity-20 italic">Aucun agent identifié dans ce secteur.</div>}
+          {filteredProfiles.length === 0 && <div className="py-16 text-center opacity-20 italic">Aucun agent identifié dans ce secteur.</div>}
         </div>
       )}
 
