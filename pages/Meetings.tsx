@@ -62,6 +62,40 @@ export const Meetings: React.FC = () => {
       if (editingId) {
         const { error } = await supabase.from('meetings').update(formData).eq('id', editingId);
         if (error) throw error;
+        
+        // Handle Google synchronization for existing meetings
+        if (syncToGoogle) {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const userId = session?.user?.id;
+            if (userId) {
+              // Get the updated meeting to sync
+              const { data: updatedMeeting } = await supabase.from('meetings').select('*').eq('id', editingId).single();
+              if (updatedMeeting) {
+                if (updatedMeeting.google_event_id) {
+                  // Update existing Google Calendar event
+                  await googleCalendarService.updateEvent(userId, updatedMeeting.google_event_id, {
+                    summary: updatedMeeting.title,
+                    description: updatedMeeting.summary,
+                    start: { dateTime: updatedMeeting.date + 'T00:00:00', timeZone: 'UTC' },
+                    end: { dateTime: updatedMeeting.date + 'T01:00:00', timeZone: 'UTC' }
+                  });
+                  toast.addToast('Meeting et Google Calendar synchronisés !', 'success');
+                } else {
+                  // Create new Google Calendar event if not already linked
+                  const createdEvent = await googleCalendarService.createEvent(userId, updatedMeeting);
+                  if (createdEvent?.id) {
+                    await supabase.from('meetings').update({ google_event_id: createdEvent.id, synced_at: new Date().toISOString() }).eq('id', editingId);
+                    toast.addToast('Meeting synchronisé avec Google Calendar !', 'success');
+                  }
+                }
+              }
+            }
+          } catch (gErr) {
+            console.error('Google sync failed:', gErr);
+            toast.addToast('Meeting mis à jour mais la synchronisation Google a échoué.', 'error');
+          }
+        }
       } else {
         const { data: inserted, error } = await supabase.from('meetings').insert([formData]).select().single();
         if (error) throw error;
@@ -117,7 +151,7 @@ export const Meetings: React.FC = () => {
       action_items: meeting.action_items || [],
       project_id: meeting.project_id || ''
     });
-    setSyncToGoogle(false);
+    setSyncToGoogle(true);
     setIsModalOpen(true);
   };
 
@@ -269,8 +303,8 @@ export const Meetings: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <input id="syncGoogle" type="checkbox" checked={syncToGoogle} onChange={e => setSyncToGoogle(e.target.checked)} className="w-4 h-4" />
-            <label htmlFor="syncGoogle" className="text-[12px]">Synchroniser avec Google Calendar</label>
+            <input id="syncGoogle" type="checkbox" checked={syncToGoogle} disabled className="w-4 h-4" />
+            <label htmlFor="syncGoogle" className="text-[12px] text-white/60">Synchroniser avec Google Calendar (toujours activé)</label>
           </div>
 
           <div className="flex gap-3 pt-4">

@@ -1140,11 +1140,11 @@ export const Calendar: React.FC = () => {
                 id="syncGoogleCreate"
                 type="checkbox"
                 checked={createForm.syncToGoogle}
-                onChange={e => setCreateForm(f => ({ ...f, syncToGoogle: e.target.checked }))}
+                disabled
                 className="w-4 h-4"
               />
-              <label htmlFor="syncGoogleCreate" className="text-[12px] text-white/70 cursor-pointer">
-                Synchroniser avec Google Calendar
+              <label htmlFor="syncGoogleCreate" className="text-[12px] text-white/50 cursor-default">
+                Synchroniser avec Google Calendar (toujours activé)
               </label>
             </div>
           )}
