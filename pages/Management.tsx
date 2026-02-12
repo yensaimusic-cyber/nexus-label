@@ -43,6 +43,9 @@ const Management: React.FC = () => {
   const [allArtists, setAllArtists] = useState<Artist[]>([]);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showAddManagerModal, setShowAddManagerModal] = useState(false);
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
+  const [selectedProfileToPromote, setSelectedProfileToPromote] = useState('');
   const [selectedArtistId, setSelectedArtistId] = useState('');
   const [managerRole, setManagerRole] = useState('Manager');
   const [newManager, setNewManager] = useState({ full_name: '', email: '', role: 'Manager', avatar_url: '' });
@@ -52,6 +55,7 @@ const Management: React.FC = () => {
   useEffect(() => {
     fetchProfiles();
     fetchAllArtists();
+    fetchAllProfiles();
   }, []);
 
   useEffect(() => {
@@ -73,6 +77,7 @@ const Management: React.FC = () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
+        .eq('is_manager', true)
         .order('full_name');
       
       if (error) throw error;
@@ -94,6 +99,21 @@ const Management: React.FC = () => {
       setAllArtists(data || []);
     } catch (err) {
       console.error('Error fetching artists:', err);
+    }
+  };
+
+  const fetchAllProfiles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, role')
+        .eq('is_manager', false)
+        .order('full_name');
+      
+      if (error) throw error;
+      setAllProfiles(data || []);
+    } catch (err) {
+      console.error('Error fetching all profiles:', err);
     }
   };
 
@@ -226,7 +246,8 @@ const Management: React.FC = () => {
           full_name: newManager.full_name,
           email: newManager.email,
           role: newManager.role,
-          avatar_url: newManager.avatar_url || null
+          avatar_url: newManager.avatar_url || null,
+          is_manager: true
         });
       
       if (error) throw error;
@@ -246,21 +267,47 @@ const Management: React.FC = () => {
   const handleDeleteManager = async (profileId: string, event: React.MouseEvent) => {
     event.stopPropagation();
     
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce manager ? Toutes ses liaisons avec les artistes seront également supprimées.')) return;
+    if (!confirm('Retirer ce membre de la liste des managers ? Le profil et les liaisons artistes seront conservés.')) return;
     
     try {
       const { error } = await supabase
         .from('profiles')
-        .delete()
+        .update({ is_manager: false })
         .eq('id', profileId);
       
       if (error) throw error;
       
-      addToast('Manager supprimé', 'success');
+      addToast('Manager retiré de la liste', 'success');
       fetchProfiles();
+      fetchAllProfiles();
     } catch (err) {
-      console.error('Error deleting manager:', err);
+      console.error('Error removing manager:', err);
       addToast('Erreur lors de la suppression', 'error');
+    }
+  };
+
+  const handlePromoteToManager = async () => {
+    if (!selectedProfileToPromote) return;
+    
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_manager: true })
+        .eq('id', selectedProfileToPromote);
+      
+      if (error) throw error;
+      
+      addToast('Membre promu en manager', 'success');
+      setShowPromoteModal(false);
+      setSelectedProfileToPromote('');
+      fetchProfiles();
+      fetchAllProfiles();
+    } catch (err) {
+      console.error('Error promoting to manager:', err);
+      addToast('Erreur lors de la promotion', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -449,9 +496,14 @@ const Management: React.FC = () => {
           <h1 className="text-3xl lg:text-4xl font-black text-white mb-2">Management</h1>
           <p className="text-white/60">Gérez les managers et leurs artistes affiliés</p>
         </div>
-        <Button onClick={() => setShowAddManagerModal(true)} icon={Plus}>
-          Ajouter un manager
-        </Button>
+        <div className="flex gap-3">
+          <Button onClick={() => setShowPromoteModal(true)} variant="outline" icon={Users}>
+            Promouvoir un membre
+          </Button>
+          <Button onClick={() => setShowAddManagerModal(true)} icon={Plus}>
+            Ajouter un manager
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -544,6 +596,40 @@ const Management: React.FC = () => {
               disabled={!newManager.full_name.trim() || !newManager.email.trim() || loading}
             >
               {loading ? 'Ajout...' : 'Ajouter'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Promote Member Modal */}
+      <Modal isOpen={showPromoteModal} onClose={() => setShowPromoteModal(false)} title="Promouvoir un membre en manager">
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40 font-black">Sélectionner un membre de l'équipe *</label>
+            <select
+              value={selectedProfileToPromote}
+              onChange={(e) => setSelectedProfileToPromote(e.target.value)}
+              className="w-full glass text-white px-4 py-3 rounded-xl border border-white/5 focus:outline-none focus:border-nexus-purple/50"
+            >
+              <option value="">Choisir un membre...</option>
+              {allProfiles.map(profile => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.full_name} {profile.role ? `(${profile.role})` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-white/30 text-xs italic">Ce membre sera ajouté à la liste des managers</p>
+          </div>
+
+          <div className="flex gap-3">
+            <Button onClick={() => setShowPromoteModal(false)} variant="ghost">
+              Annuler
+            </Button>
+            <Button 
+              onClick={handlePromoteToManager} 
+              disabled={!selectedProfileToPromote || loading}
+            >
+              {loading ? 'Promotion...' : 'Promouvoir'}
             </Button>
           </div>
         </div>
