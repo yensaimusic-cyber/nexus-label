@@ -24,6 +24,7 @@ export const ArtistDetail: React.FC = () => {
   const [artistTeam, setArtistTeam] = useState<ArtistTeamMember[]>([]);
   const [meetings, setMeetings] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
+  const [linkedProfile, setLinkedProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'projets' | 'equipe' | 'assets' | 'reunions'>('projets');
   
@@ -59,7 +60,7 @@ export const ArtistDetail: React.FC = () => {
     try {
       setLoading(true);
       const [artistRes, projectsRes, assetsRes, teamRes, profilesRes] = await Promise.all([
-        supabase.from('artists').select('*').eq('id', id).single(),
+        supabase.from('artists').select('*, linked_profile:profiles!artists_profile_id_fkey(id, full_name, avatar_url, role)').eq('id', id).single(),
         supabase.from('projects').select('*').eq('artist_id', id).order('release_date', { ascending: false }),
         supabase.from('artist_assets').select('*').eq('artist_id', id).order('created_at', { ascending: false }),
         supabase.from('artist_team_members').select('*, profile:profiles(id, full_name, avatar_url, role)').eq('artist_id', id).order('created_at', { ascending: false }),
@@ -69,6 +70,7 @@ export const ArtistDetail: React.FC = () => {
       if (artistRes.error) throw artistRes.error;
       
       setArtist(artistRes.data);
+      setLinkedProfile(artistRes.data.linked_profile);
       setEditFormData(artistRes.data);
       const projData = projectsRes.data || [];
       setProjects(projData);
@@ -290,6 +292,12 @@ export const ArtistDetail: React.FC = () => {
               
               <div className="flex flex-wrap justify-center md:justify-start items-center gap-4 mb-4">
                 <span className="text-nexus-cyan font-mono uppercase tracking-[0.2em] text-[10px] bg-nexus-cyan/10 px-4 py-1.5 rounded-full border border-nexus-cyan/20 font-black">{artist.status}</span>
+                {linkedProfile && (
+                  <span className="text-nexus-purple font-mono uppercase tracking-[0.2em] text-[10px] bg-nexus-purple/10 px-4 py-1.5 rounded-full border border-nexus-purple/20 font-black flex items-center gap-2">
+                    <Users size={12} />
+                    Membre Equipe Indigo: {linkedProfile.full_name}
+                  </span>
+                )}
                 <p className="text-white/40 text-sm font-medium">ID Civil: {artist.name}</p>
                 <div className="flex gap-4 ml-2 pl-4 border-l border-white/10">
                   {artist.instagram_handle && (
@@ -577,6 +585,23 @@ export const ArtistDetail: React.FC = () => {
               <option value="on_hold" className="bg-nexus-surface">En attente / Break</option>
               <option value="archived" className="bg-nexus-surface">Archivé</option>
             </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono font-black uppercase text-white/30 tracking-widest">Lier à un Membre de l'Équipe Indigo</label>
+            <select 
+              value={editFormData.profile_id || ''} 
+              onChange={e => setEditFormData({...editFormData, profile_id: e.target.value || null})} 
+              className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none shadow-xl appearance-none"
+            >
+              <option value="" className="bg-nexus-surface">Aucun (artiste externe)</option>
+              {profiles.map(profile => (
+                <option key={profile.id} value={profile.id} className="bg-nexus-surface">
+                  {profile.full_name} {profile.role ? `(${profile.role})` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-white/30 text-xs italic">Si cet artiste est également membre de l'équipe Indigo, sélectionnez son profil</p>
           </div>
 
           <div className="flex gap-4 pt-8 border-t border-white/5">

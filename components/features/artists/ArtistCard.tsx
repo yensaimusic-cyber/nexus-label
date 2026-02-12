@@ -41,6 +41,11 @@ export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, view = 'grid' })
             <span className={`px-2 py-0.5 rounded-md text-[8px] font-mono uppercase font-bold border ${statusColors[artist.status]}`}>
               {artist.status}
             </span>
+            {(artist as any).linked_profile && (
+              <span className="px-2 py-0.5 rounded-md text-[8px] font-mono uppercase font-bold border bg-nexus-purple/20 text-nexus-purple border-nexus-purple/30">
+                Équipe
+              </span>
+            )}
           </div>
           <p className="text-xs text-white/40 truncate">{artist.name}</p>
         </div>
@@ -83,7 +88,12 @@ export const ArtistCard: React.FC<ArtistCardProps> = ({ artist, view = 'grid' })
           />
           <div className="absolute inset-0 bg-gradient-to-t from-nexus-dark via-transparent to-transparent" />
           
-          <div className="absolute top-4 right-4">
+          <div className="absolute top-4 right-4 flex gap-2">
+            {(artist as any).linked_profile && (
+              <span className="px-2 py-1 rounded-lg text-[9px] font-mono uppercase font-bold backdrop-blur-md border bg-nexus-purple/20 text-nexus-purple border-nexus-purple/30">
+                Équipe Indigo
+              </span>
+            )}
             <span className={`px-2 py-1 rounded-lg text-[9px] font-mono uppercase font-bold backdrop-blur-md border ${statusColors[artist.status]}`}>
               {artist.status}
             </span>

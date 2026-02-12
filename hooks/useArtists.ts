@@ -15,7 +15,8 @@ export const useArtists = () => {
         .from('artists')
         .select(`
           *,
-          projects:projects(count)
+          projects:projects(count),
+          linked_profile:profiles!artists_profile_id_fkey(id, full_name, avatar_url, role)
         `)
         .order('name', { ascending: true });
 

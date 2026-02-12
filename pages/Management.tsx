@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Profile } from '../types';
-import { ChevronLeft, Plus, X, Users, ListTodo, Briefcase } from 'lucide-react';
+import { ChevronLeft, Plus, X, Users, ListTodo, Briefcase, Trash2 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
@@ -42,8 +42,10 @@ const Management: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allArtists, setAllArtists] = useState<Artist[]>([]);
   const [showLinkModal, setShowLinkModal] = useState(false);
+  const [showAddManagerModal, setShowAddManagerModal] = useState(false);
   const [selectedArtistId, setSelectedArtistId] = useState('');
   const [managerRole, setManagerRole] = useState('Manager');
+  const [newManager, setNewManager] = useState({ full_name: '', email: '', role: 'Manager', avatar_url: '' });
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
 
@@ -206,6 +208,58 @@ const Management: React.FC = () => {
       fetchManagedArtists();
     } catch (err) {
       console.error('Error unlinking artist:', err);
+      addToast('Erreur lors de la suppression', 'error');
+    }
+  };
+
+  const handleAddManager = async () => {
+    if (!newManager.full_name.trim() || !newManager.email.trim()) {
+      addToast('Veuillez remplir tous les champs obligatoires', 'error');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .insert({
+          full_name: newManager.full_name,
+          email: newManager.email,
+          role: newManager.role,
+          avatar_url: newManager.avatar_url || null
+        });
+      
+      if (error) throw error;
+      
+      addToast('Manager ajouté avec succès', 'success');
+      setShowAddManagerModal(false);
+      setNewManager({ full_name: '', email: '', role: 'Manager', avatar_url: '' });
+      fetchProfiles();
+    } catch (err) {
+      console.error('Error adding manager:', err);
+      addToast('Erreur lors de l\'ajout du manager', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteManager = async (profileId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce manager ? Toutes ses liaisons avec les artistes seront également supprimées.')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', profileId);
+      
+      if (error) throw error;
+      
+      addToast('Manager supprimé', 'success');
+      fetchProfiles();
+    } catch (err) {
+      console.error('Error deleting manager:', err);
       addToast('Erreur lors de la suppression', 'error');
     }
   };
@@ -390,9 +444,14 @@ const Management: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl lg:text-4xl font-black text-white mb-2">Management</h1>
-        <p className="text-white/60">Gérez les managers et leurs artistes affiliés</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl lg:text-4xl font-black text-white mb-2">Management</h1>
+          <p className="text-white/60">Gérez les managers et leurs artistes affiliés</p>
+        </div>
+        <Button onClick={() => setShowAddManagerModal(true)} icon={Plus}>
+          Ajouter un manager
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -400,8 +459,14 @@ const Management: React.FC = () => {
           <div 
             key={profile.id}
             onClick={() => setSelectedProfile(profile)}
-            className="cursor-pointer"
+            className="cursor-pointer relative group"
           >
+            <button
+              onClick={(e) => handleDeleteManager(profile.id, e)}
+              className="absolute top-4 right-4 z-10 p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
             <Card className="hover:border-nexus-purple/50 transition-all">
               <div className="flex flex-col items-center text-center">
                 {profile.avatar_url ? (
@@ -422,6 +487,67 @@ const Management: React.FC = () => {
       {profiles.length === 0 && (
         <p className="text-white/40 text-center py-12">Aucun membre de l'équipe trouvé</p>
       )}
+
+      {/* Add Manager Modal */}
+      <Modal isOpen={showAddManagerModal} onClose={() => setShowAddManagerModal(false)} title="Ajouter un manager">
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40 font-black">Nom complet *</label>
+            <input
+              type="text"
+              value={newManager.full_name}
+              onChange={(e) => setNewManager({...newManager, full_name: e.target.value})}
+              placeholder="ex: John Doe"
+              className="w-full glass text-white px-4 py-3 rounded-xl border border-white/5 focus:outline-none focus:border-nexus-purple/50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40 font-black">Email *</label>
+            <input
+              type="email"
+              value={newManager.email}
+              onChange={(e) => setNewManager({...newManager, email: e.target.value})}
+              placeholder="ex: john@indigo.com"
+              className="w-full glass text-white px-4 py-3 rounded-xl border border-white/5 focus:outline-none focus:border-nexus-purple/50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40 font-black">Rôle</label>
+            <input
+              type="text"
+              value={newManager.role}
+              onChange={(e) => setNewManager({...newManager, role: e.target.value})}
+              placeholder="ex: Manager, A&R, Producteur"
+              className="w-full glass text-white px-4 py-3 rounded-xl border border-white/5 focus:outline-none focus:border-nexus-purple/50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-white/40 font-black">URL Avatar</label>
+            <input
+              type="url"
+              value={newManager.avatar_url}
+              onChange={(e) => setNewManager({...newManager, avatar_url: e.target.value})}
+              placeholder="https://..."
+              className="w-full glass text-white px-4 py-3 rounded-xl border border-white/5 focus:outline-none focus:border-nexus-purple/50"
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <Button onClick={() => setShowAddManagerModal(false)} variant="ghost">
+              Annuler
+            </Button>
+            <Button 
+              onClick={handleAddManager} 
+              disabled={!newManager.full_name.trim() || !newManager.email.trim() || loading}
+            >
+              {loading ? 'Ajout...' : 'Ajouter'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

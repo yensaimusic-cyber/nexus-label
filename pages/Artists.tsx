@@ -8,21 +8,41 @@ import { ArtistCard } from '../components/features/artists/ArtistCard';
 import { useArtists } from '../hooks/useArtists';
 import { Artist, ArtistStatus } from '../types';
 import { uploadFile } from '../lib/storage';
+import { supabase } from '../lib/supabase';
 
 export const Artists: React.FC = () => {
   const { artists, loading, error, addArtist, fetchArtists } = useArtists();
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [profiles, setProfiles] = useState<any[]>([]);
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newArtist, setNewArtist] = useState<Partial<Artist>>({
-    name: '', stage_name: '', bio: '', status: 'active', instagram_handle: '', spotify_id: ''
+    name: '', stage_name: '', bio: '', status: 'active', instagram_handle: '', spotify_id: '', profile_id: null
   });
   
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
+
+  const fetchProfiles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, role')
+        .order('full_name');
+      
+      if (error) throw error;
+      setProfiles(data || []);
+    } catch (err) {
+      console.error('Error fetching profiles:', err);
+    }
+  };
 
   const filteredArtists = artists.filter(artist => {
     const matchesSearch = artist.stage_name?.toLowerCase().includes(search.toLowerCase()) || artist.name?.toLowerCase().includes(search.toLowerCase());
@@ -56,7 +76,7 @@ export const Artists: React.FC = () => {
           <p className="text-nexus-lightGray text-sm mt-1">Gérez vos talents et suivez leur développement artistique.</p>
         </div>
         <Button variant="primary" className="gap-2 shadow-xl" onClick={() => {
-          setNewArtist({ name: '', stage_name: '', bio: '', status: 'active' });
+          setNewArtist({ name: '', stage_name: '', bio: '', status: 'active', profile_id: null });
           setAvatarPreview(null);
           setIsAddModalOpen(true);
         }}>
@@ -121,6 +141,22 @@ export const Artists: React.FC = () => {
           <div className="space-y-2">
             <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Profil & Biographie</label>
             <textarea rows={4} placeholder="Parcours artistique, univers, genre..." value={newArtist.bio} onChange={e => setNewArtist({...newArtist, bio: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-sm text-white resize-none focus:border-nexus-purple outline-none shadow-xl" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-mono uppercase text-white/40 tracking-widest font-black ml-1">Lier à un membre de l'équipe Indigo (optionnel)</label>
+            <select 
+              value={newArtist.profile_id || ''} 
+              onChange={e => setNewArtist({...newArtist, profile_id: e.target.value || null})} 
+              className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 px-5 text-sm text-white focus:border-nexus-purple outline-none shadow-xl appearance-none"
+            >
+              <option value="" className="bg-nexus-surface">Aucun (artiste externe)</option>
+              {profiles.map(profile => (
+                <option key={profile.id} value={profile.id} className="bg-nexus-surface">
+                  {profile.full_name} {profile.role ? `(${profile.role})` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-white/30 text-xs italic">Si l'artiste fait également partie de l'équipe Indigo</p>
           </div>
           <div className="flex gap-4 pt-6 border-t border-white/5">
             <Button type="button" variant="ghost" className="flex-1 h-14" onClick={() => setIsAddModalOpen(false)}>Annuler</Button>

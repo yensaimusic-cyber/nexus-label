@@ -25,6 +25,13 @@ export interface Artist {
   total_streams?: number;
   created_at?: string;
   projects_count?: number;
+  profile_id?: string | null;
+  linked_profile?: {
+    id: string;
+    full_name: string;
+    avatar_url?: string;
+    role?: string;
+  } | null;
 }
 
 export type ProjectType = 'single' | 'ep' | 'album' | 'mixtape';
