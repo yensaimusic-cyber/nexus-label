@@ -494,8 +494,57 @@ export const Calendar: React.FC = () => {
         return;
       }
 
-      // For other types (task, release) currently not persisted: show message
-      toast.addToast('La synchronisation est disponible pour les réunions uniquement.', 'info');
+      // Handle task sync
+      if (targetEvent.type === 'task') {
+        const taskId = targetEvent.id;
+        const { data: taskRow } = await supabase.from('tasks').select('*').eq('id', taskId).single();
+        if (!taskRow) throw new Error('Tâche introuvable');
+
+        if (enable) {
+          const eventPayload = {
+            title: taskRow.title,
+            date: taskRow.due_date,
+            summary: taskRow.description || '',
+            time: taskRow.time || ''
+          };
+          const createdEvent = await googleCalendarService.createEvent(userId, eventPayload);
+          if (createdEvent?.id) {
+            toast.addToast('Deadline synchronisée avec Google Calendar.', 'success');
+          }
+        } else {
+          toast.addToast('Suppression de la synchronisation : la tâche ne stocke pas encore le google_event_id.', 'info');
+        }
+        await fetchEvents();
+        if (targetEvent === selectedEvent) setIsSynced(enable);
+        return;
+      }
+
+      // Handle release sync
+      if (targetEvent.type === 'release') {
+        const projectId = targetEvent.id;
+        const { data: project } = await supabase.from('projects').select('*').eq('id', projectId).single();
+        if (!project) throw new Error('Projet introuvable');
+
+        if (enable) {
+          const eventPayload = {
+            title: `RELEASE: ${project.title}`,
+            date: project.release_date,
+            summary: `Date de sortie du projet ${project.title}`,
+            time: ''
+          };
+          const createdEvent = await googleCalendarService.createEvent(userId, eventPayload);
+          if (createdEvent?.id) {
+            toast.addToast('Date de sortie synchronisée avec Google Calendar.', 'success');
+          }
+        } else {
+          toast.addToast('Suppression de la synchronisation : la release ne stocke pas encore le google_event_id.', 'info');
+        }
+        await fetchEvents();
+        if (targetEvent === selectedEvent) setIsSynced(enable);
+        return;
+      }
+
+      toast.addToast('Type d\'événement non pris en charge.', 'info');
     } catch (err) {
       console.error('toggleGoogleSync error', err);
       toast.addToast('Échec de la synchronisation.', 'error');
