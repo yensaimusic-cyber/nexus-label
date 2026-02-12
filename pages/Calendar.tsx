@@ -90,6 +90,15 @@ export const Calendar: React.FC = () => {
     window.addEventListener('touchend', stopDrag as any);
   }, [calendarWidthPct, onDrag, stopDrag]);
 
+  const [isLarge, setIsLarge] = useState<boolean>(() => typeof window !== 'undefined' ? window.matchMedia('(min-width:1024px)').matches : false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width:1024px)');
+    const handler = () => setIsLarge(mq.matches);
+    mq.addEventListener ? mq.addEventListener('change', handler) : mq.addListener(handler as any);
+    handler();
+    return () => { mq.removeEventListener ? mq.removeEventListener('change', handler) : mq.removeListener(handler as any); };
+  }, []);
+
   useEffect(() => {
     fetchEvents();
     fetchProjects();
@@ -557,7 +566,11 @@ export const Calendar: React.FC = () => {
         </div>
       </header>
 
-      <div ref={containerRef} style={{ gridTemplateColumns: `minmax(0, ${calendarWidthPct}%) 8px minmax(0, calc(${100 - calendarWidthPct}% - 8px))` }} className={`grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1 items-start w-full ${layoutDebug ? 'outline outline-2 outline-red-500' : ''}`}>
+      <div
+        ref={containerRef}
+        style={isLarge ? { gridTemplateColumns: `minmax(0, ${calendarWidthPct}%) 8px minmax(0, calc(${100 - calendarWidthPct}% - 8px))` } : undefined}
+        className={`grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1 items-start w-full ${layoutDebug ? 'outline outline-2 outline-red-500' : ''}`}
+      >
         <Card className={`col-span-1 lg:col-span-9 flex flex-col p-0 overflow-hidden border-white/10 shadow-2xl bg-transparent w-full ${layoutDebug ? 'outline outline-2 outline-blue-500' : ''}`}>
           <div className="p-4 lg:p-8 border-b border-white/10 bg-[#070707] flex flex-col md:flex-row md:items-center justify-between gap-4 lg:gap-6">
             <div className="flex items-center gap-4 lg:gap-6">
