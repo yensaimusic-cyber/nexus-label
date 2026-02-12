@@ -604,7 +604,7 @@ export const Calendar: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-x-auto custom-scrollbar w-full" style={{ height: calendarHeight }}>
-            <div className="grid grid-cols-7 min-w-0 w-full gap-0">
+            <div className="grid grid-cols-4 lg:grid-cols-7 min-w-0 w-full gap-0">
               {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map(day => (
                 <div key={day} className="py-3 lg:py-5 text-center text-[9px] lg:text-[10px] font-mono uppercase tracking-[0.3em] text-white/30 border-b border-white/5 font-black">
                   {day}
@@ -621,7 +621,7 @@ export const Calendar: React.FC = () => {
                 return (
                   <div 
                     key={i} 
-                    className={`min-h-[160px] lg:min-h-[200px] p-2 border-r border-b border-white/10 transition-all relative group/cell flex flex-col ${
+                    className={`min-h-[220px] lg:min-h-[200px] p-2 border-r border-b border-white/10 transition-all relative group/cell flex flex-col ${
                       !isCurrentMonth ? 'bg-black/20 pointer-events-none' : 'bg-[#0b0b0b]'
                     }`}
                     onClick={() => isCurrentMonth && openCreateModalForDate(dateString)}
