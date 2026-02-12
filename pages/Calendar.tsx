@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -38,22 +37,31 @@ export const Calendar: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<LabelEvent | null>(null);
   const [editForm, setEditForm] = useState<{ title: string; date: string; time?: string; description?: string; color?: string }>({ title: '', date: '', time: '', description: '', color: 'blue' });
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createForm, setCreateForm] = useState<{ title: string; date: string; time?: string; summary?: string; syncToGoogle?: boolean }>({ title: '', date: new Date().toISOString().split('T')[0], time: '', summary: '', syncToGoogle: true });
+  const [createForm, setCreateForm] = useState<{ 
+    title: string; date: string; time?: string; summary?: string; 
+    syncToGoogle?: boolean; eventType: 'meeting' | 'task' | 'release';
+    projectId?: string;
+  }>({ title: '', date: new Date().toISOString().split('T')[0], time: '', summary: '', syncToGoogle: true, eventType: 'meeting' });
+  const [projects, setProjects] = useState<any[]>([]);
   const [activeFilter, setActiveFilter] = useState<EventType | 'all'>('all');
   const toast = useToast();
 
   useEffect(() => {
     fetchEvents();
+    fetchProjects();
   }, []);
 
+  const fetchProjects = async () => {
+    const { data } = await supabase.from('projects').select('id, title, artist:artists(stage_name)');
+    setProjects(data || []);
+  };
+
   useEffect(() => {
-    // Handle OAuth callback (code & state) and the redirect marker ?connected=1
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const state = params.get('state');
     const connected = params.get('connected');
 
-    // If Netlify redirect included connected=1, show toast and refresh events
     if (connected === '1') {
       (async () => {
         try {
@@ -64,7 +72,6 @@ export const Calendar: React.FC = () => {
           console.error('Failed to load Google events after connect', err);
         } finally {
           setGoogleLoading(false);
-          // remove the connected param from the URL
           const url = new URL(window.location.href);
           url.searchParams.delete('connected');
           window.history.replaceState({}, document.title, url.toString());
@@ -73,17 +80,14 @@ export const Calendar: React.FC = () => {
       return;
     }
 
-    // Handle normal OAuth code exchange
     if (code && state) {
       (async () => {
         try {
           setGoogleLoading(true);
           await googleCalendarService.exchangeCode(code, state);
-          // remove code from url
           const url = new URL(window.location.href);
           url.search = '';
           window.history.replaceState({}, document.title, url.toString());
-          // refresh events
           await fetchEvents();
           toast.addToast('Connexion Google Calendar établie.', 'success');
         } catch (err) {
@@ -137,7 +141,6 @@ export const Calendar: React.FC = () => {
       const localEvents = [...taskEvents, ...meetingEvents, ...releaseEvents];
       setEvents(localEvents);
       
-      // try fetching Google events for the logged user
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const userId = session?.user?.id;
@@ -146,7 +149,6 @@ export const Calendar: React.FC = () => {
           const gEvents = await googleCalendarService.fetchEvents(userId).catch((e) => { throw e; });
           setGoogleEvents(gEvents || []);
           setGoogleConnected(true);
-          // map google events into LabelEvent shape - Google events are treated as meetings in the calendar
           const mappedG = (gEvents || []).map((ge: any) => ({
             id: `gcal_${ge.id}`,
             title: ge.summary || 'Google Event',
@@ -171,11 +173,8 @@ export const Calendar: React.FC = () => {
     }
   };
 
-  // auto-refresh every 5 minutes
   useEffect(() => {
-    const id = setInterval(() => {
-      fetchEvents();
-    }, 5 * 60 * 1000);
+    const id = setInterval(() => { fetchEvents(); }, 5 * 60 * 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -183,13 +182,9 @@ export const Calendar: React.FC = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
-      if (!userId) {
-        toast.addToast('Veuillez vous connecter.', 'error');
-        return;
-      }
+      if (!userId) { toast.addToast('Veuillez vous connecter.', 'error'); return; }
       setGoogleLoading(true);
       const url = await googleCalendarService.getAuthUrl(userId);
-      // redirect to Google OAuth
       window.location.href = url;
     } catch (err) {
       console.error('Failed to get Google auth url', err);
@@ -205,23 +200,12 @@ export const Calendar: React.FC = () => {
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
       if (!userId) return alert('Veuillez vous connecter.');
-
-      // fetch local meetings not yet synced
       const { data: meetings } = await supabase.from('meetings').select('*').is('google_event_id', null).gte('date', new Date().toISOString().split('T')[0]);
-      if (!meetings || meetings.length === 0) {
-        toast.addToast('Aucun meeting à synchroniser.', 'info');
-        return;
-      }
-
+      if (!meetings || meetings.length === 0) { toast.addToast('Aucun meeting à synchroniser.', 'info'); return; }
       for (const m of meetings) {
-        try {
-          await googleCalendarService.createEvent(userId, m);
-        } catch (err) {
-          console.error('Failed to create event for meeting', m.id, err);
-        }
+        try { await googleCalendarService.createEvent(userId, m); } 
+        catch (err) { console.error('Failed to create event for meeting', m.id, err); }
       }
-
-      // refresh events after sync
       await fetchEvents();
       toast.addToast('Synchronisation terminée.', 'success');
     } catch (err) {
@@ -248,14 +232,12 @@ export const Calendar: React.FC = () => {
     task: { color: 'bg-nexus-red', gradient: 'from-nexus-red to-orange-500', icon: <Check size={14} />, label: 'Deadline' },
   };
 
-  // Helper to get event background style based on custom color or type
   const getEventStyle = (event: LabelEvent) => {
     if (event.metadata?.google) {
       return { className: 'bg-[rgb(229,229,229)] text-black', style: {} };
     }
     const customColor = event.metadata?.color;
     if (customColor) {
-      // Parse custom color (could be hex like #FF0000 or named color like 'red')
       return { className: '', style: { backgroundColor: customColor, color: '#fff' } };
     }
     return { className: `bg-gradient-to-r ${eventTypeConfig[event.type].gradient} text-white`, style: {} };
@@ -267,7 +249,6 @@ export const Calendar: React.FC = () => {
 
   const handleEventClick = (event: LabelEvent) => {
     setSelectedEvent(event);
-    // prefill edit form
     setEditForm({
       title: event.title,
       date: event.date,
@@ -296,7 +277,6 @@ export const Calendar: React.FC = () => {
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
 
-      // If this is a Google-only event (id starts with gcal_), call update_event directly
       if (selectedEvent.id.startsWith('gcal_')) {
         const geId = selectedEvent.metadata?.raw?.id;
         if (!geId || !userId) throw new Error('Impossible de mettre à jour l\'événement Google');
@@ -314,17 +294,10 @@ export const Calendar: React.FC = () => {
         return;
       }
 
-      // Local meeting update
       const meetingId = selectedEvent.id;
-      const updates: any = {
-        title: editForm.title,
-        date: editForm.date,
-        summary: editForm.description,
-        color: editForm.color,
-      };
+      const updates: any = { title: editForm.title, date: editForm.date, summary: editForm.description, color: editForm.color };
       await supabase.from('meetings').update(updates).eq('id', meetingId);
 
-      // fetch meeting to see if it has google_event_id
       const { data: meetingRow } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
       if (meetingRow?.google_event_id && userId) {
         const updatesForGoogle: any = {
@@ -333,12 +306,10 @@ export const Calendar: React.FC = () => {
           start: { dateTime: editForm.date + (editForm.time ? 'T' + editForm.time + ':00' : 'T00:00:00'), timeZone: 'UTC' },
           end: { dateTime: editForm.date + (editForm.time ? 'T' + editForm.time + ':00' : 'T01:00:00'), timeZone: 'UTC' },
           colorId: colorOptions.find(c => c.key === editForm.color)?.googleColorId,
-          id: meetingId,
-          color: editForm.color
+          id: meetingId, color: editForm.color
         };
-        try {
-          await googleCalendarService.updateEvent(userId, meetingRow.google_event_id, updatesForGoogle);
-        } catch (gErr) {
+        try { await googleCalendarService.updateEvent(userId, meetingRow.google_event_id, updatesForGoogle); }
+        catch (gErr) {
           console.error('Failed to update google event', gErr);
           toast.addToast('Échec de la mise à jour Google, modifications locales enregistrées.', 'error');
         }
@@ -371,17 +342,11 @@ export const Calendar: React.FC = () => {
         return;
       }
 
-      // local meeting
       const meetingId = selectedEvent.id;
-      // check google_event_id
       const { data: meetingRow } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
       if (meetingRow?.google_event_id && userId) {
-        try {
-          await googleCalendarService.deleteEvent(userId, meetingRow.google_event_id);
-        } catch (gErr) {
-          console.error('Failed to delete google event', gErr);
-          toast.addToast('Suppression Google échouée, suppression locale tentée.', 'error');
-        }
+        try { await googleCalendarService.deleteEvent(userId, meetingRow.google_event_id); }
+        catch (gErr) { console.error('Failed to delete google event', gErr); }
       }
 
       await supabase.from('meetings').delete().eq('id', meetingId);
@@ -395,44 +360,69 @@ export const Calendar: React.FC = () => {
   };
 
   const openCreateModalForDate = (dateString: string) => {
-    setCreateForm({ title: '', date: dateString, time: '', summary: '', syncToGoogle: true });
+    setCreateForm({ title: '', date: dateString, time: '', summary: '', syncToGoogle: true, eventType: 'meeting', projectId: undefined });
     setIsCreateModalOpen(true);
   };
 
-  const handleCreateMeeting = async (e?: React.FormEvent) => {
+  // Unified create handler for all event types
+  const handleCreateEvent = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     try {
-      const meetingPayload: any = {
-        title: createForm.title,
-        date: createForm.date,
-        summary: createForm.summary,
-        attendees: [],
-        action_items: [],
-        project_id: null
-      };
-      const { data: inserted, error } = await supabase.from('meetings').insert([meetingPayload]).select().single();
-      if (error) throw error;
-      if (createForm.syncToGoogle && inserted) {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          const userId = session?.user?.id;
-          if (userId) {
-            const createdEvent = await googleCalendarService.createEvent(userId, inserted);
-            if (createdEvent?.id) {
-              await supabase.from('meetings').update({ google_event_id: createdEvent.id, synced_at: new Date().toISOString() }).eq('id', inserted.id);
-              toast.addToast('Meeting synchronisé avec Google Calendar !', 'success');
+      if (createForm.eventType === 'meeting') {
+        const meetingPayload: any = {
+          title: createForm.title,
+          date: createForm.date,
+          summary: createForm.summary,
+          attendees: [],
+          action_items: [],
+          project_id: null
+        };
+        const { data: inserted, error } = await supabase.from('meetings').insert([meetingPayload]).select().single();
+        if (error) throw error;
+        if (createForm.syncToGoogle && inserted) {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const userId = session?.user?.id;
+            if (userId) {
+              const createdEvent = await googleCalendarService.createEvent(userId, inserted);
+              if (createdEvent?.id) {
+                await supabase.from('meetings').update({ google_event_id: createdEvent.id, synced_at: new Date().toISOString() }).eq('id', inserted.id);
+                toast.addToast('Meeting synchronisé avec Google Calendar !', 'success');
+              }
             }
+          } catch (gErr) {
+            console.error('Google sync failed:', gErr);
+            toast.addToast('Meeting créé mais la synchronisation Google a échoué.', 'error');
           }
-        } catch (gErr) {
-          console.error('Google sync failed:', gErr);
-          toast.addToast('Meeting créé mais la synchronisation Google a échoué.', 'error');
+        } else {
+          toast.addToast('Réunion créée !', 'success');
         }
+      } else if (createForm.eventType === 'task') {
+        const taskPayload: any = {
+          title: createForm.title,
+          due_date: createForm.date,
+          description: createForm.summary,
+          status: 'todo',
+          priority: 'medium',
+          project_id: createForm.projectId || null
+        };
+        const { error } = await supabase.from('tasks').insert([taskPayload]);
+        if (error) throw error;
+        toast.addToast('Deadline créée !', 'success');
+      } else if (createForm.eventType === 'release') {
+        if (!createForm.projectId) {
+          toast.addToast('Veuillez sélectionner un projet.', 'error');
+          return;
+        }
+        const { error } = await supabase.from('projects').update({ release_date: createForm.date }).eq('id', createForm.projectId);
+        if (error) throw error;
+        toast.addToast('Date de sortie mise à jour !', 'success');
       }
       setIsCreateModalOpen(false);
       await fetchEvents();
     } catch (err: any) {
-      console.error('Create meeting failed', err);
-      toast.addToast('Échec de la création du meeting.', 'error');
+      console.error('Create event failed', err);
+      toast.addToast('Échec de la création.', 'error');
     }
   };
 
@@ -485,7 +475,6 @@ export const Calendar: React.FC = () => {
                     toast.addToast('Échec de la déconnexion.', 'error');
                   }
                 }} className="text-[10px]">Déconnecter</Button>
-                
               </div>
             )}
           </div>
@@ -493,13 +482,12 @@ export const Calendar: React.FC = () => {
       </header>
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 lg:gap-8 flex-1">
-        {/* Calendar Core */}
         <Card className="xl:col-span-4 flex flex-col p-0 overflow-hidden border-white/10 shadow-2xl bg-transparent">
           <div className="p-4 lg:p-8 border-b border-white/10 bg-[#070707] flex flex-col md:flex-row md:items-center justify-between gap-4 lg:gap-6">
             <div className="flex items-center gap-4 lg:gap-6">
-                <div className="flex bg-black rounded-xl lg:rounded-2xl p-1 border border-white/5 shadow-inner">
+              <div className="flex bg-black rounded-xl lg:rounded-2xl p-1 border border-white/5 shadow-inner">
                 <button onClick={handlePrevMonth} className="p-2 hover:bg-white/10 rounded-lg lg:rounded-xl text-white/40 hover:text-white transition-all"><ChevronLeft size={20} /></button>
-                  <div className="px-4 flex flex-col items-center justify-center min-w-[140px] lg:min-w-[180px]">
+                <div className="px-4 flex flex-col items-center justify-center min-w-[140px] lg:min-w-[180px]">
                   <h3 className="text-lg lg:text-2xl font-heading font-extrabold capitalize leading-none text-white">{monthName}</h3>
                   <span className="text-[9px] font-mono text-white/60 tracking-[0.3em] font-black mt-1 uppercase">{year}</span>
                 </div>
@@ -544,7 +532,8 @@ export const Calendar: React.FC = () => {
                     key={i} 
                     className={`min-h-[100px] lg:min-h-[160px] p-2 border-r border-b border-white/10 transition-all relative group/cell flex flex-col ${
                       !isCurrentMonth ? 'bg-black/20 pointer-events-none' : 'bg-[#0b0b0b]'
-                    }`} onClick={() => isCurrentMonth && openCreateModalForDate(dateString)}
+                    }`}
+                    onClick={() => isCurrentMonth && openCreateModalForDate(dateString)}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span className={`text-xs lg:text-sm font-heading font-black transition-colors ${
@@ -561,16 +550,16 @@ export const Calendar: React.FC = () => {
                         const isGoogle = event.metadata?.google;
                         const eventStyle = getEventStyle(event);
                         return (
-                        <motion.div 
-                          key={event.id}
-                          onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
-                          whileHover={{ scale: 1.02, x: 2 }}
-                          className={`px-2 py-1 rounded-md lg:rounded-lg text-[8px] lg:text-[9px] font-bold tracking-tight flex items-center gap-1.5 truncate shadow-sm cursor-pointer ${eventStyle.className}`}
-                          style={eventStyle.style}
-                        >
-                          <span className="truncate">{event.title}</span>
-                          {isGoogle && <span className="ml-2 text-[9px] font-black px-1 rounded-full" style={{background:'#1a73e8', color: 'white'}}>G</span>}
-                        </motion.div>
+                          <motion.div 
+                            key={event.id}
+                            onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
+                            whileHover={{ scale: 1.02, x: 2 }}
+                            className={`px-2 py-1 rounded-md lg:rounded-lg text-[8px] lg:text-[9px] font-bold tracking-tight flex items-center gap-1.5 truncate shadow-sm cursor-pointer ${eventStyle.className}`}
+                            style={eventStyle.style}
+                          >
+                            <span className="truncate">{event.title}</span>
+                            {isGoogle && <span className="ml-2 text-[9px] font-black px-1 rounded-full" style={{background:'#1a73e8', color: 'white'}}>G</span>}
+                          </motion.div>
                         );
                       })}
                       {dayEvents.length > 3 && (
@@ -586,7 +575,6 @@ export const Calendar: React.FC = () => {
           </div>
         </Card>
 
-        {/* Sidebar Schedule - Hide on very small screens or make it a list below */}
         <div className="space-y-6">
           <Card className="h-full flex flex-col p-6 lg:p-8 border-white/10 shadow-2xl glass overflow-hidden">
             <h3 className="font-heading font-extrabold text-xl lg:text-2xl mb-6 lg:mb-8 flex items-center gap-3">
@@ -596,7 +584,7 @@ export const Calendar: React.FC = () => {
               Agenda
             </h3>
             
-                <div className="flex-1 space-y-4 lg:space-y-6 overflow-y-auto custom-scrollbar pr-2">
+            <div className="flex-1 space-y-4 lg:space-y-6 overflow-y-auto custom-scrollbar pr-2">
               {filteredEvents
                 .filter(e => new Date(e.date) >= new Date(new Date().setHours(0,0,0,0)))
                 .sort((a,b) => a.date.localeCompare(b.date))
@@ -604,24 +592,24 @@ export const Calendar: React.FC = () => {
                 .map((event) => {
                   const eventStyle = getEventStyle(event);
                   return (
-                  <motion.div 
-                    key={event.id} 
-                    onClick={() => handleEventClick(event)}
-                    className={`p-4 rounded-2xl ${eventStyle.className} border border-white/5 hover:opacity-90 transition-all group cursor-pointer relative overflow-hidden`}
-                    style={eventStyle.style}
-                  >
-                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${event.metadata?.google ? 'bg-[#1a73e8]' : (event.metadata?.color ? '' : eventTypeConfig[event.type].color.replace('bg-', 'bg-'))}`} style={event.metadata?.color ? { backgroundColor: event.metadata.color } : {}} />
-                    <div className="flex justify-between items-start mb-2">
-                      <span className={`px-2 py-0.5 rounded text-[7px] lg:text-[8px] font-black uppercase tracking-widest ${event.metadata?.google ? 'bg-[rgb(229,229,229)] text-black' : event.metadata?.color ? '' : eventTypeConfig[event.type].color + ' text-white'}`} style={event.metadata?.color ? { backgroundColor: event.metadata.color, color: '#fff' } : {}}>
-                        {eventTypeConfig[event.type].label}
-                      </span>
-                      <span className="text-[9px] font-mono text-white/30 font-bold">
-                        {new Date(event.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
-                      </span>
-                    </div>
-                    <h4 className="font-bold text-xs lg:text-sm leading-snug truncate">{event.title}</h4>
-                    <p className="text-[9px] text-white/30 mt-1 uppercase font-black tracking-tighter truncate">{event.artist}</p>
-                  </motion.div>
+                    <motion.div 
+                      key={event.id} 
+                      onClick={() => handleEventClick(event)}
+                      className={`p-4 rounded-2xl ${eventStyle.className} border border-white/5 hover:opacity-90 transition-all group cursor-pointer relative overflow-hidden`}
+                      style={eventStyle.style}
+                    >
+                      <div className={`absolute left-0 top-0 bottom-0 w-1 ${event.metadata?.google ? 'bg-[#1a73e8]' : (event.metadata?.color ? '' : eventTypeConfig[event.type].color.replace('bg-', 'bg-'))}`} style={event.metadata?.color ? { backgroundColor: event.metadata.color } : {}} />
+                      <div className="flex justify-between items-start mb-2">
+                        <span className={`px-2 py-0.5 rounded text-[7px] lg:text-[8px] font-black uppercase tracking-widest ${event.metadata?.google ? 'bg-[rgb(229,229,229)] text-black' : event.metadata?.color ? '' : eventTypeConfig[event.type].color + ' text-white'}`} style={event.metadata?.color ? { backgroundColor: event.metadata.color, color: '#fff' } : {}}>
+                          {eventTypeConfig[event.type].label}
+                        </span>
+                        <span className="text-[9px] font-mono text-white/30 font-bold">
+                          {new Date(event.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-xs lg:text-sm leading-snug truncate">{event.title}</h4>
+                      <p className="text-[9px] text-white/30 mt-1 uppercase font-black tracking-tighter truncate">{event.artist}</p>
+                    </motion.div>
                   );
                 })}
               
@@ -636,6 +624,7 @@ export const Calendar: React.FC = () => {
         </div>
       </div>
 
+      {/* Edit Modal - unchanged */}
       <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title={selectedEvent ? 'Modifier l\'événement' : 'Événement'}>
         {selectedEvent && (
           <form onSubmit={handleEventUpdate} className="space-y-6">
@@ -669,12 +658,10 @@ export const Calendar: React.FC = () => {
                   <input type="time" value={editForm.time} onChange={e => setEditForm(f => ({ ...f, time: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
                 </div>
               </div>
-
               <div className="mb-4">
                 <label className="text-[10px] font-mono uppercase text-white/60">Description</label>
                 <textarea value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" rows={4} />
               </div>
-
               <div className="mb-4">
                 <label className="text-[10px] font-mono uppercase text-white/60 mb-2 block">Couleur</label>
                 <div className="flex flex-wrap gap-2">
@@ -685,7 +672,6 @@ export const Calendar: React.FC = () => {
                   ))}
                 </div>
               </div>
-
               <div className="flex items-center gap-3">
                 <Button type="button" variant="destructive" onClick={handleEventDelete} className="flex-1">Supprimer</Button>
                 <div className="flex-1" />
@@ -697,30 +683,100 @@ export const Calendar: React.FC = () => {
         )}
       </Modal>
 
-      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Créer un meeting">
-        <form onSubmit={handleCreateMeeting} className="space-y-4">
+      {/* Create Modal - WITH TYPE SELECTOR */}
+      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Créer un événement">
+        <form onSubmit={handleCreateEvent} className="space-y-4">
+          
+          {/* Sélecteur de type d'événement */}
+          <div>
+            <label className="text-[10px] font-mono uppercase text-white/60 mb-2 block">Type d'événement</label>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { key: 'meeting' as const, label: 'Réunion', icon: <Users size={16} />, color: 'bg-nexus-orange' },
+                { key: 'task' as const, label: 'Deadline', icon: <Check size={16} />, color: 'bg-nexus-red' },
+                { key: 'release' as const, label: 'Sortie', icon: <Disc size={16} />, color: 'bg-nexus-purple' },
+              ]).map(({ key, label, icon, color }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setCreateForm(f => ({ ...f, eventType: key }))}
+                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                    createForm.eventType === key
+                      ? `${color} border-white/40 text-white`
+                      : 'border-white/10 text-white/40 hover:text-white/70 hover:border-white/20 bg-white/5'
+                  }`}
+                >
+                  {icon}
+                  <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-2">
             <label className="text-[10px] font-mono uppercase text-white/60">Titre *</label>
-            <input required value={createForm.title} onChange={e => setCreateForm(f => ({ ...f, title: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
+            <input
+              required
+              value={createForm.title}
+              onChange={e => setCreateForm(f => ({ ...f, title: e.target.value }))}
+              placeholder={
+                createForm.eventType === 'meeting' ? 'Nom de la réunion...' :
+                createForm.eventType === 'task' ? 'Nom de la tâche...' :
+                'Titre de la sortie...'
+              }
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white"
+            />
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-[10px] font-mono uppercase text-white/60">Date</label>
               <input type="date" value={createForm.date} onChange={e => setCreateForm(f => ({ ...f, date: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
             </div>
+            {createForm.eventType !== 'release' && (
+              <div>
+                <label className="text-[10px] font-mono uppercase text-white/60">Heure</label>
+                <input type="time" value={createForm.time} onChange={e => setCreateForm(f => ({ ...f, time: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
+              </div>
+            )}
+          </div>
+
+          {/* Projet lié pour task et release */}
+          {(createForm.eventType === 'task' || createForm.eventType === 'release') && (
             <div>
-              <label className="text-[10px] font-mono uppercase text-white/60">Heure</label>
-              <input type="time" value={createForm.time} onChange={e => setCreateForm(f => ({ ...f, time: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
+              <label className="text-[10px] font-mono uppercase text-white/60">
+                {createForm.eventType === 'release' ? 'Projet * (obligatoire)' : 'Projet lié (optionnel)'}
+              </label>
+              <select
+                value={createForm.projectId || ''}
+                onChange={e => setCreateForm(f => ({ ...f, projectId: e.target.value || undefined }))}
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white"
+                required={createForm.eventType === 'release'}
+              >
+                <option value="">-- Sélectionner un projet --</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id} className="bg-gray-900">
+                    {p.title} {p.artist?.stage_name ? `(${p.artist.stage_name})` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
-          <div>
-            <label className="text-[10px] font-mono uppercase text-white/60">Description</label>
-            <textarea value={createForm.summary} onChange={e => setCreateForm(f => ({ ...f, summary: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" rows={4} />
-          </div>
-          <div className="flex items-center gap-3">
-            <input id="syncGoogleCreate" type="checkbox" checked={createForm.syncToGoogle} onChange={e => setCreateForm(f => ({ ...f, syncToGoogle: e.target.checked }))} className="w-4 h-4" />
-            <label htmlFor="syncGoogleCreate" className="text-[12px] text-white/70">Synchroniser avec Google Calendar</label>
-          </div>
+          )}
+
+          {createForm.eventType !== 'release' && (
+            <div>
+              <label className="text-[10px] font-mono uppercase text-white/60">Description</label>
+              <textarea value={createForm.summary} onChange={e => setCreateForm(f => ({ ...f, summary: e.target.value }))} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" rows={3} />
+            </div>
+          )}
+
+          {createForm.eventType === 'meeting' && (
+            <div className="flex items-center gap-3">
+              <input id="syncGoogleCreate" type="checkbox" checked={createForm.syncToGoogle} onChange={e => setCreateForm(f => ({ ...f, syncToGoogle: e.target.checked }))} className="w-4 h-4" />
+              <label htmlFor="syncGoogleCreate" className="text-[12px] text-white/70">Synchroniser avec Google Calendar</label>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsCreateModalOpen(false)}>Annuler</Button>
             <Button type="submit" variant="primary" className="flex-1">Créer</Button>
