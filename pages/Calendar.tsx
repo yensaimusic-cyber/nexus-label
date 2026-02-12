@@ -45,6 +45,7 @@ export const Calendar: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [activeFilter, setActiveFilter] = useState<EventType | 'all'>('all');
   const toast = useToast();
+  const layoutDebug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('layoutDebug') === '1';
 
   useEffect(() => {
     fetchEvents();
@@ -513,8 +514,8 @@ export const Calendar: React.FC = () => {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1 items-start w-full">
-        <Card className="col-span-1 lg:col-span-9 flex flex-col p-0 overflow-hidden border-white/10 shadow-2xl bg-transparent w-full">
+      <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1 items-start w-full ${layoutDebug ? 'outline outline-2 outline-red-500' : ''}`}>
+        <Card className={`col-span-1 lg:col-span-9 flex flex-col p-0 overflow-hidden border-white/10 shadow-2xl bg-transparent w-full ${layoutDebug ? 'outline outline-2 outline-blue-500' : ''}`}>
           <div className="p-4 lg:p-8 border-b border-white/10 bg-[#070707] flex flex-col md:flex-row md:items-center justify-between gap-4 lg:gap-6">
             <div className="flex items-center gap-4 lg:gap-6">
               <div className="flex bg-black rounded-xl lg:rounded-2xl p-1 border border-white/5 shadow-inner">
@@ -607,7 +608,7 @@ export const Calendar: React.FC = () => {
           </div>
         </Card>
 
-        <div className="space-y-6 col-span-1 lg:col-span-3 w-full">
+        <div className={`space-y-6 col-span-1 lg:col-span-3 w-full ${layoutDebug ? 'outline outline-2 outline-green-500' : ''}`}>
           <Card className="h-full flex flex-col p-6 lg:p-8 border-white/10 shadow-2xl glass overflow-hidden">
             <h3 className="font-heading font-extrabold text-xl lg:text-2xl mb-6 lg:mb-8 flex items-center gap-3">
               <div className="p-2 rounded-lg lg:rounded-xl bg-nexus-purple/10 text-nexus-purple">
