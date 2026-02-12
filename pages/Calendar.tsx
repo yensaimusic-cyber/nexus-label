@@ -394,6 +394,8 @@ export const Calendar: React.FC = () => {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [linkedItems, setLinkedItems] = useState<Array<{ type: string; id: string; title: string }>>([]);
   const [deleteInProgress, setDeleteInProgress] = useState(false);
+  const [isSynced, setIsSynced] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
 
   const prepareLinkedItems = async (event: LabelEvent) => {
     const items: Array<{ type: string; id: string; title: string }> = [];
@@ -434,6 +436,68 @@ export const Calendar: React.FC = () => {
       setLinkedItems([]);
     }
   }, [selectedEvent]);
+
+  useEffect(() => {
+    if (!selectedEvent) { setIsSynced(false); return; }
+    // consider Google-only events as synced, or meetings with google_event_id
+    if (selectedEvent.id.startsWith('gcal_') || selectedEvent.metadata?.google_event_id) setIsSynced(true);
+    else setIsSynced(false);
+  }, [selectedEvent]);
+
+  const toggleGoogleSync = async (enable: boolean) => {
+    if (!selectedEvent) return;
+    try {
+      setSyncLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) { toast.addToast('Veuillez vous connecter pour synchroniser.', 'error'); return; }
+
+      // If this is a Google-only event, disabling will delete it from Google
+      if (selectedEvent.id.startsWith('gcal_')) {
+        const geId = selectedEvent.metadata?.raw?.id;
+        if (!geId) throw new Error('Identifiant Google introuvable');
+        if (!enable) {
+          await googleCalendarService.deleteEvent(userId, geId);
+          toast.addToast('Événement Google supprimé.', 'success');
+          await fetchEvents();
+        }
+        setIsSynced(enable);
+        return;
+      }
+
+      // Only meetings support persistent google_event_id in DB
+      if (selectedEvent.type === 'meeting') {
+        const meetingId = selectedEvent.id;
+        const { data: meetingRow } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
+        if (!meetingRow) throw new Error('Réunion introuvable');
+
+        if (enable) {
+          const createdEvent = await googleCalendarService.createEvent(userId, meetingRow);
+          if (createdEvent?.id) {
+            await supabase.from('meetings').update({ google_event_id: createdEvent.id, synced_at: new Date().toISOString() }).eq('id', meetingId);
+            toast.addToast('Synchronisation Google activée.', 'success');
+          }
+        } else {
+          if (meetingRow.google_event_id) {
+            try { await googleCalendarService.deleteEvent(userId, meetingRow.google_event_id); } catch (err) { console.error(err); }
+            await supabase.from('meetings').update({ google_event_id: null, synced_at: null }).eq('id', meetingId);
+            toast.addToast('Synchronisation Google désactivée.', 'info');
+          }
+        }
+        await fetchEvents();
+        setIsSynced(enable);
+        return;
+      }
+
+      // For other types (task, release) currently not persisted: show message
+      toast.addToast('La synchronisation est disponible pour les réunions uniquement.', 'info');
+    } catch (err) {
+      console.error('toggleGoogleSync error', err);
+      toast.addToast('Échec de la synchronisation.', 'error');
+    } finally {
+      setSyncLoading(false);
+    }
+  };
 
   const confirmDelete = async (deleteLinked = false) => {
     if (!selectedEvent) return;
@@ -862,6 +926,15 @@ export const Calendar: React.FC = () => {
                   </div>
                 </div>
               )}
+              <div className="mb-4">
+                <label className="text-[10px] font-mono uppercase text-white/60">Synchronisation</label>
+                <div className="mt-2 flex items-center gap-3">
+                  <input type="checkbox" checked={isSynced} onChange={e => toggleGoogleSync(e.target.checked)} disabled={syncLoading} />
+                  <span className="text-sm text-white/70">Synchroniser avec Google Calendar</span>
+                  {syncLoading && <Loader2 size={16} className="animate-spin text-white/40" />}
+                </div>
+                <p className="text-[11px] text-white/40 mt-2">La synchronisation crée/lie l'événement dans Google Calendar (réunions seulement). Désactivez pour retirer la synchronisation.</p>
+              </div>
               <div className="mb-4">
                 <label className="text-[10px] font-mono uppercase text-white/60 mb-2 block">Couleur</label>
                 <div className="flex flex-wrap gap-2">
