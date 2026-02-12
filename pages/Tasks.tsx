@@ -265,9 +265,15 @@ export const Tasks: React.FC = () => {
       )}
 
       {/* Collapsible finished tasks panel fixed at bottom */}
+      {finishedTasks.length > 0 && (
+        <button onClick={() => setFinishedOpen(o => !o)} className="fixed bottom-6 right-4 z-60 lg:hidden bg-nexus-purple text-white px-4 py-3 rounded-full shadow-2xl border border-white/10">
+          Terminé · {finishedTasks.length}
+        </button>
+      )}
+
       <div className="fixed left-1/2 transform -translate-x-1/2 bottom-6 w-full max-w-[1400px] px-4 z-50 pointer-events-none">
         <motion.div initial={{ y: 120 }} animate={{ y: finishedOpen ? 0 : 120 }} transition={{ type: 'spring', damping: 20 }} className="pointer-events-auto">
-          <div className={`glass rounded-2xl border border-white/10 shadow-2xl w-full ${finishedOpen ? 'p-6' : 'p-2'}`}>
+            <div className={`glass rounded-2xl border border-white/10 shadow-2xl w-full ${finishedOpen ? 'p-6' : 'p-2'}`} style={{ paddingBottom: `calc(env(safe-area-inset-bottom) + 12px)` }}>
             <div className="flex items-center justify-between cursor-pointer" onClick={() => setFinishedOpen(o => !o)}>
               <div className="flex items-center gap-4">
                 <div className="w-1.5 h-6 nexus-gradient rounded-full" />
