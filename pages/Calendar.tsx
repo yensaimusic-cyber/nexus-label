@@ -111,6 +111,10 @@ export const Calendar: React.FC = () => {
     setProjects(data || []);
   };
 
+  const isEventSynced = (event: LabelEvent) => {
+    return Boolean(event.id.startsWith('gcal_') || event.metadata?.google_event_id || event.metadata?.google);
+  };
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
@@ -444,8 +448,9 @@ export const Calendar: React.FC = () => {
     else setIsSynced(false);
   }, [selectedEvent]);
 
-  const toggleGoogleSync = async (enable: boolean) => {
-    if (!selectedEvent) return;
+  const toggleGoogleSync = async (enable: boolean, eventArg?: LabelEvent) => {
+    const targetEvent = eventArg || selectedEvent;
+    if (!targetEvent) return;
     try {
       setSyncLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
@@ -453,21 +458,21 @@ export const Calendar: React.FC = () => {
       if (!userId) { toast.addToast('Veuillez vous connecter pour synchroniser.', 'error'); return; }
 
       // If this is a Google-only event, disabling will delete it from Google
-      if (selectedEvent.id.startsWith('gcal_')) {
-        const geId = selectedEvent.metadata?.raw?.id;
+      if (targetEvent.id.startsWith('gcal_')) {
+        const geId = targetEvent.metadata?.raw?.id;
         if (!geId) throw new Error('Identifiant Google introuvable');
         if (!enable) {
           await googleCalendarService.deleteEvent(userId, geId);
           toast.addToast('Événement Google supprimé.', 'success');
           await fetchEvents();
         }
-        setIsSynced(enable);
+        if (targetEvent === selectedEvent) setIsSynced(enable);
         return;
       }
 
       // Only meetings support persistent google_event_id in DB
-      if (selectedEvent.type === 'meeting') {
-        const meetingId = selectedEvent.id;
+      if (targetEvent.type === 'meeting') {
+        const meetingId = targetEvent.id;
         const { data: meetingRow } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
         if (!meetingRow) throw new Error('Réunion introuvable');
 
@@ -485,7 +490,7 @@ export const Calendar: React.FC = () => {
           }
         }
         await fetchEvents();
-        setIsSynced(enable);
+        if (targetEvent === selectedEvent) setIsSynced(enable);
         return;
       }
 
@@ -790,9 +795,18 @@ export const Calendar: React.FC = () => {
                         <div
                           key={event.id}
                           onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
-                          className={`px-2 py-1 text-[12px] rounded-md font-bold whitespace-nowrap break-words text-left w-full shadow-sm cursor-pointer overflow-hidden ${getEventStyle(event).className}`}
+                          className={`relative px-2 py-1 text-[12px] rounded-md font-bold whitespace-nowrap break-words text-left w-full shadow-sm cursor-pointer overflow-hidden ${getEventStyle(event).className}`}
                           style={{...getEventStyle(event).style, wordBreak: 'break-word', whiteSpace: 'nowrap', lineHeight: '1.2', minWidth: 0, textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '100%'}}
                         >
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleGoogleSync(!isEventSynced(event), event); }}
+                            title={isEventSynced(event) ? 'Désynchroniser de Google' : 'Synchroniser avec Google'}
+                            className="absolute right-1 top-1 z-10 p-0.5 rounded bg-black/20 hover:bg-white/10"
+                            style={{ backdropFilter: 'blur(4px)' }}
+                          >
+                            {isEventSynced(event) ? <Check size={12} className="text-white" /> : <CalendarIcon size={12} className="text-white/90" />}
+                          </button>
+
                           <span className="block mb-0.5">
                             <span className="block sm:hidden">{((event.title || '').split(' ').slice(0,2).join(' '))}</span>
                             <span className="hidden sm:block">{event.title}</span>
