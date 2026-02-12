@@ -127,11 +127,24 @@ export const ArtistDetail: React.FC = () => {
 
       delete (updates as any).id;
       delete (updates as any).created_at;
+      delete (updates as any).linked_profile; // Ne pas envoyer les relations imbriquées
+      delete (updates as any).projects;
+      delete (updates as any).team;
+      delete (updates as any).projects_count;
 
       const { data, error } = await supabase.from('artists').update(updates).eq('id', id).select().single();
-      if (error) throw error;
       
-      setArtist(data);
+      // Si erreur sur profile_id, retenter sans
+      if (error && (error.message.includes('profile_id') || error.message.includes('unknown column'))) {
+        delete (updates as any).profile_id;
+        const retryResult = await supabase.from('artists').update(updates).eq('id', id).select().single();
+        if (retryResult.error) throw retryResult.error;
+        setArtist(retryResult.data);
+      } else {
+        if (error) throw error;
+        setArtist(data);
+      }
+      
       setIsEditModalOpen(false);
       alert("Profil mis à jour avec succès !");
     } catch (err: any) {
