@@ -11,13 +11,16 @@
     "migrate:node": "node scripts/run-migrations.js"
   },
   "dependencies": {
+    "@capacitor/android": "^8.1.0",
+    "@capacitor/cli": "^8.1.0",
+    "@capacitor/core": "^8.1.0",
+    "@supabase/supabase-js": "2.39.7",
+    "framer-motion": "^12.34.0",
+    "lucide-react": "^0.563.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "recharts": "^3.7.0",
-    "lucide-react": "^0.563.0",
     "react-router-dom": "^7.13.0",
-    "framer-motion": "^12.34.0",
-    "@supabase/supabase-js": "2.39.7"
+    "recharts": "^3.7.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
