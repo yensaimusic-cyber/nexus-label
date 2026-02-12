@@ -638,6 +638,7 @@ export const Calendar: React.FC = () => {
                         {isCurrentMonth ? dayNum : ''}
                       </span>
                       </div>
+                    </div>
                     <div className="flex flex-col gap-1 overflow-y-auto min-w-0" style={{ maxHeight: isLarge ? '180px' : 'none' }}>
                       {dayEvents.map((event) => (
                         <div
