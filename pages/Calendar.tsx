@@ -99,6 +99,8 @@ export const Calendar: React.FC = () => {
     return () => { mq.removeEventListener ? mq.removeEventListener('change', handler) : mq.removeListener(handler as any); };
   }, []);
 
+  const calendarHeight = isLarge ? 'calc(100vh - 240px)' : 'calc(100vh - 140px)';
+
   useEffect(() => {
     fetchEvents();
     fetchProjects();
@@ -601,7 +603,7 @@ export const Calendar: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-1 overflow-x-auto custom-scrollbar w-full" style={{ height: 'calc(100vh - 240px)' }}>
+          <div className="flex-1 overflow-x-auto custom-scrollbar w-full" style={{ height: calendarHeight }}>
             <div className="grid grid-cols-7 min-w-0 w-full gap-0">
               {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map(day => (
                 <div key={day} className="py-3 lg:py-5 text-center text-[9px] lg:text-[10px] font-mono uppercase tracking-[0.3em] text-white/30 border-b border-white/5 font-black">
@@ -619,7 +621,7 @@ export const Calendar: React.FC = () => {
                 return (
                   <div 
                     key={i} 
-                    className={`min-h-[100px] lg:min-h-[160px] p-2 border-r border-b border-white/10 transition-all relative group/cell flex flex-col ${
+                    className={`min-h-[160px] lg:min-h-[200px] p-2 border-r border-b border-white/10 transition-all relative group/cell flex flex-col ${
                       !isCurrentMonth ? 'bg-black/20 pointer-events-none' : 'bg-[#0b0b0b]'
                     }`}
                     onClick={() => isCurrentMonth && openCreateModalForDate(dateString)}
@@ -634,7 +636,7 @@ export const Calendar: React.FC = () => {
                       </span>
                     </div>
                     
-                    <div className="space-y-1 overflow-y-auto" style={{ maxHeight: '180px' }}>
+                    <div className="space-y-1 overflow-y-auto" style={{ maxHeight: isLarge ? '180px' : '320px' }}>
                       {dayEvents.slice(0, 3).map((event) => {
                         const isGoogle = event.metadata?.google;
                         const eventStyle = getEventStyle(event);
@@ -643,11 +645,11 @@ export const Calendar: React.FC = () => {
                             key={event.id}
                             onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
                             whileHover={{ scale: 1.02, x: 2 }}
-                            className={`px-2 py-1 rounded-md lg:rounded-lg text-[8px] lg:text-[9px] font-bold tracking-tight flex items-center gap-1.5 truncate shadow-sm cursor-pointer ${eventStyle.className}`}
+                            className={`${isLarge ? 'px-2 py-1 text-[8px]' : 'px-3 py-2 text-[12px]'} rounded-md lg:rounded-lg font-bold tracking-tight flex items-center gap-2 truncate shadow-sm cursor-pointer ${eventStyle.className}`}
                             style={eventStyle.style}
                           >
                             <span className="truncate">{event.title}</span>
-                            {isGoogle && <span className="ml-2 text-[9px] font-black px-1 rounded-full" style={{background:'#1a73e8', color: 'white'}}>G</span>}
+                            {isGoogle && <span className="ml-2 text-[10px] font-black px-1 rounded-full" style={{background:'#1a73e8', color: 'white'}}>G</span>}
                           </motion.div>
                         );
                       })}
