@@ -11,7 +11,9 @@ export const useArtists = () => {
   const fetchArtists = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Essayer d'abord avec la jointure linked_profile (après migrations)
+      let { data, error } = await supabase
         .from('artists')
         .select(`
           *,
@@ -20,10 +22,24 @@ export const useArtists = () => {
         `)
         .order('name', { ascending: true });
 
+      // Si erreur sur profile_id_fkey (colonne n'existe pas), réessayer sans jointure
+      if (error && error.message.includes('profile_id_fkey')) {
+        const result = await supabase
+          .from('artists')
+          .select(`
+            *,
+            projects:projects(count)
+          `)
+          .order('name', { ascending: true });
+        
+        data = result.data;
+        error = result.error;
+      }
+
       if (error) throw error;
 
       // Mapper les données pour inclure projects_count
-      const formattedArtists = data.map((artist: any) => ({
+      const formattedArtists = (data || []).map((artist: any) => ({
         ...artist,
         projects_count: artist.projects?.[0]?.count || 0
       }));

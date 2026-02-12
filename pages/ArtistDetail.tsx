@@ -59,15 +59,32 @@ export const ArtistDetail: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [artistRes, projectsRes, assetsRes, teamRes, profilesRes] = await Promise.all([
-        supabase.from('artists').select('*, linked_profile:profiles!artists_profile_id_fkey(id, full_name, avatar_url, role)').eq('id', id).single(),
+      
+      // Fetch artist - with fallback for missing profile_id column
+      let artistRes = await supabase
+        .from('artists')
+        .select('*, linked_profile:profiles!artists_profile_id_fkey(id, full_name, avatar_url, role)')
+        .eq('id', id)
+        .single();
+      
+      // Si erreur sur profile_id, réessayer sans jointure
+      if (artistRes.error && artistRes.error.message.includes('profile_id_fkey')) {
+        artistRes = await supabase
+          .from('artists')
+          .select('*')
+          .eq('id', id)
+          .single();
+      }
+
+      if (artistRes.error) throw artistRes.error;
+      
+      // Fetch remaining data in parallel
+      const [projectsRes, assetsRes, teamRes, profilesRes] = await Promise.all([
         supabase.from('projects').select('*').eq('artist_id', id).order('release_date', { ascending: false }),
         supabase.from('artist_assets').select('*').eq('artist_id', id).order('created_at', { ascending: false }),
         supabase.from('artist_team_members').select('*, profile:profiles(id, full_name, avatar_url, role)').eq('artist_id', id).order('created_at', { ascending: false }),
         supabase.from('profiles').select('id, full_name, avatar_url, role').order('full_name')
       ]);
-
-      if (artistRes.error) throw artistRes.error;
       
       setArtist(artistRes.data);
       setLinkedProfile(artistRes.data.linked_profile);
