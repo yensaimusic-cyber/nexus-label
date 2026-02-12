@@ -155,6 +155,8 @@ export const Tasks: React.FC = () => {
     return { groupedTasks: grouped, finishedTasks: finished };
   }, [tasks, search]);
 
+  const totalFinishedCount = useMemo(() => tasks.filter(t => t.status === 'done').length, [tasks]);
+
   const priorityStyles: Record<TaskPriority, string> = {
     low: 'text-slate-400 border-slate-400/20 bg-slate-400/5',
     medium: 'text-nexus-cyan border-nexus-cyan/20 bg-nexus-cyan/5',
@@ -265,9 +267,9 @@ export const Tasks: React.FC = () => {
       )}
 
       {/* Collapsible finished tasks panel fixed at bottom */}
-      {finishedTasks.length > 0 && (
-        <button onClick={() => setFinishedOpen(o => !o)} className="fixed bottom-6 right-4 z-60 lg:hidden bg-nexus-purple text-white px-4 py-3 rounded-full shadow-2xl border border-white/10">
-          Terminé · {finishedTasks.length}
+      {totalFinishedCount > 0 && (
+        <button onClick={() => setFinishedOpen(o => !o)} className="fixed bottom-6 right-4 z-60 bg-nexus-purple text-white px-4 py-3 rounded-full shadow-2xl border border-white/10">
+          Terminé · {totalFinishedCount}
         </button>
       )}
 
