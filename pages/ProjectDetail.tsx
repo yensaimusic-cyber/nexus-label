@@ -298,8 +298,8 @@ export const ProjectDetail: React.FC = () => {
           </div>
         </div>
 
-        <div className="glass p-6 lg:p-10 rounded-[48px] border-white/10 flex flex-col md:flex-row gap-8 items-center md:items-start relative overflow-hidden shadow-2xl">
-          <div className="w-44 h-44 lg:w-60 lg:h-60 rounded-[48px] overflow-hidden border-4 border-white/10 shrink-0 shadow-2xl relative z-10 nexus-glow">
+        <div className="glass p-4 md:p-6 lg:p-10 rounded-[48px] border-white/10 flex flex-col md:flex-row gap-6 items-center md:items-start relative overflow-hidden shadow-2xl">
+          <div className="w-32 h-32 sm:w-44 sm:h-44 lg:w-60 lg:h-60 rounded-[48px] overflow-hidden border-4 border-white/10 shrink-0 shadow-2xl relative z-10 nexus-glow">
             <img src={project.cover_url || "https://picsum.photos/seed/project/400"} alt="Cover" className="w-full h-full object-cover" />
           </div>
           <div className="flex-1 space-y-5 text-center md:text-left relative z-10 w-full">
@@ -310,11 +310,11 @@ export const ProjectDetail: React.FC = () => {
                   {STATUS_LABELS[project.status as ProjectStatus] || project.status}
                 </span>
               </div>
-              <h2 className="text-4xl lg:text-6xl font-heading font-extrabold text-white tracking-tighter leading-none">{project.title}</h2>
+              <h2 className="text-2xl sm:text-4xl lg:text-6xl font-heading font-extrabold text-white tracking-tighter leading-none">{project.title}</h2>
               <p className="text-nexus-lightGray text-xl font-medium">Par <Link to={`/artists/${project.artist_id}`} className="text-nexus-cyan hover:underline">{project.artist?.stage_name}</Link></p>
             </div>
             
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
                <div className="bg-white/5 p-5 rounded-3xl border border-white/5 shadow-xl backdrop-blur-md">
                  <p className="text-[9px] font-mono text-white/30 uppercase tracking-[0.3em] mb-1 font-black">Consommé / Budget</p>
                  <p className="text-xl font-bold font-heading text-white">€{Number(project.spent).toLocaleString()} / €{Number(project.budget).toLocaleString()}</p>

@@ -513,8 +513,8 @@ export const Calendar: React.FC = () => {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 lg:gap-8 flex-1">
-        <Card className="xl:col-span-4 flex flex-col p-0 overflow-hidden border-white/10 shadow-2xl bg-transparent">
+      <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-12 gap-6 lg:gap-8 flex-1 items-start">
+        <Card className="lg:col-span-2 xl:col-span-9 flex flex-col p-0 overflow-hidden border-white/10 shadow-2xl bg-transparent w-full">
           <div className="p-4 lg:p-8 border-b border-white/10 bg-[#070707] flex flex-col md:flex-row md:items-center justify-between gap-4 lg:gap-6">
             <div className="flex items-center gap-4 lg:gap-6">
               <div className="flex bg-black rounded-xl lg:rounded-2xl p-1 border border-white/5 shadow-inner">
@@ -544,8 +544,8 @@ export const Calendar: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-1 overflow-x-auto custom-scrollbar" style={{ height: 'calc(100vh - 240px)' }}>
-            <div className="grid grid-cols-7 min-w-[700px] gap-0">
+          <div className="flex-1 overflow-x-auto custom-scrollbar w-full" style={{ height: 'calc(100vh - 240px)' }}>
+            <div className="grid grid-cols-7 min-w-0 w-full gap-0">
               {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map(day => (
                 <div key={day} className="py-3 lg:py-5 text-center text-[9px] lg:text-[10px] font-mono uppercase tracking-[0.3em] text-white/30 border-b border-white/5 font-black">
                   {day}
@@ -607,7 +607,7 @@ export const Calendar: React.FC = () => {
           </div>
         </Card>
 
-        <div className="space-y-6">
+        <div className="space-y-6 lg:col-span-1 xl:col-span-3 w-full">
           <Card className="h-full flex flex-col p-6 lg:p-8 border-white/10 shadow-2xl glass overflow-hidden">
             <h3 className="font-heading font-extrabold text-xl lg:text-2xl mb-6 lg:mb-8 flex items-center gap-3">
               <div className="p-2 rounded-lg lg:rounded-xl bg-nexus-purple/10 text-nexus-purple">
