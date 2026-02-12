@@ -635,13 +635,19 @@ export const Calendar: React.FC = () => {
                       {dayEvents.map((event) => {
                         const isGoogle = event.metadata?.google;
                         const eventStyle = getEventStyle(event);
+                        // Affiche seulement les deux premiers mots sur mobile, tout sur desktop
+                        const words = event.title.split(' ');
+                        const shortTitle = words.slice(0, 2).join(' ');
                         return (
                           <div 
                             key={event.id}
                             onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
-                            className={`px-2 py-1 text-[12px] rounded-md font-bold whitespace-normal break-words text-left w-full shadow-sm cursor-pointer overflow-hidden ${eventStyle.className}`}
-                            style={{...eventStyle.style, wordBreak: 'break-word', whiteSpace: 'normal', lineHeight: '1.2', minWidth: 0}}>
-                            <span className="block mb-0.5">{event.title}</span>
+                            className={`px-2 py-1 text-[12px] rounded-md font-bold whitespace-nowrap break-words text-left w-full shadow-sm cursor-pointer overflow-hidden ${eventStyle.className}`}
+                            style={{...eventStyle.style, wordBreak: 'break-word', whiteSpace: 'nowrap', lineHeight: '1.2', minWidth: 0, textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '100%'}}>
+                            <span className="block mb-0.5">
+                              <span className="block sm:hidden">{shortTitle}</span>
+                              <span className="hidden sm:block">{event.title}</span>
+                            </span>
                             {isGoogle && <span className="text-[10px] font-black px-1 rounded-full" style={{background:'#1a73e8', color: 'white'}}>G</span>}
                           </div>
                         );
