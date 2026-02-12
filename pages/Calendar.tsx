@@ -600,9 +600,10 @@ export const Calendar: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-x-auto custom-scrollbar w-full" style={{ height: calendarHeight }}>
-            <div className="grid grid-cols-7 min-w-0 w-full gap-0">
+            <div className="grid grid-cols-4 lg:grid-cols-7 min-w-0 w-full gap-0">
+              {/* day headers: visible on large screens only */}
               {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map(day => (
-                <div key={day} className="py-3 lg:py-5 text-center text-[9px] lg:text-[10px] font-mono uppercase tracking-[0.3em] text-white/30 border-b border-white/5 font-black">
+                <div key={day} className="hidden lg:block py-3 lg:py-5 text-center text-[9px] lg:text-[10px] font-mono uppercase tracking-[0.3em] text-white/30 border-b border-white/5 font-black">
                   {day}
                 </div>
               ))}
@@ -614,27 +615,33 @@ export const Calendar: React.FC = () => {
                 const dayEvents = filteredEvents.filter(e => e.date === dateString);
                 const isToday = new Date().toISOString().split('T')[0] === dateString;
 
+                // compute day label for mobile display
+                const dayLabels = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+                const dayLabel = dayLabels[new Date(dateString).getDay()];
+
                 return (
                   <div 
                     key={i} 
-                    className={`min-h-[200px] sm:min-h-[240px] md:min-h-[260px] lg:min-h-[200px] p-2 border-r border-b border-white/10 transition-all relative group/cell flex flex-col ${
+                    className={`min-h-[220px] sm:min-h-[260px] md:min-h-[300px] lg:min-h-[260px] p-3 border-r border-b border-white/10 transition-all relative group/cell flex flex-col ${
                       !isCurrentMonth ? 'bg-black/10 pointer-events-none' : 'bg-[#0b0b0b]'
                     }`}
                     onClick={() => isCurrentMonth && openCreateModalForDate(dateString)}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <span className={`text-xs lg:text-sm font-heading font-black transition-colors ${
+                      <div className="flex flex-col">
+                        <span className="text-[8px] lg:hidden text-white/40">{dayLabel}</span>
+                        <span className={`text-xs lg:text-sm font-heading font-black transition-colors ${
                         isToday 
                         ? 'w-7 h-7 lg:w-9 lg:h-9 rounded-full bg-nexus-purple text-white flex items-center justify-center shadow-sm scale-110' 
                         : isCurrentMonth ? 'text-white/60 group-hover/cell:text-white/80' : 'text-white/10'
                       }`}>
                         {isCurrentMonth ? dayNum : ''}
                       </span>
-                    </div>
+                      </div>
                     <div className="flex flex-col gap-1 overflow-y-auto min-w-0" style={{ maxHeight: isLarge ? '180px' : 'none' }}>
                       {dayEvents.map((event) => {
                         const isGoogle = event.metadata?.google;
-                        const eventStyle = getEventStyle(event);
+                    <div className="flex flex-col gap-1 overflow-y-auto min-w-0" style={{ maxHeight: isLarge ? '260px' : 'none' }}>
                         // Affiche seulement les deux premiers mots sur mobile, tout sur desktop
                         const words = event.title.split(' ');
                         const shortTitle = words.slice(0, 2).join(' ');
