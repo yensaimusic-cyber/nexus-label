@@ -299,9 +299,13 @@ export const Tasks: React.FC = () => {
                       <div className="p-2 text-white/10"><Edit3 size={16} /></div>
                     </div>
                     <div className="flex gap-4 mb-auto">
-                      <div className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center mt-0.5 bg-nexus-green border-nexus-green text-nexus-dark`}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleToggleTaskStatus(task.id, task.status); }}
+                        className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center mt-0.5 ${task.status === 'done' ? 'bg-nexus-green border-nexus-green text-nexus-dark' : 'border-white/20 text-transparent hover:border-nexus-cyan hover:bg-white/5'}`}
+                        aria-label="Marquer comme non terminé"
+                      >
                         <Check size={18} strokeWidth={4} />
-                      </div>
+                      </button>
                       <div className="min-w-0">
                         <h4 className={`text-lg font-heading font-extrabold leading-tight tracking-tight line-through text-white`}>{task.title}</h4>
                         {task.project && (
