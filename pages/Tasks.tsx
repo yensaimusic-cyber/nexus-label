@@ -23,6 +23,7 @@ export const Tasks: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingTask, setEditingTask] = useState<Partial<Task> | null>(null);
+  const [finishedOpen, setFinishedOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -192,59 +193,6 @@ export const Tasks: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-20 pb-20">
-            {finishedTasks && finishedTasks.length > 0 && (
-              <section key="finished" className="space-y-8">
-                <div className="flex items-center gap-6 border-b border-white/5 pb-5">
-                  <div className="w-1.5 h-6 nexus-gradient rounded-full" />
-                  <h3 className="text-[11px] font-black font-mono uppercase tracking-[0.4em] text-white/60">Terminé</h3>
-                  <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1 rounded-xl text-white/30 font-black shadow-inner">{finishedTasks.length}</span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                  {finishedTasks.map(task => (
-                    <motion.div 
-                      key={task.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className={`glass p-7 rounded-[32px] border border-white/5 transition-all relative flex flex-col h-full opacity-40 grayscale-[0.3]`}
-                      onClick={() => handleOpenEdit(task)}
-                    >
-                      <div className="flex justify-between items-start mb-6">
-                        <span className={`px-3 py-1 rounded-xl text-[9px] font-black uppercase border tracking-widest ${priorityStyles[task.priority]}`}>{task.priority}</span>
-                        <div className="p-2 text-white/10">
-                          <Edit3 size={18} />
-                        </div>
-                      </div>
-                      <div className="flex gap-5 mb-auto">
-                        <div className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center mt-0.5 bg-nexus-green border-nexus-green text-nexus-dark`}> 
-                          <Check size={18} strokeWidth={4} />
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className={`text-lg font-heading font-extrabold leading-tight tracking-tight line-through text-white`}>{task.title}</h4>
-                          {task.project && (
-                             <div className="flex items-center gap-2 mt-4">
-                                <Disc size={12} className="text-nexus-cyan shrink-0" />
-                                <p className="text-[9px] text-nexus-cyan font-mono uppercase tracking-[0.2em] font-black truncate">{task.project.title}</p>
-                             </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="pt-6 mt-8 border-t border-white/5 flex justify-between items-center">
-                        <div className="flex items-center gap-3 text-[10px] font-mono font-bold text-white/30">
-                          <CalendarIcon size={14} className="text-nexus-purple/40" />
-                          {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'Pas de deadline'}
-                        </div>
-                        <div className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-white/5 shadow-2xl bg-white/5">
-                          <img src={task.assignee?.avatar_url || `https://picsum.photos/seed/${task.assigned_to}/50`} className="w-full h-full object-cover" />
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </section>
-            )}
           {GROUP_ORDER.map(statusKey => {
             const statusTasks = groupedTasks[statusKey];
             if (statusTasks.length === 0) return null;
@@ -315,6 +263,65 @@ export const Tasks: React.FC = () => {
           })}
         </div>
       )}
+
+      {/* Collapsible finished tasks panel fixed at bottom */}
+      <div className="fixed left-1/2 transform -translate-x-1/2 bottom-6 w-full max-w-[1400px] px-4 z-50 pointer-events-none">
+        <motion.div initial={{ y: 120 }} animate={{ y: finishedOpen ? 0 : 120 }} transition={{ type: 'spring', damping: 20 }} className="pointer-events-auto">
+          <div className={`glass rounded-2xl border border-white/10 shadow-2xl w-full ${finishedOpen ? 'p-6' : 'p-2'}`}>
+            <div className="flex items-center justify-between cursor-pointer" onClick={() => setFinishedOpen(o => !o)}>
+              <div className="flex items-center gap-4">
+                <div className="w-1.5 h-6 nexus-gradient rounded-full" />
+                <h3 className="text-[11px] font-black font-mono uppercase tracking-[0.4em] text-white/60">Terminé</h3>
+                <span className="text-[10px] bg-white/5 border border-white/10 px-3 py-1 rounded-xl text-white/30 font-black shadow-inner">{finishedTasks.length}</span>
+              </div>
+              <div className="text-[11px] font-black text-white/40 uppercase tracking-widest">{finishedOpen ? 'Fermer' : 'Afficher'}</div>
+            </div>
+
+            {finishedOpen && (
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-h-[50vh] overflow-y-auto pr-2">
+                {finishedTasks.map(task => (
+                  <motion.div 
+                    key={task.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className={`glass p-5 rounded-[24px] border border-white/5 relative flex flex-col h-full opacity-60 grayscale-[0.3]`}
+                    onClick={() => handleOpenEdit(task)}
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <span className={`px-2 py-1 rounded-xl text-[9px] font-black uppercase border tracking-widest ${priorityStyles[task.priority]}`}>{task.priority}</span>
+                      <div className="p-2 text-white/10"><Edit3 size={16} /></div>
+                    </div>
+                    <div className="flex gap-4 mb-auto">
+                      <div className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center mt-0.5 bg-nexus-green border-nexus-green text-nexus-dark`}>
+                        <Check size={18} strokeWidth={4} />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className={`text-lg font-heading font-extrabold leading-tight tracking-tight line-through text-white`}>{task.title}</h4>
+                        {task.project && (
+                          <div className="flex items-center gap-2 mt-3">
+                            <Disc size={12} className="text-nexus-cyan shrink-0" />
+                            <p className="text-[9px] text-nexus-cyan font-mono uppercase tracking-[0.2em] font-black truncate">{task.project.title}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="pt-4 mt-4 border-t border-white/5 flex justify-between items-center">
+                      <div className="flex items-center gap-3 text-[10px] font-mono font-bold text-white/30">
+                        <CalendarIcon size={14} className="text-nexus-purple/40" />
+                        {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'Pas de deadline'}
+                      </div>
+                      <div className="w-10 h-10 rounded-2xl overflow-hidden border-2 border-white/5 shadow-2xl bg-white/5">
+                        <img src={task.assignee?.avatar_url || `https://picsum.photos/seed/${task.assigned_to}/50`} className="w-full h-full object-cover" />
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </div>
 
       {/* MODAL: Tactical Mission Configuration */}
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingTask(null); }} title={editingTask?.id ? "Mise à jour de Directive" : "Initialisation d'Ordre"}>

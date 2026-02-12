@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -46,6 +46,49 @@ export const Calendar: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<EventType | 'all'>('all');
   const toast = useToast();
   const layoutDebug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('layoutDebug') === '1';
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [calendarWidthPct, setCalendarWidthPct] = useState<number>(() => {
+    try {
+      const v = typeof window !== 'undefined' ? window.localStorage.getItem('calendarWidthPct') : null;
+      return v ? Number(v) : 70;
+    } catch { return 70; }
+  });
+  const draggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startPctRef = useRef(0);
+
+  const stopDrag = useCallback(() => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    try { window.localStorage.setItem('calendarWidthPct', String(calendarWidthPct)); } catch {}
+    window.removeEventListener('mousemove', onDrag as any);
+    window.removeEventListener('touchmove', onDrag as any);
+    window.removeEventListener('mouseup', stopDrag as any);
+    window.removeEventListener('touchend', stopDrag as any);
+  }, [calendarWidthPct]);
+
+  const onDrag = useCallback((ev: MouseEvent | TouchEvent) => {
+    if (!draggingRef.current || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const clientX = (ev as TouchEvent).touches ? (ev as TouchEvent).touches[0].clientX : (ev as MouseEvent).clientX;
+    const delta = clientX - startXRef.current;
+    const newPx = (startPctRef.current / 100) * rect.width + delta;
+    let newPct = (newPx / rect.width) * 100;
+    if (newPct < 20) newPct = 20;
+    if (newPct > 90) newPct = 90;
+    setCalendarWidthPct(Number(newPct.toFixed(1)));
+  }, []);
+
+  const startDrag = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const clientX = (e as React.TouchEvent).touches ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX;
+    draggingRef.current = true;
+    startXRef.current = clientX;
+    startPctRef.current = calendarWidthPct;
+    window.addEventListener('mousemove', onDrag as any);
+    window.addEventListener('touchmove', onDrag as any, { passive: false } as any);
+    window.addEventListener('mouseup', stopDrag as any);
+    window.addEventListener('touchend', stopDrag as any);
+  }, [calendarWidthPct, onDrag, stopDrag]);
 
   useEffect(() => {
     fetchEvents();
@@ -514,7 +557,7 @@ export const Calendar: React.FC = () => {
         </div>
       </header>
 
-      <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1 items-start w-full ${layoutDebug ? 'outline outline-2 outline-red-500' : ''}`}>
+      <div ref={containerRef} style={{ gridTemplateColumns: `minmax(0, ${calendarWidthPct}%) 8px minmax(0, calc(${100 - calendarWidthPct}% - 8px))` }} className={`grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1 items-start w-full ${layoutDebug ? 'outline outline-2 outline-red-500' : ''}`}>
         <Card className={`col-span-1 lg:col-span-9 flex flex-col p-0 overflow-hidden border-white/10 shadow-2xl bg-transparent w-full ${layoutDebug ? 'outline outline-2 outline-blue-500' : ''}`}>
           <div className="p-4 lg:p-8 border-b border-white/10 bg-[#070707] flex flex-col md:flex-row md:items-center justify-between gap-4 lg:gap-6">
             <div className="flex items-center gap-4 lg:gap-6">
@@ -605,8 +648,16 @@ export const Calendar: React.FC = () => {
                 );
               })}
             </div>
+            {/* resizer placeholder - actual resizer element sits between grid columns in parent */}
           </div>
         </Card>
+
+        {/* Resizer bar between calendar and agenda */}
+        <div onMouseDown={startDrag} onTouchStart={startDrag as any} className="hidden lg:block col-span-1" style={{ width: 8, cursor: 'col-resize', alignSelf: 'stretch', background: 'transparent' }}>
+          <div style={{ width: 8, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="h-12 w-0.5 bg-white/10 rounded" />
+          </div>
+        </div>
 
         <div className={`space-y-6 col-span-1 lg:col-span-3 w-full ${layoutDebug ? 'outline outline-2 outline-green-500' : ''}`}>
           <Card className="h-full flex flex-col p-6 lg:p-8 border-white/10 shadow-2xl glass overflow-hidden">
