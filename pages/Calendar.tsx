@@ -380,37 +380,110 @@ export const Calendar: React.FC = () => {
   };
 
   const handleEventDelete = async () => {
+    // New flow: prepare linked items and open confirm modal
     if (!selectedEvent) return;
-    const ok = window.confirm('Confirmer la suppression de cet événement ?');
-    if (!ok) return;
+    try {
+      await prepareLinkedItems(selectedEvent);
+      setIsDeleteConfirmOpen(true);
+    } catch (err) {
+      console.error('Failed to prepare delete preview', err);
+      toast.addToast('Impossible de préparer la suppression.', 'error');
+    }
+  };
+
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [linkedItems, setLinkedItems] = useState<Array<{ type: string; id: string; title: string }>>([]);
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
+
+  const prepareLinkedItems = async (event: LabelEvent) => {
+    const items: Array<{ type: string; id: string; title: string }> = [];
+    try {
+      if (event.type === 'meeting') {
+        const { data: meetingRow } = await supabase.from('meetings').select('*').eq('id', event.id).single();
+        if (meetingRow?.project_id) {
+          const { data: project } = await supabase.from('projects').select('id,title').eq('id', meetingRow.project_id).single();
+          if (project) items.push({ type: 'project', id: project.id, title: project.title });
+          const { data: tasks } = await supabase.from('tasks').select('id,title').eq('project_id', meetingRow.project_id);
+          (tasks || []).forEach((t: any) => items.push({ type: 'task', id: t.id, title: t.title }));
+        }
+      } else if (event.type === 'task') {
+        const { data: taskRow } = await supabase.from('tasks').select('*').eq('id', event.id).single();
+        if (taskRow?.project_id) {
+          const { data: project } = await supabase.from('projects').select('id,title').eq('id', taskRow.project_id).single();
+          if (project) items.push({ type: 'project', id: project.id, title: project.title });
+        }
+      } else if (event.type === 'release') {
+        // release events map to projects (id === project.id)
+        const projectId = event.id;
+        const { data: project } = await supabase.from('projects').select('id,title').eq('id', projectId).single();
+        if (project) items.push({ type: 'project', id: project.id, title: project.title });
+        const { data: tasks } = await supabase.from('tasks').select('id,title').eq('project_id', projectId);
+        (tasks || []).forEach((t: any) => items.push({ type: 'task', id: t.id, title: t.title }));
+      }
+    } catch (err) {
+      console.error('prepareLinkedItems error', err);
+    }
+    setLinkedItems(items);
+  };
+
+  const confirmDelete = async (deleteLinked = false) => {
+    if (!selectedEvent) return;
+    setDeleteInProgress(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
 
+      // Handle Google event removal first
       if (selectedEvent.id.startsWith('gcal_')) {
         const geId = selectedEvent.metadata?.raw?.id;
-        if (!geId || !userId) throw new Error('Impossible de supprimer l\'événement Google');
-        await googleCalendarService.deleteEvent(userId, geId);
-        toast.addToast('Événement Google supprimé.', 'success');
+        if (geId && userId) {
+          try { await googleCalendarService.deleteEvent(userId, geId); } catch (gErr) { console.error('Failed to delete google event', gErr); }
+        }
+        // No server-side linked items for google-only events
+        setIsDeleteConfirmOpen(false);
         setIsDetailModalOpen(false);
         await fetchEvents();
+        toast.addToast('Événement Google supprimé.', 'success');
         return;
       }
 
-      const meetingId = selectedEvent.id;
-      const { data: meetingRow } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
-      if (meetingRow?.google_event_id && userId) {
-        try { await googleCalendarService.deleteEvent(userId, meetingRow.google_event_id); }
-        catch (gErr) { console.error('Failed to delete google event', gErr); }
+      if (selectedEvent.type === 'meeting') {
+        const meetingId = selectedEvent.id;
+        const { data: meetingRow } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
+        if (meetingRow?.google_event_id && userId) {
+          try { await googleCalendarService.deleteEvent(userId, meetingRow.google_event_id); } catch (gErr) { console.error(gErr); }
+        }
+        // delete meeting
+        await supabase.from('meetings').delete().eq('id', meetingId);
+        if (deleteLinked && meetingRow?.project_id) {
+          // delete tasks under the project
+          await supabase.from('tasks').delete().eq('project_id', meetingRow.project_id);
+        }
+      } else if (selectedEvent.type === 'task') {
+        await supabase.from('tasks').delete().eq('id', selectedEvent.id);
+        if (deleteLinked && linkedItems.some(i => i.type === 'project')) {
+          const proj = linkedItems.find(i => i.type === 'project');
+          if (proj) await supabase.from('projects').delete().eq('id', proj.id);
+        }
+      } else if (selectedEvent.type === 'release') {
+        const projectId = selectedEvent.id;
+        if (deleteLinked) {
+          await supabase.from('tasks').delete().eq('project_id', projectId);
+          await supabase.from('projects').delete().eq('id', projectId);
+        } else {
+          await supabase.from('projects').update({ release_date: null }).eq('id', projectId);
+        }
       }
 
-      await supabase.from('meetings').delete().eq('id', meetingId);
-      toast.addToast('Événement supprimé localement.', 'success');
+      setIsDeleteConfirmOpen(false);
       setIsDetailModalOpen(false);
+      toast.addToast('Suppression effectuée.', 'success');
       await fetchEvents();
     } catch (err) {
-      console.error(err);
+      console.error('confirmDelete error', err);
       toast.addToast('Échec de la suppression.', 'error');
+    } finally {
+      setDeleteInProgress(false);
     }
   };
 
@@ -776,6 +849,33 @@ export const Calendar: React.FC = () => {
             </div>
           </form>
         )}
+      </Modal>
+
+      {/* Delete confirmation with linked items preview */}
+      <Modal isOpen={isDeleteConfirmOpen} onClose={() => setIsDeleteConfirmOpen(false)} title="Confirmer la suppression">
+        <div className="space-y-4">
+          <p className="text-sm text-white/70">Vous êtes sur le point de supprimer cet événement. Voici les éléments liés détectés :</p>
+          <div className="max-h-48 overflow-y-auto custom-scrollbar glass p-3 rounded-lg border border-white/5">
+            {linkedItems.length === 0 ? (
+              <p className="text-[13px] text-white/40 italic">Aucun élément lié détecté.</p>
+            ) : (
+              <ul className="space-y-2">
+                {linkedItems.map(li => (
+                  <li key={li.type + li.id} className="flex items-center justify-between bg-white/2 p-2 rounded">
+                    <span className="text-sm font-bold text-white">{li.type === 'project' ? 'Projet' : li.type === 'task' ? 'Tâche' : li.type}</span>
+                    <span className="text-sm text-white/60 truncate max-w-[60%]">{li.title}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <Button variant="ghost" onClick={() => { setIsDeleteConfirmOpen(false); }} className="flex-1">Annuler</Button>
+            <Button variant="secondary" onClick={() => confirmDelete(false)} className="flex-1">Supprimer seulement l'événement</Button>
+            <Button variant="destructive" onClick={() => confirmDelete(true)} className="flex-1" isLoading={deleteInProgress}>Supprimer événement + liés</Button>
+          </div>
+        </div>
       </Modal>
 
       {/* Create Modal */}
