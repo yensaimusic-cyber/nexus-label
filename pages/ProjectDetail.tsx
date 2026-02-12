@@ -281,7 +281,7 @@ export const ProjectDetail: React.FC = () => {
   if (loading || !project) return <div className="min-h-[80vh] flex items-center justify-center"><Loader2 className="animate-spin text-nexus-purple" size={48} /></div>;
 
   return (
-    <div className="p-4 lg:p-8 space-y-8 max-w-[1400px] mx-auto min-h-screen">
+    <div className="p-2 lg:p-8 space-y-4 max-w-[1400px] mx-auto min-h-screen">
       <header className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <Link to="/projects" className="flex items-center gap-2 text-white/30 hover:text-white transition-all w-fit group">
@@ -298,30 +298,29 @@ export const ProjectDetail: React.FC = () => {
           </div>
         </div>
 
-        <div className="glass p-4 md:p-6 lg:p-10 rounded-[48px] border-white/10 flex flex-col md:flex-row gap-6 items-center md:items-start relative overflow-hidden shadow-2xl">
-          <div className="w-32 h-32 sm:w-44 sm:h-44 lg:w-60 lg:h-60 rounded-[48px] overflow-hidden border-4 border-white/10 shrink-0 shadow-2xl relative z-10 nexus-glow">
-            <img src={project.cover_url || "https://picsum.photos/seed/project/400"} alt="Cover" className="w-full h-full object-cover" />
+        <div className="glass p-2 md:p-4 lg:p-10 rounded-2xl border-white/10 flex flex-col md:flex-row gap-3 items-center md:items-start relative overflow-hidden shadow-2xl">
+          <div className="w-20 h-20 sm:w-32 sm:h-32 lg:w-60 lg:h-60 rounded-2xl overflow-hidden border-2 border-white/10 shrink-0 shadow-2xl relative z-10 nexus-glow">
+            <img src={project.cover_url || 'https://picsum.photos/seed/project/400'} alt="Cover" className="w-full h-full object-cover" />
           </div>
-          <div className="flex-1 space-y-5 text-center md:text-left relative z-10 w-full">
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                <span className="px-4 py-1.5 rounded-full bg-nexus-purple/20 text-nexus-purple text-[10px] font-black uppercase border border-nexus-purple/30 tracking-[0.2em]">{project.type}</span>
-                <span className="px-4 py-1.5 rounded-full bg-nexus-cyan/10 text-nexus-cyan text-[10px] font-black uppercase border border-nexus-cyan/30 tracking-[0.2em]">
+          <div className="flex-1 space-y-2 text-center md:text-left relative z-10 w-full">
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                <span className="px-2 py-1 rounded-full bg-nexus-purple/20 text-nexus-purple text-[9px] font-black uppercase border border-nexus-purple/30 tracking-[0.2em]">{project.type}</span>
+                <span className="px-2 py-1 rounded-full bg-nexus-cyan/10 text-nexus-cyan text-[9px] font-black uppercase border border-nexus-cyan/30 tracking-[0.2em]">
                   {STATUS_LABELS[project.status as ProjectStatus] || project.status}
                 </span>
               </div>
-              <h2 className="text-2xl sm:text-4xl lg:text-6xl font-heading font-extrabold text-white tracking-tighter leading-none">{project.title}</h2>
-              <p className="text-nexus-lightGray text-xl font-medium">Par <Link to={`/artists/${project.artist_id}`} className="text-nexus-cyan hover:underline">{project.artist?.stage_name}</Link></p>
+              <h2 className="text-lg sm:text-2xl lg:text-6xl font-heading font-extrabold text-white tracking-tighter leading-none">{project.title}</h2>
+              <p className="text-nexus-lightGray text-base font-medium">Par <Link to={`/artists/${project.artist_id}`} className="text-nexus-cyan hover:underline">{project.artist?.stage_name}</Link></p>
             </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
-               <div className="bg-white/5 p-5 rounded-3xl border border-white/5 shadow-xl backdrop-blur-md">
-                 <p className="text-[9px] font-mono text-white/30 uppercase tracking-[0.3em] mb-1 font-black">Consommé / Budget</p>
-                 <p className="text-xl font-bold font-heading text-white">€{Number(project.spent).toLocaleString()} / €{Number(project.budget).toLocaleString()}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2">
+               <div className="bg-white/5 p-3 rounded-xl border border-white/5 shadow-xl backdrop-blur-md">
+                 <p className="text-[8px] font-mono text-white/30 uppercase tracking-[0.3em] mb-1 font-black">Consommé / Budget</p>
+                 <p className="text-base font-bold font-heading text-white">€{Number(project.spent).toLocaleString()} / €{Number(project.budget).toLocaleString()}</p>
                </div>
-               <div className="bg-white/5 p-5 rounded-3xl border border-white/5 shadow-xl backdrop-blur-md">
-                 <p className="text-[9px] font-mono text-white/30 uppercase tracking-[0.3em] mb-1 font-black">Timeline Sortie</p>
-                 <p className="text-base font-bold font-heading text-white">{project.release_date ? new Date(project.release_date).toLocaleDateString() : 'Non fixée'}</p>
+               <div className="bg-white/5 p-3 rounded-xl border border-white/5 shadow-xl backdrop-blur-md">
+                 <p className="text-[8px] font-mono text-white/30 uppercase tracking-[0.3em] mb-1 font-black">Timeline Sortie</p>
+                 <p className="text-sm font-bold font-heading text-white">{project.release_date ? new Date(project.release_date).toLocaleDateString() : 'Non fixée'}</p>
                </div>
             </div>
           </div>
