@@ -11,7 +11,7 @@ interface Artist {
   id: string;
   name: string;
   stage_name: string;
-  cover_image?: string;
+  cover_url?: string;
   status?: string;
 }
 
@@ -94,14 +94,14 @@ const Management: React.FC = () => {
       // Essayer d'abord avec stage_name, sinon utiliser name
       let { data, error } = await supabase
         .from('artists')
-        .select('id, name, stage_name, cover_image, status')
+        .select('id, name, stage_name, cover_url, status')
         .order('stage_name');
       
       // Si erreur sur stage_name, réessayer avec juste name
       if (error && error.message.includes('stage_name')) {
         const result = await supabase
           .from('artists')
-          .select('id, name, cover_image, status')
+          .select('id, name, cover_url, status')
           .order('name');
         data = result.data;
         error = result.error;
@@ -147,7 +147,7 @@ const Management: React.FC = () => {
           artist_id,
           profile_id,
           role,
-          artist:artists(id, name, stage_name, cover_image, status)
+          artist:artists(id, name, stage_name, cover_url, status)
         `)
         .eq('profile_id', selectedProfile.id)
         .eq('member_type', 'internal');
@@ -161,7 +161,7 @@ const Management: React.FC = () => {
             artist_id,
             profile_id,
             role,
-            artist:artists(id, name, cover_image, status)
+            artist:artists(id, name, cover_url, status)
           `)
           .eq('profile_id', selectedProfile.id)
           .eq('member_type', 'internal');
@@ -410,8 +410,8 @@ const Management: React.FC = () => {
               {managedArtists.map(link => (
                 <div key={link.id} className="glass rounded-2xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    {link.artist?.cover_image ? (
-                      <img src={link.artist.cover_image} alt={link.artist?.stage_name} className="w-16 h-16 rounded-xl object-cover" />
+                    {link.artist?.cover_url ? (
+                      <img src={link.artist.cover_url} alt={link.artist?.stage_name} className="w-16 h-16 rounded-xl object-cover" />
                     ) : (
                       <div className="w-16 h-16 glass rounded-xl" />
                     )}
