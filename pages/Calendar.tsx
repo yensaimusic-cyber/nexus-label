@@ -519,9 +519,7 @@ export const Calendar: React.FC = () => {
   return (
     <div className="p-4 lg:p-8 space-y-6 lg:space-y-8 w-full mx-auto min-h-screen flex flex-col relative" style={{background: '#050505'}}>
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h2 className="text-3xl lg:text-5xl font-heading font-extrabold text-white tracking-tighter">Nexus <span className="text-nexus-purple italic">Hub</span></h2>
-          <p className="text-nexus-lightGray text-xs lg:text-sm mt-1 uppercase tracking-widest font-mono">Contrôle temporel des opérations</p>
+                    </div>
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
