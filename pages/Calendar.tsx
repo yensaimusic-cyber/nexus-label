@@ -364,7 +364,14 @@ export const Calendar: React.FC = () => {
     setIsCreateModalOpen(true);
   };
 
-  // Unified create handler for all event types
+  // Helper: sync any event type to Google Calendar
+  const syncEventToGoogle = async (title: string, date: string, summary?: string, time?: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return;
+    await googleCalendarService.createEvent(userId, { title, date, summary, time });
+  };
+
   const handleCreateEvent = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     try {
@@ -397,6 +404,7 @@ export const Calendar: React.FC = () => {
         } else {
           toast.addToast('Réunion créée !', 'success');
         }
+
       } else if (createForm.eventType === 'task') {
         const taskPayload: any = {
           title: createForm.title,
@@ -408,7 +416,19 @@ export const Calendar: React.FC = () => {
         };
         const { error } = await supabase.from('tasks').insert([taskPayload]);
         if (error) throw error;
-        toast.addToast('Deadline créée !', 'success');
+        // ✅ Sync Google si activé
+        if (createForm.syncToGoogle) {
+          try {
+            await syncEventToGoogle(createForm.title, createForm.date, createForm.summary, createForm.time);
+            toast.addToast('Deadline créée et synchronisée avec Google Calendar !', 'success');
+          } catch (gErr) {
+            console.error('Google sync failed for task:', gErr);
+            toast.addToast('Deadline créée mais la synchronisation Google a échoué.', 'error');
+          }
+        } else {
+          toast.addToast('Deadline créée !', 'success');
+        }
+
       } else if (createForm.eventType === 'release') {
         if (!createForm.projectId) {
           toast.addToast('Veuillez sélectionner un projet.', 'error');
@@ -416,8 +436,20 @@ export const Calendar: React.FC = () => {
         }
         const { error } = await supabase.from('projects').update({ release_date: createForm.date }).eq('id', createForm.projectId);
         if (error) throw error;
-        toast.addToast('Date de sortie mise à jour !', 'success');
+        // ✅ Sync Google si activé
+        if (createForm.syncToGoogle) {
+          try {
+            await syncEventToGoogle(`RELEASE: ${createForm.title}`, createForm.date, `Date de sortie : ${createForm.title}`);
+            toast.addToast('Date de sortie mise à jour et synchronisée avec Google Calendar !', 'success');
+          } catch (gErr) {
+            console.error('Google sync failed for release:', gErr);
+            toast.addToast('Date de sortie mise à jour mais la synchronisation Google a échoué.', 'error');
+          }
+        } else {
+          toast.addToast('Date de sortie mise à jour !', 'success');
+        }
       }
+
       setIsCreateModalOpen(false);
       await fetchEvents();
     } catch (err: any) {
@@ -624,7 +656,7 @@ export const Calendar: React.FC = () => {
         </div>
       </div>
 
-      {/* Edit Modal - unchanged */}
+      {/* Edit Modal */}
       <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title={selectedEvent ? 'Modifier l\'événement' : 'Événement'}>
         {selectedEvent && (
           <form onSubmit={handleEventUpdate} className="space-y-6">
@@ -683,7 +715,7 @@ export const Calendar: React.FC = () => {
         )}
       </Modal>
 
-      {/* Create Modal - WITH TYPE SELECTOR */}
+      {/* Create Modal */}
       <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Créer un événement">
         <form onSubmit={handleCreateEvent} className="space-y-4">
           
@@ -770,10 +802,19 @@ export const Calendar: React.FC = () => {
             </div>
           )}
 
-          {createForm.eventType === 'meeting' && (
-            <div className="flex items-center gap-3">
-              <input id="syncGoogleCreate" type="checkbox" checked={createForm.syncToGoogle} onChange={e => setCreateForm(f => ({ ...f, syncToGoogle: e.target.checked }))} className="w-4 h-4" />
-              <label htmlFor="syncGoogleCreate" className="text-[12px] text-white/70">Synchroniser avec Google Calendar</label>
+          {/* ✅ Sync Google - visible pour TOUS les types si Google est connecté */}
+          {googleConnected && (
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+              <input
+                id="syncGoogleCreate"
+                type="checkbox"
+                checked={createForm.syncToGoogle}
+                onChange={e => setCreateForm(f => ({ ...f, syncToGoogle: e.target.checked }))}
+                className="w-4 h-4"
+              />
+              <label htmlFor="syncGoogleCreate" className="text-[12px] text-white/70 cursor-pointer">
+                Synchroniser avec Google Calendar
+              </label>
             </div>
           )}
 
