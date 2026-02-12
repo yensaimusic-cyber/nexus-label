@@ -604,7 +604,7 @@ export const Calendar: React.FC = () => {
           </div>
 
           <div className="flex-1 overflow-x-auto custom-scrollbar w-full" style={{ height: calendarHeight }}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 min-w-0 w-full gap-0">
+            <div className="grid grid-cols-7 min-w-0 w-full gap-0">
               {['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'].map(day => (
                 <div key={day} className="py-3 lg:py-5 text-center text-[9px] lg:text-[10px] font-mono uppercase tracking-[0.3em] text-white/30 border-b border-white/5 font-black">
                   {day}
@@ -621,7 +621,7 @@ export const Calendar: React.FC = () => {
                 return (
                   <div 
                     key={i} 
-                    className={`min-h-[120px] sm:min-h-[140px] md:min-h-[160px] lg:min-h-[200px] p-1 sm:p-2 border-r border-b border-white/10 transition-all relative group/cell flex flex-col ${
+                    className={`min-h-[200px] sm:min-h-[240px] md:min-h-[260px] lg:min-h-[200px] p-2 border-r border-b border-white/10 transition-all relative group/cell flex flex-col ${
                       !isCurrentMonth ? 'bg-black/10 pointer-events-none' : 'bg-[#0b0b0b]'
                     }`}
                     onClick={() => isCurrentMonth && openCreateModalForDate(dateString)}
@@ -635,9 +635,8 @@ export const Calendar: React.FC = () => {
                         {isCurrentMonth ? dayNum : ''}
                       </span>
                     </div>
-                    
-                    <div className="space-y-1 overflow-y-auto" style={{ maxHeight: isLarge ? '180px' : '120px' }}>
-                      {dayEvents.slice(0, isLarge ? 3 : 2).map((event) => {
+                    <div className="flex flex-col gap-1 overflow-y-auto" style={{ maxHeight: isLarge ? '180px' : 'none' }}>
+                      {dayEvents.map((event) => {
                         const isGoogle = event.metadata?.google;
                         const eventStyle = getEventStyle(event);
                         return (
@@ -645,19 +644,15 @@ export const Calendar: React.FC = () => {
                             key={event.id}
                             onClick={(e) => { e.stopPropagation(); handleEventClick(event); }}
                             whileHover={{ scale: 1.02, x: 2 }}
-                            className={`${isLarge ? 'px-2 py-1 text-[8px]' : 'px-3 py-2 text-[12px]'} rounded-md lg:rounded-lg font-bold tracking-tight flex items-center gap-2 ${isLarge ? 'truncate' : 'whitespace-normal'} shadow-sm cursor-pointer ${eventStyle.className}`}
-                            style={eventStyle.style}
+                            className={`px-3 py-2 text-[13px] rounded-md font-bold tracking-tight flex items-start gap-2 whitespace-pre-line break-words shadow-sm cursor-pointer ${eventStyle.className}`}
+                            style={{...eventStyle.style, wordBreak: 'break-word', whiteSpace: 'pre-line', lineHeight: '1.3', minHeight: 0}}
                           >
-                            <span className="truncate">{event.title}</span>
+                            <span>{event.title}</span>
                             {isGoogle && <span className="ml-2 text-[10px] font-black px-1 rounded-full" style={{background:'#1a73e8', color: 'white'}}>G</span>}
                           </motion.div>
                         );
                       })}
-                      {dayEvents.length > 3 && (
-                        <p className="text-[8px] font-black text-white/30 text-center uppercase tracking-widest mt-1">
-                          + {dayEvents.length - 3}
-                        </p>
-                      )}
+                    </div>
                     </div>
                   </div>
                 );
