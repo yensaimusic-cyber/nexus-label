@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from './useAuth';
 
 type AppRole = 'admin' | 'viewer';
+const BOOTSTRAP_ADMIN_IDS = ['221d6bbc-4d1c-4ff7-8c03-ab927728040d'];
 
 export const useRole = () => {
   const { user, loading: authLoading } = useAuth();
@@ -34,7 +35,26 @@ export const useRole = () => {
 
         if (primaryRes.error) throw primaryRes.error;
 
-        const rawRole = primaryRes.data?.[0]?.role ?? null;
+        let rawRole = primaryRes.data?.[0]?.role ?? null;
+
+        if (!rawRole) {
+          const bootstrapRole: AppRole = BOOTSTRAP_ADMIN_IDS.includes(user.id) ? 'admin' : 'viewer';
+          const upsertPayload: Record<string, any> = {
+            id: user.id,
+            role: bootstrapRole,
+            email: user.email || null,
+            full_name: user.user_metadata?.full_name || user.email || null
+          };
+
+          const upsertRes = await supabase
+            .from('profiles')
+            .upsert(upsertPayload)
+            .select('role')
+            .limit(1);
+
+          if (upsertRes.error) throw upsertRes.error;
+          rawRole = upsertRes.data?.[0]?.role ?? bootstrapRole;
+        }
 
         const roleValue = Array.isArray(rawRole) ? rawRole[0] : rawRole;
         const normalizedRole = String(roleValue || '').toLowerCase() === 'admin' ? 'admin' : 'viewer';
