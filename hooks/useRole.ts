@@ -3,7 +3,11 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from './useAuth';
 
 type AppRole = 'admin' | 'viewer';
-const BOOTSTRAP_ADMIN_IDS = ['221d6bbc-4d1c-4ff7-8c03-ab927728040d'];
+const BOOTSTRAP_ADMIN_EMAILS = [
+  'boutuil.fahd99@outlook.fr',
+  'nath.godfirnon@gmail.com',
+  'yensai.music@gmail.com'
+];
 
 export const useRole = () => {
   const { user, loading: authLoading } = useAuth();
@@ -38,7 +42,8 @@ export const useRole = () => {
         let rawRole = primaryRes.data?.[0]?.role ?? null;
 
         if (!rawRole) {
-          const bootstrapRole: AppRole = BOOTSTRAP_ADMIN_IDS.includes(user.id) ? 'admin' : 'viewer';
+          const email = String(user.email || '').toLowerCase();
+          const bootstrapRole: AppRole = BOOTSTRAP_ADMIN_EMAILS.includes(email) ? 'admin' : 'viewer';
           const upsertPayload: Record<string, any> = {
             id: user.id,
             role: bootstrapRole,
