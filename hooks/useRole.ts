@@ -34,7 +34,10 @@ export const useRole = () => {
 
         if (error) throw error;
 
-        const normalizedRole = data?.role === 'admin' ? 'admin' : 'viewer';
+        const rawRole = data?.role;
+        const roleValue = Array.isArray(rawRole) ? rawRole[0] : rawRole;
+        const normalizedRole = String(roleValue || '').toLowerCase() === 'admin' ? 'admin' : 'viewer';
+        console.log('[useRole] role from profiles:', rawRole, 'normalized:', normalizedRole);
         if (isActive) {
           setRole(normalizedRole);
           setError(null);
