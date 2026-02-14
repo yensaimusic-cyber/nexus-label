@@ -10,6 +10,7 @@ import {
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
+import { ProjectBudget } from '../components/ProjectBudget';
 import { supabase } from '../lib/supabase';
 import { uploadFile } from '../lib/storage';
 import { Project, Track, Task, ProjectStatus, ProjectType, STATUS_LABELS, ProjectTeamMember, MemberType, TrackStatus, TRACK_STATUS_LABELS, TaskPriority, TaskStatus } from '../types';
@@ -25,7 +26,7 @@ export const ProjectDetail: React.FC = () => {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [allArtists, setAllArtists] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'tracks' | 'tasks' | 'collaboration' | 'meetings'>('tracks');
+  const [activeTab, setActiveTab] = useState<'tracks' | 'tasks' | 'collaboration' | 'meetings' | 'budget'>('tracks');
   
   // Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -332,7 +333,8 @@ export const ProjectDetail: React.FC = () => {
           { id: 'tracks', label: 'Discographie', icon: <Disc size={16} /> },
           { id: 'tasks', label: 'Opérations', icon: <ClipboardList size={16} /> },
           { id: 'collaboration', label: 'Équipe Hub', icon: <Users size={16} /> },
-          { id: 'meetings', label: 'Sessions / Meetings', icon: <Calendar size={16} /> }
+          { id: 'meetings', label: 'Sessions / Meetings', icon: <Calendar size={16} /> },
+          { id: 'budget', label: 'Budget', icon: <DollarSign size={16} /> }
         ].map(tab => (
           <button 
             key={tab.id} 
@@ -475,6 +477,10 @@ export const ProjectDetail: React.FC = () => {
                 {meetings.length === 0 && <div className="py-24 text-center glass rounded-[48px] border-dashed border-white/10 opacity-20 italic">Aucun log de session archivé pour ce projet.</div>}
               </div>
             </div>
+          )}
+
+          {activeTab === 'budget' && (
+            <ProjectBudget projectId={project.id} totalBudget={project.budget || 0} />
           )}
         </motion.div>
       </AnimatePresence>
