@@ -6,6 +6,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
+import { AdminOnly } from '../components/AdminOnly';
 
 interface Artist {
   id: string;
@@ -398,9 +399,11 @@ const Management: React.FC = () => {
               <Briefcase className="w-5 h-5 text-nexus-purple" />
               <h2 className="text-xl font-black text-white">Artistes managés</h2>
             </div>
-            <Button onClick={() => setShowLinkModal(true)} icon={Plus}>
-              Lier un artiste
-            </Button>
+            <AdminOnly>
+              <Button onClick={() => setShowLinkModal(true)} icon={Plus}>
+                Lier un artiste
+              </Button>
+            </AdminOnly>
           </div>
 
           {managedArtists.length === 0 ? (
@@ -425,12 +428,14 @@ const Management: React.FC = () => {
                       )}
                     </div>
                   </div>
-                  <button 
-                    onClick={() => handleUnlinkArtist(link.id)}
-                    className="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/40 hover:text-red-400"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+                  <AdminOnly>
+                    <button 
+                      onClick={() => handleUnlinkArtist(link.id)}
+                      className="p-2 hover:bg-white/5 rounded-lg transition-colors text-white/40 hover:text-red-400"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </AdminOnly>
                 </div>
               ))}
             </div>
@@ -525,12 +530,14 @@ const Management: React.FC = () => {
               <Button onClick={() => setShowLinkModal(false)} variant="glass">
                 Annuler
               </Button>
-              <Button 
-                onClick={handleLinkArtist} 
-                disabled={!selectedArtistId || !managerRole.trim() || loading}
-              >
-                {loading ? 'Liaison...' : 'Lier l\'artiste'}
-              </Button>
+              <AdminOnly>
+                <Button 
+                  onClick={handleLinkArtist} 
+                  disabled={!selectedArtistId || !managerRole.trim() || loading}
+                >
+                  {loading ? 'Liaison...' : 'Lier l\'artiste'}
+                </Button>
+              </AdminOnly>
             </div>
           </div>
         </Modal>
@@ -546,12 +553,16 @@ const Management: React.FC = () => {
           <p className="text-white/60">Gérez les managers et leurs artistes affiliés</p>
         </div>
         <div className="flex gap-3">
-          <Button onClick={() => setShowPromoteModal(true)} variant="outline" icon={Users}>
-            Promouvoir un membre
-          </Button>
-          <Button onClick={() => setShowAddManagerModal(true)} icon={Plus}>
-            Ajouter un manager
-          </Button>
+          <AdminOnly>
+            <Button onClick={() => setShowPromoteModal(true)} variant="outline" icon={Users}>
+              Promouvoir un membre
+            </Button>
+          </AdminOnly>
+          <AdminOnly>
+            <Button onClick={() => setShowAddManagerModal(true)} icon={Plus}>
+              Ajouter un manager
+            </Button>
+          </AdminOnly>
         </div>
       </div>
 
@@ -562,12 +573,14 @@ const Management: React.FC = () => {
             onClick={() => setSelectedProfile(profile)}
             className="cursor-pointer relative group"
           >
-            <button
-              onClick={(e) => handleDeleteManager(profile.id, e)}
-              className="absolute top-4 right-4 z-10 p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <AdminOnly>
+              <button
+                onClick={(e) => handleDeleteManager(profile.id, e)}
+                className="absolute top-4 right-4 z-10 p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </AdminOnly>
             <Card className="hover:border-nexus-purple/50 transition-all">
               <div className="flex flex-col items-center text-center">
                 {profile.avatar_url ? (
@@ -640,12 +653,14 @@ const Management: React.FC = () => {
             <Button onClick={() => setShowAddManagerModal(false)} variant="ghost">
               Annuler
             </Button>
-            <Button 
-              onClick={handleAddManager} 
-              disabled={!newManager.full_name.trim() || !newManager.email.trim() || loading}
-            >
-              {loading ? 'Ajout...' : 'Ajouter'}
-            </Button>
+            <AdminOnly>
+              <Button 
+                onClick={handleAddManager} 
+                disabled={!newManager.full_name.trim() || !newManager.email.trim() || loading}
+              >
+                {loading ? 'Ajout...' : 'Ajouter'}
+              </Button>
+            </AdminOnly>
           </div>
         </div>
       </Modal>
@@ -674,12 +689,14 @@ const Management: React.FC = () => {
             <Button onClick={() => setShowPromoteModal(false)} variant="ghost">
               Annuler
             </Button>
-            <Button 
-              onClick={handlePromoteToManager} 
-              disabled={!selectedProfileToPromote || loading}
-            >
-              {loading ? 'Promotion...' : 'Promouvoir'}
-            </Button>
+            <AdminOnly>
+              <Button 
+                onClick={handlePromoteToManager} 
+                disabled={!selectedProfileToPromote || loading}
+              >
+                {loading ? 'Promotion...' : 'Promouvoir'}
+              </Button>
+            </AdminOnly>
           </div>
         </div>
       </Modal>

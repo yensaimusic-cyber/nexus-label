@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { AdminOnly } from '../components/AdminOnly';
 import { Disc, LayoutGrid, List, Plus, Search, Filter, Calendar, Loader2, Camera } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { uploadFile } from '../lib/storage';
@@ -73,10 +74,12 @@ export const Projects: React.FC = () => {
           <h2 className="text-3xl font-heading font-extrabold text-white">Pipeline de Production</h2>
           <p className="text-nexus-lightGray text-sm">Suivez l'avancement des sorties du label.</p>
         </div>
-        <Button variant="primary" className="gap-2" onClick={() => setIsModalOpen(true)}>
-          <Plus size={18} />
-          <span>Nouveau Projet</span>
-        </Button>
+        <AdminOnly>
+          <Button variant="primary" className="gap-2" onClick={() => setIsModalOpen(true)}>
+            <Plus size={18} />
+            <span>Nouveau Projet</span>
+          </Button>
+        </AdminOnly>
       </header>
 
       <div className="relative">
@@ -120,7 +123,9 @@ export const Projects: React.FC = () => {
             </select>
             <input type="date" value={formData.release_date} onChange={e => setFormData({...formData, release_date: e.target.value})} className="bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white" />
           </div>
-          <Button type="submit" variant="primary" className="w-full" isLoading={isSubmitting}>Lancer le projet</Button>
+          <AdminOnly>
+            <Button type="submit" variant="primary" className="w-full" isLoading={isSubmitting}>Lancer le projet</Button>
+          </AdminOnly>
         </form>
       </Modal>
     </div>

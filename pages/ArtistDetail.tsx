@@ -11,6 +11,7 @@ import {
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { AdminOnly } from '../components/AdminOnly';
 import { supabase } from '../lib/supabase';
 import { uploadFile } from '../lib/storage';
 import { Artist, Project, ArtistAsset, ArtistTeamMember, ArtistStatus, ProjectType, ProjectStatus, STATUS_LABELS } from '../types';
@@ -311,12 +312,16 @@ export const ArtistDetail: React.FC = () => {
               <div className="flex flex-col md:flex-row items-center gap-4 mb-2">
                 <h1 className="text-4xl lg:text-7xl font-heading font-extrabold text-white tracking-tighter leading-none">{artist.stage_name}</h1>
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="rounded-full bg-white/5 border border-white/10 hover:bg-nexus-purple hover:border-nexus-purple">
-                    <Edit3 size={16} className="mr-2" /> <span className="text-[10px] font-black uppercase tracking-widest">Modifier</span>
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setIsDeleteModalOpen(true)} className="rounded-full bg-white/5 border border-white/10 text-nexus-red hover:bg-nexus-red/10">
-                    <Trash2 size={16} />
-                  </Button>
+                  <AdminOnly>
+                    <Button variant="ghost" size="sm" onClick={() => setIsEditModalOpen(true)} className="rounded-full bg-white/5 border border-white/10 hover:bg-nexus-purple hover:border-nexus-purple">
+                      <Edit3 size={16} className="mr-2" /> <span className="text-[10px] font-black uppercase tracking-widest">Modifier</span>
+                    </Button>
+                  </AdminOnly>
+                  <AdminOnly>
+                    <Button variant="ghost" size="sm" onClick={() => setIsDeleteModalOpen(true)} className="rounded-full bg-white/5 border border-white/10 text-nexus-red hover:bg-nexus-red/10">
+                      <Trash2 size={16} />
+                    </Button>
+                  </AdminOnly>
                 </div>
               </div>
               
@@ -393,12 +398,14 @@ export const ArtistDetail: React.FC = () => {
                   </Link>
                 </Card>
               ))}
-              <button onClick={() => setIsProjectModalOpen(true)} className="w-full h-full min-h-[250px]">
-                <div className="border-2 border-dashed border-white/5 rounded-[40px] h-full flex flex-col items-center justify-center p-12 hover:bg-white/5 hover:border-nexus-purple/30 transition-all group shadow-inner">
-                  <Plus className="text-white/20 mb-4 group-hover:text-nexus-purple group-hover:scale-110 transition-all" size={48} />
-                  <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Initier Nouveau Projet</span>
-                </div>
-              </button>
+              <AdminOnly>
+                <button onClick={() => setIsProjectModalOpen(true)} className="w-full h-full min-h-[250px]">
+                  <div className="border-2 border-dashed border-white/5 rounded-[40px] h-full flex flex-col items-center justify-center p-12 hover:bg-white/5 hover:border-nexus-purple/30 transition-all group shadow-inner">
+                    <Plus className="text-white/20 mb-4 group-hover:text-nexus-purple group-hover:scale-110 transition-all" size={48} />
+                    <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Initier Nouveau Projet</span>
+                  </div>
+                </button>
+              </AdminOnly>
             </motion.div>
           )}
 
@@ -406,9 +413,11 @@ export const ArtistDetail: React.FC = () => {
             <motion.div key="equipe" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-10">
               <div className="flex justify-between items-center">
                 <h3 className="text-2xl font-heading font-extrabold text-white">Roster Management</h3>
-                <Button variant="outline" className="gap-2 border-white/10" onClick={() => setIsTeamModalOpen(true)}>
-                  <Plus size={18} /> <span className="uppercase font-black text-[10px] tracking-widest">Signer un intervenant</span>
-                </Button>
+                <AdminOnly>
+                  <Button variant="outline" className="gap-2 border-white/10" onClick={() => setIsTeamModalOpen(true)}>
+                    <Plus size={18} /> <span className="uppercase font-black text-[10px] tracking-widest">Signer un intervenant</span>
+                  </Button>
+                </AdminOnly>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -420,9 +429,11 @@ export const ArtistDetail: React.FC = () => {
                   
                   return (
                     <Card key={member.id} className="p-8 border-white/5 hover:border-nexus-cyan/30 relative group shadow-xl">
-                      <button onClick={() => handleDeleteTeamMember(member.id)} className="absolute top-6 right-6 text-white/10 hover:text-nexus-red transition-colors opacity-0 group-hover:opacity-100">
-                        <Trash2 size={18} />
-                      </button>
+                      <AdminOnly>
+                        <button onClick={() => handleDeleteTeamMember(member.id)} className="absolute top-6 right-6 text-white/10 hover:text-nexus-red transition-colors opacity-0 group-hover:opacity-100">
+                          <Trash2 size={18} />
+                        </button>
+                      </AdminOnly>
                       <div className="flex items-center gap-5 mb-6">
                         {avatarUrl ? (
                           <div className="w-16 h-16 rounded-3xl overflow-hidden border-2 border-white/10 shrink-0 shadow-2xl">
@@ -479,9 +490,11 @@ export const ArtistDetail: React.FC = () => {
             <motion.div key="assets" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-10">
               <div className="flex justify-between items-center">
                 <h3 className="text-2xl font-heading font-extrabold text-white">Nexus Vault: Assets</h3>
-                <Button variant="outline" className="gap-2 border-white/10" onClick={() => setIsAssetModalOpen(true)}>
-                  <Plus size={18} /> <span className="uppercase font-black text-[10px] tracking-widest">Déposer un asset</span>
-                </Button>
+                <AdminOnly>
+                  <Button variant="outline" className="gap-2 border-white/10" onClick={() => setIsAssetModalOpen(true)}>
+                    <Plus size={18} /> <span className="uppercase font-black text-[10px] tracking-widest">Déposer un asset</span>
+                  </Button>
+                </AdminOnly>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -495,9 +508,11 @@ export const ArtistDetail: React.FC = () => {
                         <a href={asset.url} target="_blank" rel="noreferrer" className="p-2.5 hover:bg-white/10 rounded-xl text-white/40 hover:text-white transition-all">
                           <Download size={18} />
                         </a>
-                        <button onClick={() => handleDeleteAsset(asset.id)} className="p-2.5 hover:bg-nexus-red/10 rounded-xl text-white/10 hover:text-nexus-red transition-all">
-                          <Trash2 size={18} />
-                        </button>
+                        <AdminOnly>
+                          <button onClick={() => handleDeleteAsset(asset.id)} className="p-2.5 hover:bg-nexus-red/10 rounded-xl text-white/10 hover:text-nexus-red transition-all">
+                            <Trash2 size={18} />
+                          </button>
+                        </AdminOnly>
                       </div>
                     </div>
                     <h4 className="font-heading font-bold text-lg text-white mb-2 truncate">{asset.name}</h4>
@@ -636,7 +651,9 @@ export const ArtistDetail: React.FC = () => {
 
           <div className="flex gap-4 pt-8 border-t border-white/5">
             <Button type="button" variant="ghost" className="flex-1 h-14" onClick={() => setIsEditModalOpen(false)}>Annuler</Button>
-            <Button type="submit" variant="primary" className="flex-1 h-14 uppercase font-black tracking-widest text-xs" isLoading={isSubmitting}>Enregistrer les modifications</Button>
+            <AdminOnly>
+              <Button type="submit" variant="primary" className="flex-1 h-14 uppercase font-black tracking-widest text-xs" isLoading={isSubmitting}>Enregistrer les modifications</Button>
+            </AdminOnly>
           </div>
         </form>
       </Modal>
@@ -671,7 +688,9 @@ export const ArtistDetail: React.FC = () => {
             <label className="text-[10px] font-mono uppercase tracking-widest text-white/40 font-black">Date de Sortie (Cible)</label>
             <input type="date" value={newProject.release_date} onChange={e => setNewProject({...newProject, release_date: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none [color-scheme:dark]" />
           </div>
-          <Button type="submit" variant="primary" className="w-full h-16 font-black uppercase tracking-[0.2em]" isLoading={isSubmitting}>Lancer la Production</Button>
+          <AdminOnly>
+            <Button type="submit" variant="primary" className="w-full h-16 font-black uppercase tracking-[0.2em]" isLoading={isSubmitting}>Lancer la Production</Button>
+          </AdminOnly>
         </form>
       </Modal>
 
@@ -735,7 +754,9 @@ export const ArtistDetail: React.FC = () => {
                </div>
              </>
            )}
-           <Button type="submit" variant="primary" className="w-full h-14 font-black uppercase tracking-widest text-[10px]" isLoading={isSubmitting}>Enregistrer au staff</Button>
+           <AdminOnly>
+             <Button type="submit" variant="primary" className="w-full h-14 font-black uppercase tracking-widest text-[10px]" isLoading={isSubmitting}>Enregistrer au staff</Button>
+           </AdminOnly>
         </form>
       </Modal>
 
@@ -777,7 +798,9 @@ export const ArtistDetail: React.FC = () => {
              <label className="text-[10px] font-mono uppercase tracking-widest text-white/40 font-black">Commentaires</label>
              <textarea rows={2} value={newAsset.notes} onChange={e => setNewAsset({...newAsset, notes: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white outline-none resize-none" />
            </div>
-           <Button type="submit" variant="primary" className="w-full h-14 font-black uppercase tracking-widest text-[10px]" isLoading={isSubmitting}>Stocker dans le Vault</Button>
+           <AdminOnly>
+             <Button type="submit" variant="primary" className="w-full h-14 font-black uppercase tracking-widest text-[10px]" isLoading={isSubmitting}>Stocker dans le Vault</Button>
+           </AdminOnly>
         </form>
       </Modal>
 
@@ -795,7 +818,9 @@ export const ArtistDetail: React.FC = () => {
           </div>
           <div className="flex gap-4 pt-4">
             <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => setIsDeleteModalOpen(false)}>Annuler</Button>
-            <Button variant="danger" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px]" onClick={handleDeleteArtist} isLoading={isSubmitting}>Éffacer les données</Button>
+            <AdminOnly>
+              <Button variant="danger" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px]" onClick={handleDeleteArtist} isLoading={isSubmitting}>Éffacer les données</Button>
+            </AdminOnly>
           </div>
         </div>
       </Modal>

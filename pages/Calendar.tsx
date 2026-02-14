@@ -12,6 +12,8 @@ import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
 import { googleCalendarService } from '../lib/googleCalendar';
 import { useToast } from '../components/ui/Toast';
+import { AdminOnly } from '../components/AdminOnly';
+import { useRole } from '../hooks/useRole';
 
 type EventType = 'release' | 'session' | 'promo' | 'meeting' | 'task';
 
@@ -45,6 +47,7 @@ export const Calendar: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [activeFilter, setActiveFilter] = useState<EventType | 'all'>('all');
   const toast = useToast();
+  const { role } = useRole();
   const layoutDebug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('layoutDebug') === '1';
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [calendarWidthPct, setCalendarWidthPct] = useState<number>(() => {
@@ -825,7 +828,11 @@ export const Calendar: React.FC = () => {
                     className={`min-h-[220px] sm:min-h-[260px] md:min-h-[300px] lg:min-h-[260px] p-3 border-r border-b border-white/10 transition-all relative group/cell flex flex-col ${
                       !isCurrentMonth ? 'bg-black/10 pointer-events-none' : 'bg-[#0b0b0b]'
                     }`}
-                    onClick={() => isCurrentMonth && openCreateModalForDate(dateString)}
+                    onClick={() => {
+                      if (!isCurrentMonth) return;
+                      if (role !== 'admin') return;
+                      openCreateModalForDate(dateString);
+                    }}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex flex-col">
@@ -1009,10 +1016,14 @@ export const Calendar: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Button type="button" variant="destructive" onClick={handleEventDelete} className="flex-1">Supprimer</Button>
+                <AdminOnly>
+                  <Button type="button" variant="destructive" onClick={handleEventDelete} className="flex-1">Supprimer</Button>
+                </AdminOnly>
                 <div className="flex-1" />
                 <Button type="button" variant="ghost" onClick={() => setIsDetailModalOpen(false)}>Annuler</Button>
-                <Button type="submit" variant="primary">Enregistrer</Button>
+                <AdminOnly>
+                  <Button type="submit" variant="primary">Enregistrer</Button>
+                </AdminOnly>
               </div>
             </div>
           </form>
@@ -1040,8 +1051,12 @@ export const Calendar: React.FC = () => {
 
           <div className="flex gap-3">
             <Button variant="ghost" onClick={() => { setIsDeleteConfirmOpen(false); }} className="flex-1">Annuler</Button>
-            <Button variant="secondary" onClick={() => confirmDelete(false)} className="flex-1">Supprimer seulement l'événement</Button>
-            <Button variant="destructive" onClick={() => confirmDelete(true)} className="flex-1" isLoading={deleteInProgress}>Supprimer événement + liés</Button>
+            <AdminOnly>
+              <Button variant="secondary" onClick={() => confirmDelete(false)} className="flex-1">Supprimer seulement l'événement</Button>
+            </AdminOnly>
+            <AdminOnly>
+              <Button variant="destructive" onClick={() => confirmDelete(true)} className="flex-1" isLoading={deleteInProgress}>Supprimer événement + liés</Button>
+            </AdminOnly>
           </div>
         </div>
       </Modal>
@@ -1151,7 +1166,9 @@ export const Calendar: React.FC = () => {
 
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsCreateModalOpen(false)}>Annuler</Button>
-            <Button type="submit" variant="primary" className="flex-1">Créer</Button>
+            <AdminOnly>
+              <Button type="submit" variant="primary" className="flex-1">Créer</Button>
+            </AdminOnly>
           </div>
         </form>
       </Modal>

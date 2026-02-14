@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Filter, LayoutGrid, List, ChevronDown, Loader2, Camera, X, Check, Users } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { AdminOnly } from '../components/AdminOnly';
 import { Modal } from '../components/ui/Modal';
 import { ArtistCard } from '../components/features/artists/ArtistCard';
 import { useArtists } from '../hooks/useArtists';
@@ -75,14 +76,16 @@ export const Artists: React.FC = () => {
           <h2 className="text-3xl lg:text-4xl font-heading font-extrabold text-white tracking-tight">Roster Global</h2>
           <p className="text-nexus-lightGray text-sm mt-1">Gérez vos talents et suivez leur développement artistique.</p>
         </div>
-        <Button variant="primary" className="gap-2 shadow-xl" onClick={() => {
-          setNewArtist({ name: '', stage_name: '', bio: '', status: 'active', profile_id: null });
-          setAvatarPreview(null);
-          setIsAddModalOpen(true);
-        }}>
-          <Plus size={20} />
-          <span className="font-bold">Signer un Artiste</span>
-        </Button>
+        <AdminOnly>
+          <Button variant="primary" className="gap-2 shadow-xl" onClick={() => {
+            setNewArtist({ name: '', stage_name: '', bio: '', status: 'active', profile_id: null });
+            setAvatarPreview(null);
+            setIsAddModalOpen(true);
+          }}>
+            <Plus size={20} />
+            <span className="font-bold">Signer un Artiste</span>
+          </Button>
+        </AdminOnly>
       </header>
 
       <div className="flex flex-col md:flex-row gap-3">
@@ -160,7 +163,9 @@ export const Artists: React.FC = () => {
           </div>
           <div className="flex gap-4 pt-6 border-t border-white/5">
             <Button type="button" variant="ghost" className="flex-1 h-14" onClick={() => setIsAddModalOpen(false)}>Annuler</Button>
-            <Button type="submit" variant="primary" className="flex-1 h-14 font-black uppercase tracking-widest text-xs" isLoading={isSubmitting}>Enregistrer au Roster</Button>
+            <AdminOnly>
+              <Button type="submit" variant="primary" className="flex-1 h-14 font-black uppercase tracking-widest text-xs" isLoading={isSubmitting}>Enregistrer au Roster</Button>
+            </AdminOnly>
           </div>
         </form>
       </Modal>
