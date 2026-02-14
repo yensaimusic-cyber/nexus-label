@@ -26,23 +26,40 @@ export const useRole = () => {
 
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        const primaryRes = await supabase
           .from('profiles')
           .select('role')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
+        if (primaryRes.error) throw primaryRes.error;
 
-        const rawRole = data?.role;
+        let rawRole = primaryRes.data?.role ?? null;
+
+        if (!rawRole) {
+          const fallbackRes = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (fallbackRes.error) throw fallbackRes.error;
+          rawRole = fallbackRes.data?.role ?? null;
+        }
+
         const roleValue = Array.isArray(rawRole) ? rawRole[0] : rawRole;
         const normalizedRole = String(roleValue || '').toLowerCase() === 'admin' ? 'admin' : 'viewer';
-        console.log('[useRole] role from profiles:', rawRole, 'normalized:', normalizedRole);
+        console.log('[useRole] profile role lookup', {
+          userId: user.id,
+          rawRole,
+          normalizedRole
+        });
         if (isActive) {
           setRole(normalizedRole);
           setError(null);
         }
       } catch (err: any) {
+        console.warn('[useRole] role lookup failed', { userId: user.id, error: err?.message || err });
         if (isActive) {
           setRole('viewer');
           setError(err?.message || 'Unable to fetch role.');
