@@ -34,18 +34,7 @@ export const useRole = () => {
 
         if (primaryRes.error) throw primaryRes.error;
 
-        let rawRole = primaryRes.data?.[0]?.role ?? null;
-
-        if (!rawRole) {
-          const fallbackRes = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('user_id', user.id)
-            .limit(1);
-
-          if (fallbackRes.error) throw fallbackRes.error;
-          rawRole = fallbackRes.data?.[0]?.role ?? null;
-        }
+        const rawRole = primaryRes.data?.[0]?.role ?? null;
 
         const roleValue = Array.isArray(rawRole) ? rawRole[0] : rawRole;
         const normalizedRole = String(roleValue || '').toLowerCase() === 'admin' ? 'admin' : 'viewer';
