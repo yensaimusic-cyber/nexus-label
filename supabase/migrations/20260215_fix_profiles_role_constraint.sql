@@ -1,22 +1,32 @@
 -- Fix profiles role constraint
 -- Convert role column from enum to text to allow custom roles
 
--- Step 1: Alter the role column to TEXT (removing the enum constraint)
+-- Step 1: Drop the CHECK constraint explicitly
 DO $$ 
 BEGIN
-    -- Drop the constraint if it exists
+    ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+EXCEPTION
+    WHEN OTHERS THEN 
+        RAISE NOTICE 'Could not drop constraint: %', SQLERRM;
+END $$;
+
+-- Step 2: Convert role column from enum to text
+DO $$ 
+BEGIN
+    -- Drop the default first
     ALTER TABLE profiles ALTER COLUMN role DROP DEFAULT;
+    
+    -- Convert the column type
     ALTER TABLE profiles ALTER COLUMN role TYPE TEXT USING role::TEXT;
     
     -- Set a new default if needed
     ALTER TABLE profiles ALTER COLUMN role SET DEFAULT NULL;
 EXCEPTION
     WHEN OTHERS THEN 
-        -- If column doesn't exist or another issue, we'll handle it
         RAISE NOTICE 'Could not alter role column: %', SQLERRM;
 END $$;
 
--- Step 2: Make sure role is nullable for flexibility
+-- Step 3: Make sure role is nullable for flexibility
 DO $$
 BEGIN
     ALTER TABLE profiles ALTER COLUMN role DROP NOT NULL;
