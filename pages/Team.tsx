@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
 import { uploadFile, deleteFileByUrl } from '../lib/storage';
+import { AdminOnly } from '../components/AdminOnly';
 import { TeamMember, CustomRole } from '../types';
 
 export const Team: React.FC = () => {
@@ -142,21 +143,23 @@ export const Team: React.FC = () => {
           <h2 className="text-3xl lg:text-4xl font-heading font-extrabold text-white tracking-tight leading-none">Roster de l'Équipe</h2>
           <p className="text-nexus-lightGray text-xs lg:text-sm mt-2 opacity-60">Gestion du staff et des intervenants stratégiques Nexus.</p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" className="gap-2 border-white/10 rounded-2xl h-14" onClick={() => setIsRoleModalOpen(true)}>
-            <Settings size={20} />
-            <span className="font-black uppercase tracking-widest text-[10px]">Rôles Hub</span>
-          </Button>
-          <Button variant="primary" className="gap-2 shadow-2xl rounded-2xl h-14 nexus-glow" onClick={() => { 
-            setEditingId(null); 
-            setFormData({ full_name: '', email: '', role: [], skills: [] }); 
-            setPreviewUrl(null); 
-            setIsModalOpen(true); 
-          }}>
-            <Plus size={20} />
-            <span className="font-black uppercase tracking-widest text-[10px]">Recruter un Agent</span>
-          </Button>
-        </div>
+        <AdminOnly>
+          <div className="flex gap-3">
+            <Button variant="outline" className="gap-2 border-white/10 rounded-2xl h-14" onClick={() => setIsRoleModalOpen(true)}>
+              <Settings size={20} />
+              <span className="font-black uppercase tracking-widest text-[10px]">Rôles Hub</span>
+            </Button>
+            <Button variant="primary" className="gap-2 shadow-2xl rounded-2xl h-14 nexus-glow" onClick={() => { 
+              setEditingId(null); 
+              setFormData({ full_name: '', email: '', role: [], skills: [] }); 
+              setPreviewUrl(null); 
+              setIsModalOpen(true); 
+            }}>
+              <Plus size={20} />
+              <span className="font-black uppercase tracking-widest text-[10px]">Recruter un Agent</span>
+            </Button>
+          </div>
+        </AdminOnly>
       </header>
 
       <div className="relative">
@@ -202,10 +205,12 @@ export const Team: React.FC = () => {
                     <span key={s} className="px-2 py-0.5 rounded bg-white/5 text-[10px] font-bold text-white/40 border border-white/5">{s}</span>
                   ))}
                 </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <button onClick={() => { setEditingId(member.id); setFormData(member); setPreviewUrl(member.avatar_url); setIsModalOpen(true); }} className="p-2 bg-white/5 hover:bg-nexus-purple/20 rounded-xl text-nexus-purple transition-all"><Edit3 size={18} /></button>
-                  <button onClick={() => handleDeleteMember(member.id)} className="p-2 bg-white/5 hover:bg-nexus-red/10 rounded-xl text-nexus-red transition-all"><Trash2 size={18} /></button>
-                </div>
+                <AdminOnly>
+                  <div className="flex items-center gap-2 mt-2">
+                    <button onClick={() => { setEditingId(member.id); setFormData(member); setPreviewUrl(member.avatar_url); setIsModalOpen(true); }} className="p-2 bg-white/5 hover:bg-nexus-purple/20 rounded-xl text-nexus-purple transition-all"><Edit3 size={18} /></button>
+                    <button onClick={() => handleDeleteMember(member.id)} className="p-2 bg-white/5 hover:bg-nexus-red/10 rounded-xl text-nexus-red transition-all"><Trash2 size={18} /></button>
+                  </div>
+                </AdminOnly>
               </div>
             ))}
           </div>
@@ -272,16 +277,18 @@ export const Team: React.FC = () => {
       {/* Modal Role Management */}
       <Modal isOpen={isRoleModalOpen} onClose={() => setIsRoleModalOpen(false)} title="Architecture des Rôles Hub">
         <div className="space-y-8">
-          <div className="flex gap-3">
-            <input 
-              type="text" 
-              placeholder="Intitulé du nouveau rôle..." 
-              value={newRoleName}
-              onChange={(e) => setNewRoleName(e.target.value)}
-              className="flex-1 bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none focus:border-nexus-purple"
-            />
-            <Button variant="primary" className="h-14 w-14 p-0 rounded-2xl shadow-xl" onClick={handleAddRole}><Plus size={24} /></Button>
-          </div>
+          <AdminOnly>
+            <div className="flex gap-3">
+              <input 
+                type="text" 
+                placeholder="Intitulé du nouveau rôle..." 
+                value={newRoleName}
+                onChange={(e) => setNewRoleName(e.target.value)}
+                className="flex-1 bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none focus:border-nexus-purple"
+              />
+              <Button variant="primary" className="h-14 w-14 p-0 rounded-2xl shadow-xl" onClick={handleAddRole}><Plus size={24} /></Button>
+            </div>
+          </AdminOnly>
 
           <div className="space-y-3">
             <p className="text-[10px] font-mono uppercase text-white/30 tracking-[0.3em] font-black ml-1">Rôles Actuels</p>
@@ -289,7 +296,9 @@ export const Team: React.FC = () => {
                {roles.map(role => (
                  <div key={role.id} className="flex items-center justify-between p-5 bg-white/5 border border-white/5 rounded-2xl group/role">
                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/70">{role.name}</span>
-                   <button onClick={() => handleDeleteRole(role.id)} className="text-white/10 hover:text-nexus-red transition-all p-2 opacity-0 group-role-hover:opacity-100"><X size={18} /></button>
+                   <AdminOnly>
+                     <button onClick={() => handleDeleteRole(role.id)} className="text-white/10 hover:text-nexus-red transition-all p-2 opacity-0 group-role-hover:opacity-100"><X size={18} /></button>
+                   </AdminOnly>
                  </div>
                ))}
                {roles.length === 0 && <div className="py-12 text-center italic opacity-20">Aucun rôle défini.</div>}

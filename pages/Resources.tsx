@@ -6,6 +6,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
+import { AdminOnly } from '../components/AdminOnly';
 import { ExternalResource } from '../types';
 
 export const Resources: React.FC = () => {
@@ -100,14 +101,16 @@ export const Resources: React.FC = () => {
           <h2 className="text-3xl lg:text-4xl font-heading font-extrabold text-white tracking-tight">Répertoire Partenaires</h2>
           <p className="text-nexus-lightGray text-sm mt-1">Gérez vos prestataires externes, studios et créatifs favoris.</p>
         </div>
-        <Button variant="primary" className="gap-2 shadow-xl" onClick={() => { 
-          setEditingId(null); 
-          setFormData({ name: '', service_type: '', skills: [], website: '', rating: 5, notes: '', phone: '', email: '', instagram: '' }); 
-          setIsModalOpen(true); 
-        }}>
-          <Plus size={20} />
-          <span>Nouveau Partenaire</span>
-        </Button>
+        <AdminOnly>
+          <Button variant="primary" className="gap-2 shadow-xl" onClick={() => { 
+            setEditingId(null); 
+            setFormData({ name: '', service_type: '', skills: [], website: '', rating: 5, notes: '', phone: '', email: '', instagram: '' }); 
+            setIsModalOpen(true); 
+          }}>
+            <Plus size={20} />
+            <span>Nouveau Partenaire</span>
+          </Button>
+        </AdminOnly>
       </header>
 
       <div className="relative">
@@ -207,14 +210,16 @@ export const Resources: React.FC = () => {
                   </AnimatePresence>
                 </div>
 
-                <div className="flex gap-2">
-                   <Button variant="ghost" size="sm" onClick={() => handleEdit(resource)} className="h-11 px-3 border border-white/5 hover:border-nexus-cyan transition-all text-nexus-cyan">
-                     <Save size={18} className="rotate-45" />
-                   </Button>
-                   <Button variant="ghost" size="sm" onClick={() => handleDelete(resource.id)} className="h-11 px-3 border border-white/5 hover:border-nexus-red transition-all text-white/20 hover:text-nexus-red">
-                     <Trash2 size={18} />
-                   </Button>
-                </div>
+                <AdminOnly>
+                  <div className="flex gap-2">
+                     <Button variant="ghost" size="sm" onClick={() => handleEdit(resource)} className="h-11 px-3 border border-white/5 hover:border-nexus-cyan transition-all text-nexus-cyan">
+                       <Save size={18} className="rotate-45" />
+                     </Button>
+                     <Button variant="ghost" size="sm" onClick={() => handleDelete(resource.id)} className="h-11 px-3 border border-white/5 hover:border-nexus-red transition-all text-white/20 hover:text-nexus-red">
+                       <Trash2 size={18} />
+                     </Button>
+                  </div>
+                </AdminOnly>
               </div>
             </Card>
           ))}
