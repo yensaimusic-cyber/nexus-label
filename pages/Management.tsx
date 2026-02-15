@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Profile } from '../types';
-import { ChevronLeft, Plus, X, Users, ListTodo, Briefcase, Trash2 } from 'lucide-react';
+import { ChevronLeft, Plus, X, Users, ListTodo, Briefcase, Trash2, Folder } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
@@ -29,6 +29,16 @@ interface Task {
   };
 }
 
+interface Project {
+  id: string;
+  title: string;
+  type: string;
+  status: string;
+  artist_id: string;
+  cover_url?: string;
+  release_date?: string;
+}
+
 interface ManagerArtistLink {
   id: string;
   artist_id: string;
@@ -42,6 +52,7 @@ const Management: React.FC = () => {
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [managedArtists, setManagedArtists] = useState<ManagerArtistLink[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [allArtists, setAllArtists] = useState<Artist[]>([]);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showAddManagerModal, setShowAddManagerModal] = useState(false);
@@ -69,8 +80,10 @@ const Management: React.FC = () => {
   useEffect(() => {
     if (managedArtists.length > 0) {
       fetchTasks();
+      fetchProjects();
     } else {
       setTasks([]);
+      setProjects([]);
     }
   }, [managedArtists]);
 
@@ -213,6 +226,27 @@ const Management: React.FC = () => {
     } catch (err) {
       console.error('Error fetching tasks:', err);
       addToast('Erreur lors du chargement des tâches', 'error');
+    }
+  };
+
+  const fetchProjects = async () => {
+    if (managedArtists.length === 0) return;
+    
+    const artistIds = managedArtists.map(ma => ma.artist_id);
+    
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .in('artist_id', artistIds)
+        .neq('status', 'released')
+        .order('release_date', { ascending: true });
+      
+      if (error) throw error;
+      setProjects(data || []);
+    } catch (err) {
+      console.error('Error fetching projects:', err);
+      addToast('Erreur lors du chargement des projets', 'error');
     }
   };
 
@@ -441,6 +475,70 @@ const Management: React.FC = () => {
             </div>
           )}
         </Card>
+
+        {/* Projects Section */}
+        {projects.length > 0 && (
+          <Card>
+            <div className="flex items-center gap-3 mb-6">
+              <Folder className="w-5 h-5 text-nexus-purple" />
+              <h2 className="text-xl font-black text-white">Projets en cours</h2>
+              <span className="text-white/40 text-sm">({projects.length})</span>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {projects.map(project => {
+                const artistLink = managedArtists.find(ma => ma.artist_id === project.artist_id);
+                const artistName = artistLink?.artist?.stage_name;
+                return (
+                  <div key={project.id} className="glass rounded-xl p-4 hover:border-nexus-purple/50 transition-all">
+                    <div className="flex items-start gap-4">
+                      {project.cover_url ? (
+                        <img src={project.cover_url} alt={project.title} className="w-16 h-16 rounded-lg object-cover" />
+                      ) : (
+                        <div className="w-16 h-16 glass rounded-lg flex items-center justify-center">
+                          <Folder className="w-8 h-8 text-white/30" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-white font-bold truncate">{project.title}</h3>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          {artistName && (
+                            <span className="text-xs text-white/60">{artistName}</span>
+                          )}
+                          {artistName && project.type && <span className="text-white/30">·</span>}
+                          {project.type && (
+                            <span className="text-xs text-white/60 capitalize">{project.type}</span>
+                          )}
+                          {project.release_date && (
+                            <>
+                              <span className="text-white/30">·</span>
+                              <span className="text-xs text-white/60">
+                                {new Date(project.release_date).toLocaleDateString('fr-FR')}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <div className="mt-2">
+                          <span className={`text-xs px-2 py-1 rounded-full border ${
+                            project.status === 'production' 
+                              ? 'bg-nexus-purple/20 text-nexus-purple border-nexus-purple/30'
+                              : project.status === 'post_production'
+                              ? 'bg-nexus-cyan/20 text-nexus-cyan border-nexus-cyan/30'
+                              : project.status === 'release'
+                              ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                              : 'bg-white/5 text-white/60 border-white/10'
+                          }`}>
+                            {project.status.replace('_', ' ')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
 
         {/* Tasks Section */}
         {tasks.length > 0 && (

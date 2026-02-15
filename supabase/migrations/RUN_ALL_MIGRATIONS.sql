@@ -145,6 +145,33 @@ CREATE INDEX IF NOT EXISTS idx_project_budgets_project_id ON project_budgets(pro
 CREATE INDEX IF NOT EXISTS idx_project_budgets_status ON project_budgets(status);
 
 -- ============================================================
+-- MIGRATION 6: Fix profiles role constraint
+-- ============================================================
+
+-- Convert role column from enum to text to allow custom roles
+DO $$ 
+BEGIN
+    -- Drop the constraint if it exists
+    ALTER TABLE profiles ALTER COLUMN role DROP DEFAULT;
+    ALTER TABLE profiles ALTER COLUMN role TYPE TEXT USING role::TEXT;
+    
+    -- Set a new default if needed
+    ALTER TABLE profiles ALTER COLUMN role SET DEFAULT NULL;
+EXCEPTION
+    WHEN OTHERS THEN 
+        -- If column doesn't exist or another issue, we'll handle it
+        RAISE NOTICE 'Could not alter role column: %', SQLERRM;
+END $$;
+
+-- Make sure role is nullable for flexibility
+DO $$
+BEGIN
+    ALTER TABLE profiles ALTER COLUMN role DROP NOT NULL;
+EXCEPTION
+    WHEN OTHERS THEN NULL;
+END $$;
+
+-- ============================================================
 -- ✅ MIGRATIONS TERMINÉES
 -- ============================================================
 -- Vous pouvez maintenant fermer cet onglet et retourner sur votre app
