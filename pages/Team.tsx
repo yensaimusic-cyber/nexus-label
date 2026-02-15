@@ -179,18 +179,25 @@ export const Team: React.FC = () => {
         <div className="glass rounded-[24px] border-white/5 shadow-2xl">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
             {filteredProfiles.map((member) => (
-              <div key={member.id} className="bg-white/[0.02] rounded-2xl p-4 flex flex-col items-center gap-3 shadow-md">
+              <div key={member.id} className="bg-white/[0.02] rounded-2xl p-4 flex flex-col items-center gap-2 shadow-md">
                 <div className="w-14 h-14 rounded-full overflow-hidden border border-white/10 bg-nexus-surface">
                   <img src={member.avatar_url || `https://picsum.photos/seed/${member.id}/100`} className="w-full h-full object-cover" alt="" />
                 </div>
-                <p className="font-heading font-extrabold text-white text-base text-center">{member.full_name}</p>
-                <p className="text-[10px] font-mono text-white/20 uppercase tracking-widest text-center">{member.email || 'Pas de canal email'}</p>
-                <div className="flex flex-wrap gap-1 justify-center">
-                  {Array.isArray(member.role) && member.role.map((r: string) => (
-                    <span key={r} className="px-2 py-0.5 rounded bg-nexus-purple/10 text-nexus-purple text-[9px] font-black uppercase tracking-[0.2em] border border-nexus-purple/20">{r}</span>
-                  ))}
+                <div className="text-center space-y-1">
+                  <p className="font-heading font-extrabold text-white text-base">{member.full_name}</p>
+                  {/* Display roles directly under name */}
+                  {Array.isArray(member.role) && member.role.length > 0 ? (
+                    <p className="text-sm text-nexus-purple font-semibold">
+                      {member.role.join(' • ')}
+                    </p>
+                  ) : typeof member.role === 'string' && member.role ? (
+                    <p className="text-sm text-nexus-purple font-semibold">{member.role}</p>
+                  ) : (
+                    <p className="text-sm text-white/30 italic">Aucun rôle</p>
+                  )}
                 </div>
-                <div className="flex flex-wrap gap-1 justify-center">
+                <p className="text-[10px] font-mono text-white/20 uppercase tracking-widest text-center">{member.email || 'Pas de canal email'}</p>
+                <div className="flex flex-wrap gap-1 justify-center mt-1">
                   {(member.skills || []).map((s: string) => (
                     <span key={s} className="px-2 py-0.5 rounded bg-white/5 text-[10px] font-bold text-white/40 border border-white/5">{s}</span>
                   ))}
