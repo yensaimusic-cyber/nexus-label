@@ -33,20 +33,20 @@ export const useRole = () => {
       try {
         const primaryRes = await supabase
           .from('profiles')
-          .select('role')
+          .select('auth_role')
           .eq('id', user.id)
           .limit(1);
 
         if (primaryRes.error) throw primaryRes.error;
 
-        let rawRole = primaryRes.data?.[0]?.role ?? null;
+        let rawRole = primaryRes.data?.[0]?.auth_role ?? null;
 
         if (!rawRole) {
           const email = String(user.email || '').toLowerCase();
           const bootstrapRole: AppRole = BOOTSTRAP_ADMIN_EMAILS.includes(email) ? 'admin' : 'viewer';
           const upsertPayload: Record<string, any> = {
             id: user.id,
-            role: bootstrapRole,
+            auth_role: bootstrapRole,
             email: user.email || null,
             full_name: user.user_metadata?.full_name || user.email || null
           };
@@ -54,16 +54,16 @@ export const useRole = () => {
           const upsertRes = await supabase
             .from('profiles')
             .upsert(upsertPayload)
-            .select('role')
+            .select('auth_role')
             .limit(1);
 
           if (upsertRes.error) throw upsertRes.error;
-          rawRole = upsertRes.data?.[0]?.role ?? bootstrapRole;
+          rawRole = upsertRes.data?.[0]?.auth_role ?? bootstrapRole;
         }
 
         const roleValue = Array.isArray(rawRole) ? rawRole[0] : rawRole;
         const normalizedRole = String(roleValue || '').toLowerCase() === 'admin' ? 'admin' : 'viewer';
-        console.log('[useRole] profile role lookup', {
+        console.log('[useRole] profile auth_role lookup', {
           userId: user.id,
           rawRole,
           normalizedRole

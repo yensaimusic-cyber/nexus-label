@@ -6,11 +6,14 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
+import { AdminOnly } from '../components/AdminOnly';
+import { useRole } from '../hooks/useRole';
 import { Task, TaskPriority, TaskStatus, STATUS_LABELS, Track } from '../types';
 
 const GROUP_ORDER = ['idea', 'pre_production', 'production', 'post_production', 'release', 'released', 'sans_projet'];
 
 export const Tasks: React.FC = () => {
+  const { role } = useRole();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -73,6 +76,8 @@ export const Tasks: React.FC = () => {
   };
 
   const handleOpenEdit = (task: Task) => {
+    // Only admins can edit existing tasks
+    if (role !== 'admin') return;
     setEditingTask(task);
     setIsModalOpen(true);
   };
@@ -402,11 +407,13 @@ export const Tasks: React.FC = () => {
             </div>
 
             <div className="flex gap-4 pt-8 border-t border-white/5">
-              {editingTask?.id && (
-                <Button type="button" variant="ghost" className="text-nexus-red border border-nexus-red/20 hover:bg-nexus-red/10 rounded-2xl h-14 w-14 p-0 shrink-0" onClick={() => setIsDeleteModalOpen(true)}>
-                  <Trash2 size={24} />
-                </Button>
-              )}
+              <AdminOnly>
+                {editingTask?.id && (
+                  <Button type="button" variant="ghost" className="text-nexus-red border border-nexus-red/20 hover:bg-nexus-red/10 rounded-2xl h-14 w-14 p-0 shrink-0" onClick={() => setIsDeleteModalOpen(true)}>
+                    <Trash2 size={24} />
+                  </Button>
+                )}
+              </AdminOnly>
               <Button type="button" variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => { setIsModalOpen(false); setEditingTask(null); }}>Annuler</Button>
               <Button type="submit" variant="primary" className="flex-1 h-14 rounded-2xl font-black uppercase tracking-widest text-[10px]" isLoading={isSubmitting}>Enregistrer les directives</Button>
             </div>

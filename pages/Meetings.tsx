@@ -8,6 +8,7 @@ import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
 import { googleCalendarService } from '../lib/googleCalendar';
 import { useToast } from '../components/ui/Toast';
+import { AdminOnly } from '../components/AdminOnly';
 import { Meeting } from '../types';
 
 export const Meetings: React.FC = () => {
@@ -248,10 +249,12 @@ export const Meetings: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="shrink-0 flex lg:flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="sm" onClick={() => handleEdit(meeting)} className="p-3 hover:bg-nexus-purple/10 text-nexus-purple"><ChevronRight size={24} /></Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleDelete(meeting.id)} className="p-3 hover:text-nexus-red"><Trash2 size={20} /></Button>
-                </div>
+                <AdminOnly>
+                  <div className="shrink-0 flex lg:flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(meeting)} className="p-3 hover:bg-nexus-purple/10 text-nexus-purple"><ChevronRight size={24} /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(meeting.id)} className="p-3 hover:text-nexus-red"><Trash2 size={20} /></Button>
+                  </div>
+                </AdminOnly>
               </div>
             </Card>
           ))}
