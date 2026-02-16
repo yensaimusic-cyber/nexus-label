@@ -3,6 +3,42 @@
 -- Il appliquera toutes les migrations en attente de manière sécurisée
 
 -- ============================================================
+-- MIGRATION 0: Base meetings table
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS meetings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title TEXT NOT NULL,
+    date DATE NOT NULL,
+    summary TEXT,
+    attendees TEXT[] DEFAULT '{}',
+    action_items TEXT[] DEFAULT '{}',
+    project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+    google_event_id TEXT,
+    synced_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE IF EXISTS meetings
+    ADD COLUMN IF NOT EXISTS title TEXT,
+    ADD COLUMN IF NOT EXISTS date DATE,
+    ADD COLUMN IF NOT EXISTS summary TEXT,
+    ADD COLUMN IF NOT EXISTS attendees TEXT[] DEFAULT '{}',
+    ADD COLUMN IF NOT EXISTS action_items TEXT[] DEFAULT '{}',
+    ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS google_event_id TEXT,
+    ADD COLUMN IF NOT EXISTS synced_at TIMESTAMP WITH TIME ZONE,
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+ALTER TABLE meetings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public access to meetings" ON meetings;
+CREATE POLICY "Public access to meetings" ON meetings FOR ALL TO authenticated USING (true);
+
+CREATE INDEX IF NOT EXISTS idx_meetings_date ON meetings(date);
+CREATE INDEX IF NOT EXISTS idx_meetings_project_id ON meetings(project_id);
+
+-- ============================================================
 -- MIGRATION 1: Support membres internes dans artist_team_members
 -- ============================================================
 
