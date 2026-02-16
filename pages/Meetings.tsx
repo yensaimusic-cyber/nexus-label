@@ -60,8 +60,14 @@ export const Meetings: React.FC = () => {
     e.preventDefault();
     try {
       setIsSubmitting(true);
+      const payload: Partial<Meeting> = {
+        ...formData,
+        project_id: formData.project_id ? formData.project_id : null,
+        attendees: formData.attendees || [],
+        action_items: formData.action_items || []
+      };
       if (editingId) {
-        const { error } = await supabase.from('meetings').update(formData).eq('id', editingId);
+        const { error } = await supabase.from('meetings').update(payload).eq('id', editingId);
         if (error) throw error;
         
         // Handle Google synchronization for existing meetings
@@ -98,7 +104,7 @@ export const Meetings: React.FC = () => {
           }
         }
       } else {
-        const { data: inserted, error } = await supabase.from('meetings').insert([formData]).select().single();
+        const { data: inserted, error } = await supabase.from('meetings').insert([payload]).select().single();
         if (error) throw error;
         // Optionally sync to Google Calendar
         if (syncToGoogle && inserted) {
