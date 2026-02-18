@@ -7,6 +7,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Projects } from './pages/Projects';
 import { ProjectDetail } from './pages/ProjectDetail';
 import { Sorties } from './pages/Sorties';
+import { Actualite } from './pages/Actualite';
 import { Artists } from './pages/Artists';
 import { ArtistDetail } from './pages/ArtistDetail';
 import { Tasks } from './pages/Tasks';
@@ -87,6 +88,7 @@ const App: React.FC = () => {
                 <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
                 
                 <Route path="/" element={<ProtectedRoute><PageWrapper><Dashboard /></PageWrapper></ProtectedRoute>} />
+                <Route path="/actualite" element={<ProtectedRoute><PageWrapper><Actualite /></PageWrapper></ProtectedRoute>} />
                 <Route path="/projects" element={<ProtectedRoute><PageWrapper><Projects /></PageWrapper></ProtectedRoute>} />
                 <Route path="/projects/:id" element={<ProtectedRoute><PageWrapper><ProjectDetail /></PageWrapper></ProtectedRoute>} />
                 <Route path="/sorties" element={<ProtectedRoute><PageWrapper><Sorties /></PageWrapper></ProtectedRoute>} />

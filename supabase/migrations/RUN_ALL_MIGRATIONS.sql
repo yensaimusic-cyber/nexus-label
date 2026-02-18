@@ -287,6 +287,42 @@ CREATE INDEX IF NOT EXISTS idx_sorties_project_id ON sorties(project_id);
 CREATE INDEX IF NOT EXISTS idx_sorties_status ON sorties(status);
 
 -- ============================================================
+-- MIGRATION 9: Activity Log pour actualités & notifications
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS activity_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    action_type TEXT NOT NULL CHECK (action_type IN (
+        'project_created', 'project_updated', 'project_deleted',
+        'sortie_created', 'sortie_updated', 'sortie_deleted',
+        'meeting_created', 'meeting_updated', 'meeting_deleted',
+        'task_created', 'task_updated', 'task_deleted',
+        'artist_created', 'artist_updated',
+        'team_member_added', 'team_member_updated'
+    )),
+    entity_type TEXT NOT NULL CHECK (entity_type IN (
+        'project', 'sortie', 'meeting', 'task', 'artist', 'team_member'
+    )),
+    entity_id UUID NOT NULL,
+    entity_title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    old_values JSONB,
+    new_values JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public access to activity_log" ON activity_log;
+CREATE POLICY "Public access to activity_log" ON activity_log FOR ALL TO authenticated USING (true);
+
+CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_log_user_id ON activity_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_log_entity_type ON activity_log(entity_type);
+CREATE INDEX IF NOT EXISTS idx_activity_log_action_type ON activity_log(action_type);
+
+-- ============================================================
 -- ✅ MIGRATIONS TERMINÉES
 -- ============================================================
 -- Vous pouvez maintenant fermer cet onglet et retourner sur votre app

@@ -15,7 +15,8 @@ import {
   Rocket,
   MessageSquareText,
   Briefcase,
-  UserCheck
+  UserCheck,
+  Activity
 } from 'lucide-react';
 
 export const COLORS = {
@@ -30,6 +31,7 @@ export const COLORS = {
 };
 
 export const NAVIGATION = [
+  { name: 'Actualités', icon: <Activity size={20} />, path: '/actualite' },
   { name: 'Tableau de bord', icon: <LayoutDashboard size={20} />, path: '/' },
   { name: 'Artistes', icon: <Users size={20} />, path: '/artists' },
   { name: 'Projets', icon: <Disc size={20} />, path: '/projects' },
