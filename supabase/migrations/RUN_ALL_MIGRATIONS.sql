@@ -260,6 +260,33 @@ BEGIN
 END $$;
 
 -- ============================================================
+-- MIGRATION 8: Sorties (Releases) table
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS sorties (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title TEXT NOT NULL,
+    release_date DATE NOT NULL,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    description TEXT,
+    cover_url TEXT,
+    platforms TEXT[] DEFAULT '{}',
+    spotify_url TEXT,
+    status TEXT DEFAULT 'planned' CHECK (status IN ('planned', 'released', 'cancelled')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE sorties ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public access to sorties" ON sorties;
+CREATE POLICY "Public access to sorties" ON sorties FOR ALL TO authenticated USING (true);
+
+CREATE INDEX IF NOT EXISTS idx_sorties_release_date ON sorties(release_date);
+CREATE INDEX IF NOT EXISTS idx_sorties_project_id ON sorties(project_id);
+CREATE INDEX IF NOT EXISTS idx_sorties_status ON sorties(status);
+
+-- ============================================================
 -- ✅ MIGRATIONS TERMINÉES
 -- ============================================================
 -- Vous pouvez maintenant fermer cet onglet et retourner sur votre app

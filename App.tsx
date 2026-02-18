@@ -6,6 +6,7 @@ import { Header } from './components/layout/Header';
 import { Dashboard } from './pages/Dashboard';
 import { Projects } from './pages/Projects';
 import { ProjectDetail } from './pages/ProjectDetail';
+import { Sorties } from './pages/Sorties';
 import { Artists } from './pages/Artists';
 import { ArtistDetail } from './pages/ArtistDetail';
 import { Tasks } from './pages/Tasks';
@@ -88,6 +89,7 @@ const App: React.FC = () => {
                 <Route path="/" element={<ProtectedRoute><PageWrapper><Dashboard /></PageWrapper></ProtectedRoute>} />
                 <Route path="/projects" element={<ProtectedRoute><PageWrapper><Projects /></PageWrapper></ProtectedRoute>} />
                 <Route path="/projects/:id" element={<ProtectedRoute><PageWrapper><ProjectDetail /></PageWrapper></ProtectedRoute>} />
+                <Route path="/sorties" element={<ProtectedRoute><PageWrapper><Sorties /></PageWrapper></ProtectedRoute>} />
                 <Route path="/artists" element={<ProtectedRoute><PageWrapper><Artists /></PageWrapper></ProtectedRoute>} />
                 <Route path="/artists/:id" element={<ProtectedRoute><PageWrapper><ArtistDetail /></PageWrapper></ProtectedRoute>} />
                 <Route path="/tasks" element={<ProtectedRoute><PageWrapper><Tasks /></PageWrapper></ProtectedRoute>} />

@@ -33,6 +33,7 @@ export const NAVIGATION = [
   { name: 'Tableau de bord', icon: <LayoutDashboard size={20} />, path: '/' },
   { name: 'Artistes', icon: <Users size={20} />, path: '/artists' },
   { name: 'Projets', icon: <Disc size={20} />, path: '/projects' },
+  { name: 'Sorties', icon: <Rocket size={20} />, path: '/sorties' },
   { name: 'Tâches', icon: <CheckSquare size={20} />, path: '/tasks' },
   { name: 'Réunions', icon: <MessageSquareText size={20} />, path: '/meetings' },
   { name: 'Calendrier', icon: <Calendar size={20} />, path: '/calendar' },
