@@ -213,6 +213,7 @@ const Management: React.FC = () => {
           project:projects(id, title, artist_id)
         `)
         .in('project.artist_id', artistIds)
+        .neq('status', 'done')
         .order('due_date', { ascending: true });
       
       if (error) throw error;
