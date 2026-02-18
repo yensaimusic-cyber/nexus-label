@@ -18,6 +18,8 @@ export interface Sortie {
     title: string;
     cover_url?: string;
   };
+  artist_name?: string;
+  manager_name?: string;
   source?: 'sortie' | 'project'; // To distinguish where the sortie came from
 }
 
@@ -50,12 +52,65 @@ export const useSorties = () => {
           cover_url,
           release_date,
           status,
-          artist:artists(stage_name)
+          artist:artists(stage_name, id)
         `)
         .not('release_date', 'is', null)
         .order('release_date', { ascending: true });
 
       if (projectsError) throw projectsError;
+
+      // Get managers for all artists (we'll fetch them separately to get the manager names)
+      const artistIds = (projectsData || [])
+        .map((p: any) => p.artist?.id)
+        .filter(Boolean);
+
+      let managerMap: Record<string, string> = {};
+      if (artistIds.length > 0) {
+        const { data: teamMembersData } = await supabase
+          .from('artist_team_members')
+          .select(`
+            artist_id,
+            name,
+            profile_id,
+            member_type
+          `)
+          .in('artist_id', artistIds);
+
+        // Build a map to get profile_ids
+        const profileIds: string[] = [];
+        if (teamMembersData) {
+          for (const member of teamMembersData) {
+            if (member.member_type === 'external' && member.name) {
+              // External manager - use directly
+              if (!managerMap[member.artist_id]) {
+                managerMap[member.artist_id] = member.name;
+              }
+            } else if (member.member_type === 'internal' && member.profile_id) {
+              // Internal manager - fetch profile info
+              profileIds.push(member.profile_id);
+            }
+          }
+        }
+
+        // Fetch profiles for internal managers
+        if (profileIds.length > 0) {
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', profileIds);
+
+          if (profilesData && teamMembersData) {
+            for (const member of teamMembersData) {
+              if (member.member_type === 'internal' && member.profile_id) {
+                const profile = profilesData.find((p: any) => p.id === member.profile_id);
+                if (profile?.full_name && !managerMap[member.artist_id]) {
+                  managerMap[member.artist_id] = profile.full_name;
+                }
+              }
+            }
+          }
+        }
+      }
 
       // Convert projects to sortie format
       const projectSorties: Sortie[] = (projectsData || []).map((proj: any) => ({
@@ -65,6 +120,8 @@ export const useSorties = () => {
         project_id: proj.id,
         cover_url: proj.cover_url,
         description: proj.artist?.stage_name || '',
+        artist_name: proj.artist?.stage_name || '',
+        manager_name: managerMap[proj.artist?.id] || '',
         status: proj.status === 'released' ? 'released' : 'planned',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -99,6 +156,13 @@ export const useSorties = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'projects' },
+        () => {
+          fetchSorties();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'artist_team_members' },
         () => {
           fetchSorties();
         }

@@ -220,6 +220,22 @@ export const Sorties: React.FC = () => {
               </h3>
             )}
 
+            {/* Artist & Manager Info */}
+            <div className="space-y-1.5">
+              {sortie.artist_name && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-nexus-cyan/60 font-semibold">Artiste:</span>
+                  <span className="text-white font-medium">{sortie.artist_name}</span>
+                </div>
+              )}
+              {sortie.manager_name && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-nexus-purple/60 font-semibold">Manager:</span>
+                  <span className="text-white/80 font-medium">{sortie.manager_name}</span>
+                </div>
+              )}
+            </div>
+
             {/* Date */}
             <div className={`flex items-center gap-2 text-sm font-semibold rounded-lg px-3 py-2 w-fit ${getUrgencyBgColor(daysUntil)}`}>
               <Calendar size={15} className="text-nexus-cyan" />
