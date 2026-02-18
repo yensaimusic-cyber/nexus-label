@@ -18,6 +18,7 @@ export interface Sortie {
     title: string;
     cover_url?: string;
   };
+  source?: 'sortie' | 'project'; // To distinguish where the sortie came from
 }
 
 export const useSorties = () => {
@@ -29,7 +30,8 @@ export const useSorties = () => {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
+      // Fetch explicit sorties
+      const { data: sortiesData, error: sortiesError } = await supabase
         .from('sorties')
         .select(`
           *,
@@ -37,9 +39,43 @@ export const useSorties = () => {
         `)
         .order('release_date', { ascending: true });
 
-      if (error) throw error;
+      if (sortiesError) throw sortiesError;
 
-      setSorties(data || []);
+      // Fetch projects with release dates
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('projects')
+        .select(`
+          id,
+          title,
+          cover_url,
+          release_date,
+          status,
+          artist:artists(stage_name)
+        `)
+        .not('release_date', 'is', null)
+        .order('release_date', { ascending: true });
+
+      if (projectsError) throw projectsError;
+
+      // Convert projects to sortie format
+      const projectSorties: Sortie[] = (projectsData || []).map((proj: any) => ({
+        id: proj.id,
+        title: proj.title,
+        release_date: proj.release_date,
+        project_id: proj.id,
+        cover_url: proj.cover_url,
+        description: proj.artist?.stage_name || '',
+        status: proj.status === 'released' ? 'released' : 'planned',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        source: 'project',
+      }));
+
+      // Merge and sort all sorties by release date
+      const allSorties = [...(sortiesData || []).map(s => ({ ...s, source: 'sortie' as const })), ...projectSorties]
+        .sort((a, b) => new Date(a.release_date).getTime() - new Date(b.release_date).getTime());
+
+      setSorties(allSorties);
     } catch (err: any) {
       setError(handleSupabaseError(err));
     } finally {
@@ -52,10 +88,17 @@ export const useSorties = () => {
 
     // Subscribe to real-time updates
     const subscription = supabase
-      .channel('sorties')
+      .channel('sorties-projects')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'sorties' },
+        () => {
+          fetchSorties();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'projects' },
         () => {
           fetchSorties();
         }
@@ -103,7 +146,7 @@ export const useSorties = () => {
 
       if (error) throw error;
 
-      setSorties([...sorties, data[0]].sort((a, b) => 
+      setSorties([...sorties, { ...data[0], source: 'sortie' }].sort((a, b) => 
         new Date(a.release_date).getTime() - new Date(b.release_date).getTime()
       ));
 
@@ -149,7 +192,7 @@ export const useSorties = () => {
       if (error) throw error;
 
       setSorties(
-        sorties.map((s) => (s.id === id ? data[0] : s)).sort((a, b) =>
+        sorties.map((s) => (s.id === id ? { ...data[0], source: 'sortie' } : s)).sort((a, b) =>
           new Date(a.release_date).getTime() - new Date(b.release_date).getTime()
         )
       );

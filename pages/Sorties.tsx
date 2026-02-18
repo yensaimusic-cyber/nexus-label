@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { AdminOnly } from '../components/AdminOnly';
-import { Calendar, Plus, Search, Loader2, Camera, Edit2, Trash2, CheckCircle } from 'lucide-react';
+import { Calendar, Plus, Search, Loader2, Camera, Edit2, Trash2, CheckCircle, Disc } from 'lucide-react';
 import { useSorties, type Sortie } from '../hooks/useSorties';
 import { formatDate } from '../lib/utils';
 
@@ -26,6 +27,9 @@ export const Sorties: React.FC = () => {
   });
 
   const handleOpenModal = (sortie?: Sortie) => {
+    if (sortie && sortie.source === 'project') {
+      return; // Can't edit projects from sorties page
+    }
     if (sortie) {
       setEditingSortie(sortie);
       setFormData({
@@ -92,8 +96,7 @@ export const Sorties: React.FC = () => {
   const filteredSorties = sorties.filter(
     (s) =>
       s.title.toLowerCase().includes(search.toLowerCase()) ||
-      s.description?.toLowerCase().includes(search.toLowerCase()) ||
-      s.project?.title.toLowerCase().includes(search.toLowerCase())
+      s.description?.toLowerCase().includes(search.toLowerCase())
   );
 
   // Groupe les sorties par statut
@@ -102,6 +105,7 @@ export const Sorties: React.FC = () => {
   const cancelledSorties = filteredSorties.filter((s) => s.status === 'cancelled');
 
   const renderSortieCard = (sortie: Sortie) => {
+    const isProject = sortie.source === 'project';
     const isUpcoming =
       new Date(sortie.release_date) > new Date() && sortie.status === 'planned';
     const daysUntil = Math.ceil(
@@ -117,22 +121,33 @@ export const Sorties: React.FC = () => {
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.3 }}
       >
-        <Card className="p-4 space-y-3 relative group">
-          {sortie.cover_url && (
-            <img
-              src={sortie.cover_url}
-              alt={sortie.title}
-              className="w-full h-40 object-cover rounded-lg group-hover:opacity-80 transition-opacity"
-            />
-          )}
+        <Card className="p-4 space-y-3 relative group h-full">
+          <div className="relative">
+            {sortie.cover_url && (
+              <img
+                src={sortie.cover_url}
+                alt={sortie.title}
+                className="w-full h-40 object-cover rounded-lg group-hover:opacity-80 transition-opacity"
+              />
+            )}
+            {isProject && (
+              <div className="absolute top-2 left-2 bg-nexus-cyan/80 backdrop-blur-sm px-2 py-1 rounded text-xs font-semibold text-white flex items-center gap-1">
+                <Disc size={12} />
+                Projet
+              </div>
+            )}
+          </div>
           <div>
-            <h3 className="font-bold text-white text-lg group-hover:text-nexus-cyan transition-colors">
-              {sortie.title}
-            </h3>
-            {sortie.project && (
-              <p className="text-xs text-nexus-cyan uppercase font-mono mt-1">
-                {sortie.project.title}
-              </p>
+            {isProject ? (
+              <Link to={`/projects/${sortie.project_id}`}>
+                <h3 className="font-bold text-white text-lg group-hover:text-nexus-cyan transition-colors">
+                  {sortie.title}
+                </h3>
+              </Link>
+            ) : (
+              <h3 className="font-bold text-white text-lg group-hover:text-nexus-cyan transition-colors">
+                {sortie.title}
+              </h3>
             )}
           </div>
 
@@ -146,7 +161,7 @@ export const Sorties: React.FC = () => {
             )}
           </div>
 
-          {sortie.description && (
+          {sortie.description && !isProject && (
             <p className="text-sm text-white/70 line-clamp-2">
               {sortie.description}
             </p>
@@ -163,23 +178,25 @@ export const Sorties: React.FC = () => {
             ))}
           </div>
 
-          <div className="flex gap-2 pt-2 border-t border-white/10">
-            <AdminOnly>
-              <button
-                onClick={() => handleOpenModal(sortie)}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-nexus-purple/20 text-nexus-purple rounded-lg hover:bg-nexus-purple/30 transition-colors text-sm font-semibold"
-              >
-                <Edit2 size={14} />
-                Modifier
-              </button>
-              <button
-                onClick={() => handleDelete(sortie.id)}
-                className="px-3 py-2 bg-nexus-red/20 text-nexus-red rounded-lg hover:bg-nexus-red/30 transition-colors"
-              >
-                <Trash2 size={14} />
-              </button>
-            </AdminOnly>
-          </div>
+          {!isProject && (
+            <div className="flex gap-2 pt-2 border-t border-white/10">
+              <AdminOnly>
+                <button
+                  onClick={() => handleOpenModal(sortie)}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-nexus-purple/20 text-nexus-purple rounded-lg hover:bg-nexus-purple/30 transition-colors text-sm font-semibold"
+                >
+                  <Edit2 size={14} />
+                  Modifier
+                </button>
+                <button
+                  onClick={() => handleDelete(sortie.id)}
+                  className="px-3 py-2 bg-nexus-red/20 text-nexus-red rounded-lg hover:bg-nexus-red/30 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </AdminOnly>
+            </div>
+          )}
         </Card>
       </motion.div>
     );
@@ -191,7 +208,7 @@ export const Sorties: React.FC = () => {
         <div>
           <h2 className="text-3xl font-heading font-extrabold text-white">Sorties</h2>
           <p className="text-nexus-lightGray text-sm">
-            Gérez les sorties prévues du label
+            Gérez les sorties prévues du label (projets + sorties)
           </p>
         </div>
         <AdminOnly>
