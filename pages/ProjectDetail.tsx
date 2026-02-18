@@ -13,11 +13,14 @@ import { Modal } from '../components/ui/Modal';
 import { ProjectBudget } from '../components/ProjectBudget';
 import { supabase } from '../lib/supabase';
 import { uploadFile } from '../lib/storage';
+import { useAuth } from '../hooks/useAuth';
+import { logProjectActivity, logTaskActivity } from '../lib/activityLogger';
 import { Project, Track, Task, ProjectStatus, ProjectType, STATUS_LABELS, ProjectTeamMember, MemberType, TrackStatus, TRACK_STATUS_LABELS, TaskPriority, TaskStatus } from '../types';
 
 export const ProjectDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [project, setProject] = useState<any>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [projectTasks, setProjectTasks] = useState<Task[]>([]);
@@ -106,6 +109,26 @@ export const ProjectDetail: React.FC = () => {
         .single();
         
       if (error) throw error;
+      
+      // Log activity with detailed changes
+      if (user && project) {
+        await logProjectActivity(user.id, 'updated', {
+          id: project.id,
+          title: project.title,
+        }, {
+          old: {
+            release_date: project.release_date,
+            status: project.status,
+            title: project.title,
+          },
+          new: {
+            release_date: data.release_date,
+            status: data.status,
+            title: data.title,
+          },
+        });
+      }
+      
       setProject(data);
       setIsEditModalOpen(false);
       alert("Projet mis à jour avec succès !");
@@ -121,6 +144,15 @@ export const ProjectDetail: React.FC = () => {
       setIsSubmitting(true);
       const { error } = await supabase.from('projects').delete().eq('id', id);
       if (error) throw error;
+      
+      // Log activity
+      if (user && project) {
+        await logProjectActivity(user.id, 'deleted', {
+          id: project.id,
+          title: project.title,
+        });
+      }
+      
       navigate('/projects');
     } catch (err) { 
       alert("Impossible de supprimer le projet."); 
@@ -237,12 +269,44 @@ export const ProjectDetail: React.FC = () => {
       };
 
       if (editingTask.id) {
+        // Get old task for logging
+        const oldTask = projectTasks.find(t => t.id === editingTask.id);
+        
         const { data, error } = await supabase.from('tasks').update(cleanPayload).eq('id', editingTask.id).select('*, assignee:profiles(full_name, avatar_url)').single();
         if (error) throw error;
+        
+        // Log activity with changes
+        if (user && oldTask) {
+          await logTaskActivity(user.id, 'updated', {
+            id: data.id,
+            title: data.title,
+          }, {
+            old: {
+              status: oldTask.status,
+              priority: oldTask.priority,
+              title: oldTask.title,
+            },
+            new: {
+              status: data.status,
+              priority: data.priority,
+              title: data.title,
+            },
+          });
+        }
+        
         setProjectTasks(prev => prev.map(t => t.id === data.id ? data : t));
       } else {
         const { data, error } = await supabase.from('tasks').insert([cleanPayload]).select('*, assignee:profiles(full_name, avatar_url)').single();
         if (error) throw error;
+        
+        // Log activity
+        if (user) {
+          await logTaskActivity(user.id, 'created', {
+            id: data.id,
+            title: data.title,
+          });
+        }
+        
         setProjectTasks(prev => [...prev, data]);
       }
       setIsTaskModalOpen(false);
@@ -256,6 +320,15 @@ export const ProjectDetail: React.FC = () => {
       setIsSubmitting(true);
       const { error } = await supabase.from('tasks').delete().eq('id', editingTask.id);
       if (error) throw error;
+      
+      // Log activity
+      if (user && editingTask) {
+        await logTaskActivity(user.id, 'deleted', {
+          id: editingTask.id,
+          title: editingTask.title || 'Sans titre',
+        });
+      }
+      
       setProjectTasks(prev => prev.filter(t => t.id !== editingTask.id));
       setIsTaskModalOpen(false);
       setEditingTask(null);

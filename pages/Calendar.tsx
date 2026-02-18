@@ -12,6 +12,8 @@ import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
 import { googleCalendarService } from '../lib/googleCalendar';
 import { useToast } from '../components/ui/Toast';
+import { useAuth } from '../hooks/useAuth';
+import { logMeetingActivity, logTaskActivity, logProjectActivity } from '../lib/activityLogger';
 import { AdminOnly } from '../components/AdminOnly';
 import { useRole } from '../hooks/useRole';
 
@@ -48,6 +50,7 @@ export const Calendar: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<EventType | 'all'>('all');
   const toast = useToast();
   const { role } = useRole();
+  const { user } = useAuth();
   const layoutDebug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('layoutDebug') === '1';
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [calendarWidthPct, setCalendarWidthPct] = useState<number>(() => {
@@ -360,6 +363,23 @@ export const Calendar: React.FC = () => {
       const updates: any = { title: editForm.title, date: editForm.date, summary: editForm.description, color: editForm.color };
       await supabase.from('meetings').update(updates).eq('id', meetingId);
 
+      // Log activity with changes
+      if (user && selectedEvent) {
+        await logMeetingActivity(user.id, 'updated', {
+          id: meetingId,
+          title: editForm.title,
+        }, {
+          old: {
+            date: selectedEvent.date,
+            title: selectedEvent.title,
+          },
+          new: {
+            date: editForm.date,
+            title: editForm.title,
+          },
+        });
+      }
+
       const { data: meetingRow } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
       if (meetingRow?.google_event_id && userId) {
         const updatesForGoogle: any = {
@@ -583,6 +603,13 @@ export const Calendar: React.FC = () => {
         if (meetingRow?.google_event_id && userId) {
           try { await googleCalendarService.deleteEvent(userId, meetingRow.google_event_id); } catch (gErr) { console.error(gErr); }
         }
+        // Log activity
+        if (user && meetingRow) {
+          await logMeetingActivity(user.id, 'deleted', {
+            id: meetingId,
+            title: meetingRow.title,
+          });
+        }
         // delete meeting
         await supabase.from('meetings').delete().eq('id', meetingId);
         if (deleteLinked && meetingRow?.project_id) {
@@ -590,6 +617,14 @@ export const Calendar: React.FC = () => {
           await supabase.from('tasks').delete().eq('project_id', meetingRow.project_id);
         }
       } else if (selectedEvent.type === 'task') {
+        const { data: taskRow } = await supabase.from('tasks').select('*').eq('id', selectedEvent.id).single();
+        // Log activity
+        if (user && taskRow) {
+          await logTaskActivity(user.id, 'deleted', {
+            id: selectedEvent.id,
+            title: taskRow.title,
+          });
+        }
         await supabase.from('tasks').delete().eq('id', selectedEvent.id);
         if (deleteLinked && linkedItems.some(i => i.type === 'project')) {
           const proj = linkedItems.find(i => i.type === 'project');
@@ -597,10 +632,28 @@ export const Calendar: React.FC = () => {
         }
       } else if (selectedEvent.type === 'release') {
         const projectId = selectedEvent.id;
+        const { data: projectRow } = await supabase.from('projects').select('*').eq('id', projectId).single();
         if (deleteLinked) {
           await supabase.from('tasks').delete().eq('project_id', projectId);
+          // Log activity for project deletion
+          if (user && projectRow) {
+            await logProjectActivity(user.id, 'deleted', {
+              id: projectId,
+              title: projectRow.title,
+            });
+          }
           await supabase.from('projects').delete().eq('id', projectId);
         } else {
+          // Log activity for clearing release_date
+          if (user && projectRow) {
+            await logProjectActivity(user.id, 'updated', {
+              id: projectId,
+              title: projectRow.title,
+            }, {
+              old: { release_date: projectRow.release_date },
+              new: { release_date: null },
+            });
+          }
           await supabase.from('projects').update({ release_date: null }).eq('id', projectId);
         }
       }
@@ -644,6 +697,15 @@ export const Calendar: React.FC = () => {
         };
         const { data: inserted, error } = await supabase.from('meetings').insert([meetingPayload]).select().single();
         if (error) throw error;
+        
+        // Log activity
+        if (user) {
+          await logMeetingActivity(user.id, 'created', {
+            id: inserted.id,
+            title: inserted.title,
+          });
+        }
+        
         if (createForm.syncToGoogle && inserted) {
           try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -672,8 +734,17 @@ export const Calendar: React.FC = () => {
           priority: 'medium',
           project_id: createForm.projectId || null
         };
-        const { error } = await supabase.from('tasks').insert([taskPayload]);
+        const { data: insertedTask, error } = await supabase.from('tasks').insert([taskPayload]).select().single();
         if (error) throw error;
+        
+        // Log activity
+        if (user) {
+          await logTaskActivity(user.id, 'created', {
+            id: insertedTask.id,
+            title: insertedTask.title,
+          });
+        }
+        
         // ✅ Sync Google si activé
         if (createForm.syncToGoogle) {
           try {
@@ -692,8 +763,24 @@ export const Calendar: React.FC = () => {
           toast.addToast('Veuillez sélectionner un projet.', 'error');
           return;
         }
+        
+        // Get project name before update for logging
+        const { data: projectData } = await supabase.from('projects').select('title').eq('id', createForm.projectId).single();
+        
         const { error } = await supabase.from('projects').update({ release_date: createForm.date }).eq('id', createForm.projectId);
         if (error) throw error;
+        
+        // Log activity
+        if (user && projectData) {
+          await logProjectActivity(user.id, 'updated', {
+            id: createForm.projectId,
+            title: projectData.title,
+          }, {
+            old: { release_date: null },
+            new: { release_date: createForm.date },
+          });
+        }
+        
         // ✅ Sync Google si activé
         if (createForm.syncToGoogle) {
           try {

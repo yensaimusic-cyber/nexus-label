@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase, handleSupabaseError } from '../lib/supabase';
+import { logSortieActivity } from '../lib/activityLogger';
+import { useAuth } from './useAuth';
 
 export interface Sortie {
   id: string;
@@ -27,6 +29,7 @@ export const useSorties = () => {
   const [sorties, setSorties] = useState<Sortie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const fetchSorties = async () => {
     try {
@@ -214,6 +217,14 @@ export const useSorties = () => {
         new Date(a.release_date).getTime() - new Date(b.release_date).getTime()
       ));
 
+      // Log activity
+      if (user) {
+        await logSortieActivity(user.id, 'created', {
+          id: data[0].id,
+          title: data[0].title,
+        });
+      }
+
       return data[0];
     } catch (err: any) {
       throw new Error(handleSupabaseError(err));
@@ -222,6 +233,9 @@ export const useSorties = () => {
 
   const updateSortie = async (id: string, sortieData: Partial<Sortie>, coverFile?: File) => {
     try {
+      // Get old sortie data for logging
+      const oldSortie = sorties.find((s) => s.id === id);
+      
       let coverUrl = sortieData.cover_url;
 
       // Upload cover if provided
@@ -261,6 +275,25 @@ export const useSorties = () => {
         )
       );
 
+      // Log activity with detailed changes
+      if (user && oldSortie) {
+        await logSortieActivity(user.id, 'updated', {
+          id: data[0].id,
+          title: data[0].title,
+        }, {
+          old: {
+            release_date: oldSortie.release_date,
+            status: oldSortie.status,
+            title: oldSortie.title,
+          },
+          new: {
+            release_date: data[0].release_date,
+            status: data[0].status,
+            title: data[0].title,
+          },
+        });
+      }
+
       return data[0];
     } catch (err: any) {
       throw new Error(handleSupabaseError(err));
@@ -269,6 +302,9 @@ export const useSorties = () => {
 
   const deleteSortie = async (id: string) => {
     try {
+      // Get sortie data before deletion for logging
+      const sortieToDelete = sorties.find((s) => s.id === id);
+
       const { error } = await supabase
         .from('sorties')
         .delete()
@@ -277,6 +313,14 @@ export const useSorties = () => {
       if (error) throw error;
 
       setSorties(sorties.filter((s) => s.id !== id));
+
+      // Log activity
+      if (user && sortieToDelete) {
+        await logSortieActivity(user.id, 'deleted', {
+          id: sortieToDelete.id,
+          title: sortieToDelete.title,
+        });
+      }
     } catch (err: any) {
       throw new Error(handleSupabaseError(err));
     }

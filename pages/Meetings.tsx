@@ -8,6 +8,8 @@ import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
 import { googleCalendarService } from '../lib/googleCalendar';
 import { useToast } from '../components/ui/Toast';
+import { useAuth } from '../hooks/useAuth';
+import { logMeetingActivity } from '../lib/activityLogger';
 import { AdminOnly } from '../components/AdminOnly';
 import { Meeting } from '../types';
 
@@ -16,6 +18,7 @@ export const Meetings: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const { user } = useAuth();
 
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -70,6 +73,14 @@ export const Meetings: React.FC = () => {
         const { error } = await supabase.from('meetings').update(payload).eq('id', editingId);
         if (error) throw error;
         
+        // Log activity
+        if (user) {
+          await logMeetingActivity(user.id, 'updated', {
+            id: editingId,
+            title: formData.title || 'Réunion',
+          });
+        }
+        
         // Handle Google synchronization for existing meetings
         if (syncToGoogle) {
           try {
@@ -106,6 +117,15 @@ export const Meetings: React.FC = () => {
       } else {
         const { data: inserted, error } = await supabase.from('meetings').insert([payload]).select().single();
         if (error) throw error;
+        
+        // Log activity
+        if (user && inserted) {
+          await logMeetingActivity(user.id, 'created', {
+            id: inserted.id,
+            title: inserted.title || 'Réunion',
+          });
+        }
+        
         // Optionally sync to Google Calendar
         if (syncToGoogle && inserted) {
           try {
@@ -140,8 +160,20 @@ export const Meetings: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!confirm("Remove this meeting log from Nexus Archive?")) return;
     try {
+      // Get meeting data before deletion
+      const meetingToDelete = meetings.find(m => m.id === id);
+      
       const { error } = await supabase.from('meetings').delete().eq('id', id);
       if (error) throw error;
+      
+      // Log activity
+      if (user && meetingToDelete) {
+        await logMeetingActivity(user.id, 'deleted', {
+          id: meetingToDelete.id,
+          title: meetingToDelete.title || 'Réunion',
+        });
+      }
+      
       setMeetings(meetings.filter(m => m.id !== id));
     } catch (err: any) {
       toast.addToast("Delete failed: " + err.message, 'error');
