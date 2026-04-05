@@ -29,7 +29,8 @@ export const useActivityLog = (limit: number = 100) => {
     if (!user) return;
 
     fetchActivities();
-    subscribeToActivities();
+    const unsubscribe = subscribeToActivities();
+    return unsubscribe;
   }, [user]);
 
   const fetchActivities = async () => {
