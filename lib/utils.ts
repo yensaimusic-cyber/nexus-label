@@ -26,3 +26,20 @@ export const getInitials = (name: string): string => {
     .toUpperCase()
     .slice(0, 2);
 };
+
+export const getNavigationPath = (entityType: string, entityId: string): string | null => {
+  switch (entityType) {
+    case 'project':
+      return `/projects/${entityId}`;
+    case 'task':
+      return `/tasks`;
+    case 'meeting':
+      return `/meetings`;
+    case 'sortie':
+      return `/sorties`;
+    case 'artist':
+      return `/artists/${entityId}`;
+    default:
+      return null;
+  }
+};

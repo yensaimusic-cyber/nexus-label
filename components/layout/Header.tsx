@@ -4,6 +4,7 @@ import { Search, Bell, User, Plus, Menu, LogOut, Activity } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { useActivityLog } from '../../hooks/useActivityLog';
+import { getNavigationPath } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface HeaderProps {
@@ -98,35 +99,45 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                 {/* Activities List */}
                 {activities.length > 0 ? (
                   <div className="max-h-96 overflow-y-auto">
-                    {activities.slice(0, 8).map((activity, index) => (
-                      <motion.div
-                        key={activity.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        onClick={() => navigate('/actualite')}
-                        className="px-4 py-3 border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors group"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="w-2 h-2 rounded-full mt-1.5 bg-nexus-cyan flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-white truncate group-hover:text-nexus-cyan transition-colors">
-                              {activity.entity_title}
-                            </p>
-                            <p className="text-xs text-white/50 mt-0.5 line-clamp-2">{activity.description}</p>
-                            <p className="text-xs text-white/30 mt-1.5 font-mono">{getTimeAgo(activity.created_at)}</p>
+                    {activities.slice(0, 8).map((activity, index) => {
+                      const navPath = getNavigationPath(activity.entity_type, activity.entity_id);
+                      const handleNotificationClick = () => {
+                        if (navPath) {
+                          navigate(navPath);
+                          setShowNotifications(false);
+                        }
+                      };
+
+                      return (
+                        <motion.div
+                          key={activity.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          onClick={handleNotificationClick}
+                          className={`px-4 py-3 border-b border-white/5 ${navPath ? 'hover:bg-white/5 cursor-pointer' : 'cursor-not-allowed opacity-50'} transition-colors group`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="w-2 h-2 rounded-full mt-1.5 bg-nexus-cyan flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-white truncate group-hover:text-nexus-cyan transition-colors">
+                                {activity.entity_title}
+                              </p>
+                              <p className="text-xs text-white/50 mt-0.5 line-clamp-2">{activity.description}</p>
+                              <p className="text-xs text-white/30 mt-1.5 font-mono">{getTimeAgo(activity.created_at)}</p>
+                            </div>
+                            <span className={`text-xs font-bold px-2 py-1 rounded whitespace-nowrap flex-shrink-0 ${
+                              activity.action_type.includes('created') ? 'bg-nexus-green/20 text-nexus-green' :
+                              activity.action_type.includes('updated') ? 'bg-nexus-cyan/20 text-nexus-cyan' :
+                              'bg-nexus-red/20 text-nexus-red'
+                            }`}>
+                              {activity.action_type.includes('created') ? 'Créé' :
+                               activity.action_type.includes('updated') ? 'Modifié' : 'Supprimé'}
+                            </span>
                           </div>
-                          <span className={`text-xs font-bold px-2 py-1 rounded whitespace-nowrap flex-shrink-0 ${
-                            activity.action_type.includes('created') ? 'bg-nexus-green/20 text-nexus-green' :
-                            activity.action_type.includes('updated') ? 'bg-nexus-cyan/20 text-nexus-cyan' :
-                            'bg-nexus-red/20 text-nexus-red'
-                          }`}>
-                            {activity.action_type.includes('created') ? 'Créé' :
-                             activity.action_type.includes('updated') ? 'Modifié' : 'Supprimé'}
-                          </span>
-                        </div>
-                      </motion.div>
-                    ))}
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="px-4 py-8 text-center text-white/50">

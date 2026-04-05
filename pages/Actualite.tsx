@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { useActivityLog, ActivityLogEntry } from '../hooks/useActivityLog';
 import { useAuth } from '../hooks/useAuth';
-import { formatDateTime } from '../lib/utils';
+import { formatDateTime, getNavigationPath } from '../lib/utils';
+import { useNavigate } from 'react-router-dom';
 import {
   Activity,
   Disc,
@@ -11,6 +12,7 @@ import {
   Users,
   Loader2,
   AlertCircle,
+  ChevronRight,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -80,14 +82,23 @@ const getActionLabel = (actionType: string) => {
 };
 
 const ActivityCard: React.FC<{ activity: ActivityLogEntry; index: number }> = ({ activity, index }) => {
+  const navigate = useNavigate();
   const timeAgo = getTimeAgo(activity.created_at);
+  const navPath = getNavigationPath(activity.entity_type, activity.entity_id);
+
+  const handleClick = () => {
+    if (navPath) {
+      navigate(navPath);
+    }
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.05 }}
-      className={`border rounded-lg p-4 transition-all duration-300 ${getActivityColor(
+      onClick={handleClick}
+      className={`border rounded-lg p-4 transition-all duration-300 group ${navPath ? 'cursor-pointer hover:border-nexus-purple/60 hover:shadow-lg hover:shadow-nexus-purple/20' : 'cursor-not-allowed opacity-50'} ${getActivityColor(
         activity.entity_type
       )}`}
     >
@@ -144,6 +155,13 @@ const ActivityCard: React.FC<{ activity: ActivityLogEntry; index: number }> = ({
             </div>
           )}
         </div>
+
+        {/* Arrow indicator for clickable items */}
+        {navPath && (
+          <div className="flex-shrink-0 text-white/30 group-hover:text-nexus-purple transition-colors opacity-0 group-hover:opacity-100">
+            <ChevronRight size={20} />
+          </div>
+        )}
       </div>
     </motion.div>
   );
