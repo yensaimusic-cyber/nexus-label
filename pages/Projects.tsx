@@ -64,6 +64,7 @@ export const Projects: React.FC = () => {
         await logProjectActivity(user.id, 'created', {
           id: data.id,
           title: data.title,
+          artistName: data.artist?.stage_name,
         });
       }
       

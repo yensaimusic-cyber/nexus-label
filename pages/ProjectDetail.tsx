@@ -115,6 +115,7 @@ export const ProjectDetail: React.FC = () => {
         await logProjectActivity(user.id, 'updated', {
           id: project.id,
           title: project.title,
+          artistName: project.artist?.stage_name,
         }, {
           old: {
             release_date: project.release_date,
@@ -150,6 +151,7 @@ export const ProjectDetail: React.FC = () => {
         await logProjectActivity(user.id, 'deleted', {
           id: project.id,
           title: project.title,
+          artistName: project.artist?.stage_name,
         });
       }
       

@@ -90,17 +90,18 @@ export const buildDetailedDescription = (
 export const logProjectActivity = async (
   userId: string,
   action: 'created' | 'updated' | 'deleted',
-  project: { id: string; title: string },
+  project: { id: string; title: string; artistName?: string },
   changes?: { old: Record<string, any>; new: Record<string, any> }
 ) => {
-  const description = buildDetailedDescription(action, 'project', project.title, changes);
+  const projectTitle = project.artistName ? `${project.title} - ${project.artistName}` : project.title;
+  const description = buildDetailedDescription(action, 'project', projectTitle, changes);
 
   await logActivity({
     user_id: userId,
     action_type: `project_${action}`,
     entity_type: 'project',
     entity_id: project.id,
-    entity_title: project.title,
+    entity_title: projectTitle,
     description,
     old_values: changes?.old,
     new_values: changes?.new,

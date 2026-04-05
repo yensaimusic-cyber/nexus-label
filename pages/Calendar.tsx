@@ -632,7 +632,7 @@ export const Calendar: React.FC = () => {
         }
       } else if (selectedEvent.type === 'release') {
         const projectId = selectedEvent.id;
-        const { data: projectRow } = await supabase.from('projects').select('*').eq('id', projectId).single();
+        const { data: projectRow } = await supabase.from('projects').select('*, artist:artists(stage_name)').eq('id', projectId).single();
         if (deleteLinked) {
           await supabase.from('tasks').delete().eq('project_id', projectId);
           // Log activity for project deletion
@@ -640,6 +640,7 @@ export const Calendar: React.FC = () => {
             await logProjectActivity(user.id, 'deleted', {
               id: projectId,
               title: projectRow.title,
+              artistName: projectRow.artist?.stage_name,
             });
           }
           await supabase.from('projects').delete().eq('id', projectId);
@@ -649,6 +650,7 @@ export const Calendar: React.FC = () => {
             await logProjectActivity(user.id, 'updated', {
               id: projectId,
               title: projectRow.title,
+              artistName: projectRow.artist?.stage_name,
             }, {
               old: { release_date: projectRow.release_date },
               new: { release_date: null },
@@ -764,8 +766,8 @@ export const Calendar: React.FC = () => {
           return;
         }
         
-        // Get project name before update for logging
-        const { data: projectData } = await supabase.from('projects').select('title').eq('id', createForm.projectId).single();
+        // Get project data before update for logging
+        const { data: projectData } = await supabase.from('projects').select('*, artist:artists(stage_name)').eq('id', createForm.projectId).single();
         
         const { error } = await supabase.from('projects').update({ release_date: createForm.date }).eq('id', createForm.projectId);
         if (error) throw error;
@@ -775,6 +777,7 @@ export const Calendar: React.FC = () => {
           await logProjectActivity(user.id, 'updated', {
             id: createForm.projectId,
             title: projectData.title,
+            artistName: projectData.artist?.stage_name,
           }, {
             old: { release_date: null },
             new: { release_date: createForm.date },
