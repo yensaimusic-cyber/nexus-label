@@ -252,25 +252,25 @@ export const Tasks: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-wrap">
-        <div className="flex gap-2">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => { setFilterType('all'); setSelectedArtist(''); setSelectedProject(''); }}
-            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${filterType === 'all' ? 'bg-nexus-purple text-white shadow-lg shadow-nexus-purple/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
+            className={`px-3 sm:px-4 py-2 rounded-xl font-semibold text-xs sm:text-sm transition-all ${filterType === 'all' ? 'bg-nexus-purple text-white shadow-lg shadow-nexus-purple/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
           >
             Tous
           </button>
           <button
             onClick={() => { setFilterType('artist'); setSelectedProject(''); }}
-            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 ${filterType === 'artist' ? 'bg-nexus-cyan text-white shadow-lg shadow-nexus-cyan/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
+            className={`px-3 sm:px-4 py-2 rounded-xl font-semibold text-xs sm:text-sm transition-all flex items-center gap-1 sm:gap-2 ${filterType === 'artist' ? 'bg-nexus-cyan text-white shadow-lg shadow-nexus-cyan/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
           >
-            <User size={16} /> Artiste
+            <User size={14} className="sm:block hidden" /> <span>Artiste</span>
           </button>
           <button
             onClick={() => { setFilterType('project'); setSelectedArtist(''); }}
-            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 ${filterType === 'project' ? 'bg-nexus-orange text-white shadow-lg shadow-nexus-orange/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
+            className={`px-3 sm:px-4 py-2 rounded-xl font-semibold text-xs sm:text-sm transition-all flex items-center gap-1 sm:gap-2 ${filterType === 'project' ? 'bg-nexus-orange text-white shadow-lg shadow-nexus-orange/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
           >
-            <Folder size={16} /> Projet
+            <Folder size={14} className="sm:block hidden" /> <span>Projet</span>
           </button>
         </div>
 
@@ -279,7 +279,7 @@ export const Tasks: React.FC = () => {
           <select
             value={selectedArtist}
             onChange={(e) => setSelectedArtist(e.target.value)}
-            className="bg-white/5 border border-white/10 rounded-[16px] px-4 py-2 text-sm text-white outline-none focus:border-nexus-cyan transition-all shadow-lg appearance-none cursor-pointer"
+            className="w-full sm:w-auto bg-white/5 border border-white/10 rounded-[16px] px-3 sm:px-4 py-2 text-xs sm:text-sm text-white outline-none focus:border-nexus-cyan transition-all shadow-lg appearance-none cursor-pointer"
           >
             <option value="">Sélectionner un artiste...</option>
             {artists.map(artist => (
@@ -295,7 +295,7 @@ export const Tasks: React.FC = () => {
           <select
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
-            className="bg-white/5 border border-white/10 rounded-[16px] px-4 py-2 text-sm text-white outline-none focus:border-nexus-orange transition-all shadow-lg appearance-none cursor-pointer"
+            className="w-full sm:w-auto bg-white/5 border border-white/10 rounded-[16px] px-3 sm:px-4 py-2 text-xs sm:text-sm text-white outline-none focus:border-nexus-orange transition-all shadow-lg appearance-none cursor-pointer"
           >
             <option value="">Sélectionner un projet...</option>
             {projects.map(project => (
