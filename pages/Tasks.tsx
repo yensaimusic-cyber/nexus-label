@@ -19,10 +19,14 @@ export const Tasks: React.FC = () => {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [artists, setArtists] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [relatedTracks, setRelatedTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'artist' | 'project'>('all');
+  const [selectedArtist, setSelectedArtist] = useState<string>('');
+  const [selectedProject, setSelectedProject] = useState<string>('');
   
   // Modals State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -38,15 +42,17 @@ export const Tasks: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [tasksRes, projRes, profRes] = await Promise.all([
-        supabase.from('tasks').select('*, project:projects(id, title, status, artist:artists(stage_name)), assignee:profiles(id, full_name, avatar_url)').order('created_at', { ascending: false }),
+      const [tasksRes, projRes, profRes, artistRes] = await Promise.all([
+        supabase.from('tasks').select('*, project:projects(id, title, status, artist:artists(id, stage_name)), assignee:profiles(id, full_name, avatar_url)').order('created_at', { ascending: false }),
         supabase.from('projects').select('id, title, status').order('title'),
-        supabase.from('profiles').select('id, full_name').order('full_name')
+        supabase.from('profiles').select('id, full_name').order('full_name'),
+        supabase.from('artists').select('id, stage_name').order('stage_name')
       ]);
 
       setTasks(tasksRes.data || []);
       setProjects(projRes.data || []);
       setProfiles(profRes.data || []);
+      setArtists(artistRes.data || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -183,8 +189,23 @@ export const Tasks: React.FC = () => {
 
   // Split tasks into pending and finished, then group only pending tasks by project status
   const { groupedTasks, finishedTasks } = useMemo(() => {
-    const pending = tasks.filter(t => t.status !== 'done' && (t.title?.toLowerCase().includes(search.toLowerCase()) || t.project?.title?.toLowerCase().includes(search.toLowerCase())));
-    const finished = tasks.filter(t => t.status === 'done' && (t.title?.toLowerCase().includes(search.toLowerCase()) || t.project?.title?.toLowerCase().includes(search.toLowerCase())));
+    let filtered = tasks;
+
+    // Apply search filter
+    filtered = filtered.filter(t => 
+      t.title?.toLowerCase().includes(search.toLowerCase()) || 
+      t.project?.title?.toLowerCase().includes(search.toLowerCase())
+    );
+
+    // Apply artist/project filter
+    if (filterType === 'artist' && selectedArtist) {
+      filtered = filtered.filter(t => t.project?.artist?.id === selectedArtist);
+    } else if (filterType === 'project' && selectedProject) {
+      filtered = filtered.filter(t => t.project_id === selectedProject);
+    }
+
+    const pending = filtered.filter(t => t.status !== 'done');
+    const finished = filtered.filter(t => t.status === 'done');
 
     const grouped: Record<string, Task[]> = {};
     GROUP_ORDER.forEach(g => grouped[g] = []);
@@ -195,7 +216,7 @@ export const Tasks: React.FC = () => {
     });
 
     return { groupedTasks: grouped, finishedTasks: finished };
-  }, [tasks, search]);
+  }, [tasks, search, filterType, selectedArtist, selectedProject]);
 
   const totalFinishedCount = useMemo(() => tasks.filter(t => t.status === 'done').length, [tasks]);
 
@@ -228,6 +249,62 @@ export const Tasks: React.FC = () => {
           onChange={(e) => setSearch(e.target.value)} 
           className="w-full glass rounded-[24px] py-4 pl-12 pr-4 text-sm text-white focus:border-nexus-purple outline-none transition-all shadow-xl font-medium" 
         />
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-wrap">
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setFilterType('all'); setSelectedArtist(''); setSelectedProject(''); }}
+            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${filterType === 'all' ? 'bg-nexus-purple text-white shadow-lg shadow-nexus-purple/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
+          >
+            Tous
+          </button>
+          <button
+            onClick={() => { setFilterType('artist'); setSelectedProject(''); }}
+            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 ${filterType === 'artist' ? 'bg-nexus-cyan text-white shadow-lg shadow-nexus-cyan/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
+          >
+            <User size={16} /> Artiste
+          </button>
+          <button
+            onClick={() => { setFilterType('project'); setSelectedArtist(''); }}
+            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 ${filterType === 'project' ? 'bg-nexus-orange text-white shadow-lg shadow-nexus-orange/50' : 'bg-white/5 text-white/60 hover:bg-white/10'}`}
+          >
+            <Folder size={16} /> Projet
+          </button>
+        </div>
+
+        {/* Artist Filter Dropdown */}
+        {filterType === 'artist' && (
+          <select
+            value={selectedArtist}
+            onChange={(e) => setSelectedArtist(e.target.value)}
+            className="bg-white/5 border border-white/10 rounded-[16px] px-4 py-2 text-sm text-white outline-none focus:border-nexus-cyan transition-all shadow-lg appearance-none cursor-pointer"
+          >
+            <option value="">Sélectionner un artiste...</option>
+            {artists.map(artist => (
+              <option key={artist.id} value={artist.id} className="bg-nexus-dark">
+                {artist.stage_name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* Project Filter Dropdown */}
+        {filterType === 'project' && (
+          <select
+            value={selectedProject}
+            onChange={(e) => setSelectedProject(e.target.value)}
+            className="bg-white/5 border border-white/10 rounded-[16px] px-4 py-2 text-sm text-white outline-none focus:border-nexus-orange transition-all shadow-lg appearance-none cursor-pointer"
+          >
+            <option value="">Sélectionner un projet...</option>
+            {projects.map(project => (
+              <option key={project.id} value={project.id} className="bg-nexus-dark">
+                {project.title}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {loading ? (
