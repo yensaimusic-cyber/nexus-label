@@ -9,9 +9,12 @@ import { AdminOnly } from '../components/AdminOnly';
 import { Disc, LayoutGrid, List, Plus, Search, Filter, Calendar, Loader2, Camera } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { uploadFile } from '../lib/storage';
+import { useAuth } from '../hooks/useAuth';
+import { logProjectActivity } from '../lib/activityLogger';
 import { Project, ProjectStatus, ProjectType, STATUS_LABELS } from '../types';
 
 export const Projects: React.FC = () => {
+  const { user } = useAuth();
   const [projects, setProjects] = useState<any[]>([]);
   const [artists, setArtists] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +58,15 @@ export const Projects: React.FC = () => {
       const { data, error } = await supabase.from('projects').insert([{ ...formData, cover_url: coverUrl }]).select('*, artist:artists(*)').single();
       if (error) throw error;
       setProjects([data, ...projects]);
+      
+      // Log activity
+      if (user) {
+        await logProjectActivity(user.id, 'created', {
+          id: data.id,
+          title: data.title,
+        });
+      }
+      
       setIsModalOpen(false);
       // Fix: changed 'idee_brainstorm' to 'idea' to match ProjectStatus type
       setFormData({ title: '', artist_id: '', type: 'single', status: 'idea', release_date: '', budget: 0 });

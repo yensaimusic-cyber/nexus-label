@@ -8,12 +8,15 @@ import { Modal } from '../components/ui/Modal';
 import { supabase } from '../lib/supabase';
 import { AdminOnly } from '../components/AdminOnly';
 import { useRole } from '../hooks/useRole';
+import { useAuth } from '../hooks/useAuth';
+import { logTaskActivity } from '../lib/activityLogger';
 import { Task, TaskPriority, TaskStatus, STATUS_LABELS, Track } from '../types';
 
 const GROUP_ORDER = ['idea', 'pre_production', 'production', 'post_production', 'release', 'released', 'sans_projet'];
 
 export const Tasks: React.FC = () => {
   const { role } = useRole();
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -68,8 +71,17 @@ export const Tasks: React.FC = () => {
   const handleToggleTaskStatus = async (taskId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'done' ? 'todo' : 'done';
     try {
+      const task = tasks.find(t => t.id === taskId);
       await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as TaskStatus } : t));
+      
+      // Log activity for status change
+      if (user && task) {
+        await logTaskActivity(user.id, 'updated', {
+          id: taskId,
+          title: task.title,
+        });
+      }
     } catch (err) {
       alert("Mise à jour impossible.");
     }
@@ -107,6 +119,14 @@ export const Tasks: React.FC = () => {
           .single();
         if (error) throw error;
         setTasks(prev => prev.map(t => t.id === data.id ? data : t));
+        
+        // Log activity
+        if (user) {
+          await logTaskActivity(user.id, 'updated', {
+            id: data.id,
+            title: data.title,
+          });
+        }
       } else {
         const { data, error } = await supabase
           .from('tasks')
@@ -115,6 +135,14 @@ export const Tasks: React.FC = () => {
           .single();
         if (error) throw error;
         setTasks([data, ...tasks]);
+        
+        // Log activity
+        if (user) {
+          await logTaskActivity(user.id, 'created', {
+            id: data.id,
+            title: data.title,
+          });
+        }
       }
 
       setIsModalOpen(false);
@@ -133,6 +161,15 @@ export const Tasks: React.FC = () => {
       const { error } = await supabase.from('tasks').delete().eq('id', editingTask.id);
       if (error) throw error;
       setTasks(prev => prev.filter(t => t.id !== editingTask.id));
+      
+      // Log activity
+      if (user) {
+        await logTaskActivity(user.id, 'deleted', {
+          id: editingTask.id,
+          title: editingTask.title || 'Tâche',
+        });
+      }
+      
       setIsDeleteModalOpen(false);
       setIsModalOpen(false);
       setEditingTask(null);
