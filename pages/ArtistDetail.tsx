@@ -14,11 +14,14 @@ import { Modal } from '../components/ui/Modal';
 import { AdminOnly } from '../components/AdminOnly';
 import { supabase } from '../lib/supabase';
 import { uploadFile } from '../lib/storage';
+import { useAuth } from '../hooks/useAuth';
+import { logProjectActivity } from '../lib/activityLogger';
 import { Artist, Project, ArtistAsset, ArtistTeamMember, ArtistStatus, ProjectType, ProjectStatus, STATUS_LABELS } from '../types';
 
 export const ArtistDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [artist, setArtist] = useState<Artist | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [assets, setAssets] = useState<ArtistAsset[]>([]);
@@ -181,6 +184,16 @@ export const ArtistDetail: React.FC = () => {
       
       if (error) throw error;
       setProjects([data, ...projects]);
+      
+      // Log activity with artist name
+      if (user && artist) {
+        await logProjectActivity(user.id, 'created', {
+          id: data.id,
+          title: data.title,
+          artistName: artist.stage_name,
+        });
+      }
+      
       setIsProjectModalOpen(false);
       setNewProject({ title: '', type: 'single', status: 'idea', release_date: '', budget: 0 });
       alert("Projet ajouté au pipeline !");
