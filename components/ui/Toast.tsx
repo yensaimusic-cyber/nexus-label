@@ -4,7 +4,15 @@ type Toast = { id: string; message: string; type?: 'success' | 'error' | 'info' 
 
 const ToastContext = createContext<{
   addToast: (message: string, type?: Toast['type'], ttl?: number) => void;
-}>({ addToast: () => {} });
+  success: (message: string, ttl?: number) => void;
+  error: (message: string, ttl?: number) => void;
+  info: (message: string, ttl?: number) => void;
+}>({ 
+  addToast: () => {},
+  success: () => {},
+  error: () => {},
+  info: () => {},
+});
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -16,8 +24,20 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setTimeout(() => setToasts((s) => s.filter(x => x.id !== id)), ttl);
   }, []);
 
+  const success = useCallback((message: string, ttl = 5000) => {
+    addToast(message, 'success', ttl);
+  }, [addToast]);
+
+  const error = useCallback((message: string, ttl = 5000) => {
+    addToast(message, 'error', ttl);
+  }, [addToast]);
+
+  const info = useCallback((message: string, ttl = 5000) => {
+    addToast(message, 'info', ttl);
+  }, [addToast]);
+
   return (
-    <ToastContext.Provider value={{ addToast }}>
+    <ToastContext.Provider value={{ addToast, success, error, info }}>
       {children}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-3">
         {toasts.map(t => (
