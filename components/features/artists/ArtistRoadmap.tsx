@@ -547,16 +547,24 @@ export const ArtistRoadmap: React.FC<ArtistRoadmapProps> = ({ projects, artistId
                         </div>
                       </div>
                       <AdminOnly>
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           <button
-                            onClick={() => handleOpenModal(item)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleOpenModal(item);
+                            }}
                             className="p-2 hover:bg-nexus-surface rounded transition-colors"
                             title="Modifier"
                           >
                             <Edit2 size={16} className="text-blue-400" />
                           </button>
                           <button
-                            onClick={() => handleDelete(item.id)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDelete(item.id);
+                            }}
                             className="p-2 hover:bg-nexus-surface rounded transition-colors"
                             title="Supprimer"
                           >
