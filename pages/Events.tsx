@@ -92,7 +92,7 @@ export const Events: React.FC = () => {
         .from('events')
         .select(`
           id, title, event_type, date, time, description, 
-          team_member_id, team_member:artist_team_members(id, name, role, profile:profiles(id, full_name)),
+          team_member_id, team_member:artist_team_members(id, role, profile:profiles(id, full_name)),
           created_at
         `)
         .order('date', { ascending: true });
@@ -103,8 +103,8 @@ export const Events: React.FC = () => {
       // Load team members for dropdown
       const membersData = await supabase
         .from('artist_team_members')
-        .select('id, name, role, profile:profiles(id, full_name)')
-        .order('name', { ascending: true });
+        .select('id, role, profile:profiles(id, full_name)')
+        .order('profile(full_name)', { ascending: true });
 
       if (membersData.error) throw membersData.error;
       setTeamMembers(membersData.data || []);
@@ -316,7 +316,7 @@ export const Events: React.FC = () => {
                 {event.teamMember && (
                   <span className="text-cyan-300 flex items-center gap-1">
                     <Users size={14} />
-                    {event.teamMember.profile?.full_name || event.teamMember.name}
+                    {event.teamMember.profile?.full_name}
                   </span>
                 )}
               </div>
@@ -474,7 +474,7 @@ export const Events: React.FC = () => {
               <option value="">-- Aucun(e) --</option>
               {teamMembers.map(member => (
                 <option key={member.id} value={member.id}>
-                  {member.profile?.full_name || member.name} - {member.role}
+                  {member.profile?.full_name} - {member.role}
                 </option>
               ))}
             </select>
