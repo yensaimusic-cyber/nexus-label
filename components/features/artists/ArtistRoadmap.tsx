@@ -5,9 +5,9 @@ import {
   Calendar, Music, TrendingUp, CheckCircle, Clock, AlertCircle,
   ArrowRight, Disc, Zap
 } from 'lucide-react';
-import { Card } from '../components/ui/Card';
-import { Project, STATUS_LABELS, ProjectStatus } from '../types';
-import { formatDate } from '../lib/utils';
+import { Card } from '../../ui/Card';
+import { Project, STATUS_LABELS, ProjectStatus } from '../../types';
+import { formatDate } from '../../lib/utils';
 
 interface ArtistRoadmapProps {
   projects: Project[];
