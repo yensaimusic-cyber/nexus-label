@@ -217,11 +217,35 @@ export const useSorties = () => {
         new Date(a.release_date).getTime() - new Date(b.release_date).getTime()
       ));
 
-      // Log activity
-      if (user) {
+      // Log activity - including project context
+      if (user && data[0]) {
+        let projectTitle: string | undefined;
+        let projectId: string | undefined;
+        let artistId: string | undefined;
+        let artistName: string | undefined;
+        
+        if (data[0].project_id) {
+          const { data: proj } = await supabase
+            .from('projects')
+            .select('id, title, artist_id, artist:artists(stage_name)')
+            .eq('id', data[0].project_id)
+            .single();
+          
+          if (proj) {
+            projectTitle = proj.title;
+            projectId = proj.id;
+            artistId = proj.artist_id;
+            artistName = proj.artist?.stage_name;
+          }
+        }
+        
         await logSortieActivity(user.id, 'created', {
           id: data[0].id,
           title: data[0].title,
+          projectId,
+          projectTitle,
+          artistId,
+          artistName,
         });
       }
 
@@ -275,11 +299,35 @@ export const useSorties = () => {
         )
       );
 
-      // Log activity with detailed changes
-      if (user && oldSortie) {
+      // Log activity with detailed changes - including project context
+      if (user && oldSortie && data[0]) {
+        let projectTitle: string | undefined;
+        let projectId: string | undefined;
+        let artistId: string | undefined;
+        let artistName: string | undefined;
+        
+        if (data[0].project_id) {
+          const { data: proj } = await supabase
+            .from('projects')
+            .select('id, title, artist_id, artist:artists(stage_name)')
+            .eq('id', data[0].project_id)
+            .single();
+          
+          if (proj) {
+            projectTitle = proj.title;
+            projectId = proj.id;
+            artistId = proj.artist_id;
+            artistName = proj.artist?.stage_name;
+          }
+        }
+        
         await logSortieActivity(user.id, 'updated', {
           id: data[0].id,
           title: data[0].title,
+          projectId,
+          projectTitle,
+          artistId,
+          artistName,
         }, {
           old: {
             release_date: oldSortie.release_date,
@@ -314,11 +362,35 @@ export const useSorties = () => {
 
       setSorties(sorties.filter((s) => s.id !== id));
 
-      // Log activity
+      // Log activity - including project context
       if (user && sortieToDelete) {
+        let projectTitle: string | undefined;
+        let projectId: string | undefined;
+        let artistId: string | undefined;
+        let artistName: string | undefined;
+        
+        if (sortieToDelete.project_id) {
+          const { data: proj } = await supabase
+            .from('projects')
+            .select('id, title, artist_id, artist:artists(stage_name)')
+            .eq('id', sortieToDelete.project_id)
+            .single();
+          
+          if (proj) {
+            projectTitle = proj.title;
+            projectId = proj.id;
+            artistId = proj.artist_id;
+            artistName = proj.artist?.stage_name;
+          }
+        }
+        
         await logSortieActivity(user.id, 'deleted', {
           id: sortieToDelete.id,
           title: sortieToDelete.title,
+          projectId,
+          projectTitle,
+          artistId,
+          artistName,
         });
       }
     } catch (err: any) {

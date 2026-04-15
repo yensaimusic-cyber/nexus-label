@@ -110,12 +110,13 @@ export const ProjectDetail: React.FC = () => {
         
       if (error) throw error;
       
-      // Log activity with detailed changes
+      // Log activity with detailed changes - including artist context
       if (user && project) {
         await logProjectActivity(user.id, 'updated', {
           id: project.id,
           title: project.title,
           artistName: project.artist?.stage_name,
+          artistId: project.artist?.id,
         }, {
           old: {
             release_date: project.release_date,
@@ -146,12 +147,13 @@ export const ProjectDetail: React.FC = () => {
       const { error } = await supabase.from('projects').delete().eq('id', id);
       if (error) throw error;
       
-      // Log activity
+      // Log activity - including artist context
       if (user && project) {
         await logProjectActivity(user.id, 'deleted', {
           id: project.id,
           title: project.title,
           artistName: project.artist?.stage_name,
+          artistId: project.artist?.id,
         });
       }
       
@@ -277,11 +279,15 @@ export const ProjectDetail: React.FC = () => {
         const { data, error } = await supabase.from('tasks').update(cleanPayload).eq('id', editingTask.id).select('*, assignee:profiles(full_name, avatar_url)').single();
         if (error) throw error;
         
-        // Log activity with changes
-        if (user && oldTask) {
+        // Log activity with changes - including project context
+        if (user && oldTask && data) {
           await logTaskActivity(user.id, 'updated', {
             id: data.id,
             title: data.title,
+            projectId: project?.id,
+            projectTitle: project?.title,
+            artistId: project?.artist?.id,
+            artistName: project?.artist?.stage_name,
           }, {
             old: {
               status: oldTask.status,
@@ -301,11 +307,15 @@ export const ProjectDetail: React.FC = () => {
         const { data, error } = await supabase.from('tasks').insert([cleanPayload]).select('*, assignee:profiles(full_name, avatar_url)').single();
         if (error) throw error;
         
-        // Log activity
-        if (user) {
+        // Log activity - including project context
+        if (user && data) {
           await logTaskActivity(user.id, 'created', {
             id: data.id,
             title: data.title,
+            projectId: project?.id,
+            projectTitle: project?.title,
+            artistId: project?.artist?.id,
+            artistName: project?.artist?.stage_name,
           });
         }
         
@@ -323,11 +333,15 @@ export const ProjectDetail: React.FC = () => {
       const { error } = await supabase.from('tasks').delete().eq('id', editingTask.id);
       if (error) throw error;
       
-      // Log activity
+      // Log activity - including project context
       if (user && editingTask) {
         await logTaskActivity(user.id, 'deleted', {
           id: editingTask.id,
           title: editingTask.title || 'Sans titre',
+          projectId: project?.id,
+          projectTitle: project?.title,
+          artistId: project?.artist?.id,
+          artistName: project?.artist?.stage_name,
         });
       }
       

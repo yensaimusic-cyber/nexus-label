@@ -81,11 +81,15 @@ export const Tasks: React.FC = () => {
       await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as TaskStatus } : t));
       
-      // Log activity for status change
+      // Log activity for status change - including project context
       if (user && task) {
         await logTaskActivity(user.id, 'updated', {
           id: taskId,
           title: task.title,
+          projectId: task.project?.id,
+          projectTitle: task.project?.title,
+          artistId: task.project?.artist?.id,
+          artistName: task.project?.artist?.stage_name,
         });
       }
     } catch (err) {
@@ -126,11 +130,15 @@ export const Tasks: React.FC = () => {
         if (error) throw error;
         setTasks(prev => prev.map(t => t.id === data.id ? data : t));
         
-        // Log activity
-        if (user) {
+        // Log activity - including project context
+        if (user && data) {
           await logTaskActivity(user.id, 'updated', {
             id: data.id,
             title: data.title,
+            projectId: data.project?.id,
+            projectTitle: data.project?.title,
+            artistId: data.project?.artist?.id,
+            artistName: data.project?.artist?.stage_name,
           });
         }
       } else {
@@ -142,11 +150,15 @@ export const Tasks: React.FC = () => {
         if (error) throw error;
         setTasks([data, ...tasks]);
         
-        // Log activity
-        if (user) {
+        // Log activity - including project context
+        if (user && data) {
           await logTaskActivity(user.id, 'created', {
             id: data.id,
             title: data.title,
+            projectId: data.project?.id,
+            projectTitle: data.project?.title,
+            artistId: data.project?.artist?.id,
+            artistName: data.project?.artist?.stage_name,
           });
         }
       }
@@ -164,15 +176,22 @@ export const Tasks: React.FC = () => {
     if (!editingTask?.id) return;
     try {
       setIsSubmitting(true);
+      // Get full task data before deletion for logging
+      const taskToDelete = tasks.find(t => t.id === editingTask.id);
+      
       const { error } = await supabase.from('tasks').delete().eq('id', editingTask.id);
       if (error) throw error;
       setTasks(prev => prev.filter(t => t.id !== editingTask.id));
       
-      // Log activity
-      if (user) {
+      // Log activity - including project context
+      if (user && taskToDelete) {
         await logTaskActivity(user.id, 'deleted', {
           id: editingTask.id,
-          title: editingTask.title || 'Tâche',
+          title: taskToDelete.title || 'Tâche',
+          projectId: taskToDelete.project?.id,
+          projectTitle: taskToDelete.project?.title,
+          artistId: taskToDelete.project?.artist?.id,
+          artistName: taskToDelete.project?.artist?.stage_name,
         });
       }
       

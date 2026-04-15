@@ -59,12 +59,13 @@ export const Projects: React.FC = () => {
       if (error) throw error;
       setProjects([data, ...projects]);
       
-      // Log activity
-      if (user) {
+      // Log activity - including artist context
+      if (user && data) {
         await logProjectActivity(user.id, 'created', {
           id: data.id,
           title: data.title,
           artistName: data.artist?.stage_name,
+          artistId: data.artist?.id,
         });
       }
       

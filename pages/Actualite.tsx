@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useActivityLog, ActivityLogEntry } from '../hooks/useActivityLog';
 import { useAuth } from '../hooks/useAuth';
-import { formatDateTime, getNavigationPath } from '../lib/utils';
+import { formatDateTime, getNavigationPath, formatDate } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -119,9 +119,69 @@ const ActivityCard: React.FC<{ activity: ActivityLogEntry; index: number }> = ({
             </span>
           </div>
 
-          <p className="text-sm text-white/70 mb-2">{activity.description}</p>
+          {/* Main Description */}
+          <p className="text-sm text-white/70 mb-3 font-medium">{activity.description}</p>
 
-          <div className="flex items-center gap-2 text-xs text-white/50">
+          {/* Context Information */}
+          <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-3 space-y-2">
+            {/* Project Context */}
+            {activity.project_title && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-nexus-light/60">📁 Projet:</span>
+                <span className="text-white font-medium">{activity.project_title}</span>
+              </div>
+            )}
+
+            {/* Artist Context */}
+            {activity.artist_name && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-nexus-light/60">🎤 Artiste:</span>
+                <span className="text-white font-medium">{activity.artist_name}</span>
+              </div>
+            )}
+
+            {/* Entity Info */}
+            {!activity.project_title && !activity.artist_name && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-nexus-light/60 capitalize">{activity.entity_type}:</span>
+                <span className="text-white font-medium">{activity.entity_title}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Changes preview */}
+          {activity.new_values && Object.keys(activity.new_values).length > 0 && (
+            <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-3">
+              <p className="text-white/60 font-medium mb-2 text-xs">📝 Modifications:</p>
+              <div className="space-y-1.5">
+                {Object.entries(activity.new_values).map(([key, value]) => {
+                  const oldValue = activity.old_values?.[key];
+                  if (oldValue === value) return null;
+                  
+                  const displayLabel = formatFieldLabel(key);
+                  
+                  return (
+                    <div key={key} className="flex justify-between items-start gap-2 text-xs">
+                      <span className="text-white/60">{displayLabel}:</span>
+                      <div className="text-right">
+                        {oldValue !== undefined && (
+                          <div className="text-nexus-red/60 line-through text-xs mb-1">
+                            {formatFieldValue(key, oldValue)}
+                          </div>
+                        )}
+                        <div className="text-nexus-green font-medium">
+                          {formatFieldValue(key, value)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* User and Time */}
+          <div className="flex items-center gap-2 text-xs text-white/50 pt-2 border-t border-white/10">
             {activity.user?.full_name && (
               <>
                 <span>Par {activity.user.full_name}</span>
@@ -130,30 +190,6 @@ const ActivityCard: React.FC<{ activity: ActivityLogEntry; index: number }> = ({
             )}
             <span>{timeAgo}</span>
           </div>
-
-          {/* Changes preview */}
-          {activity.new_values && Object.keys(activity.new_values).length > 0 && (
-            <div className="mt-3 pt-3 border-t border-white/10 text-xs">
-              <p className="text-white/60 font-medium mb-2">Modifications:</p>
-              <div className="space-y-1">
-                {Object.entries(activity.new_values).map(([key, value]) => {
-                  const oldValue = activity.old_values?.[key];
-                  if (oldValue === value) return null; // Skip unchanged values
-                  return (
-                    <div key={key} className="flex justify-between items-start gap-2">
-                      <span className="text-white/50">{key}:</span>
-                      <div className="text-right">
-                        {oldValue && (
-                          <div className="text-nexus-red/60 line-through text-xs">{String(oldValue).slice(0, 30)}</div>
-                        )}
-                        <div className="text-nexus-green">{String(value).slice(0, 30)}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Arrow indicator for clickable items */}
@@ -178,6 +214,54 @@ const getTimeAgo = (dateString: string): string => {
   if (seconds < 604800) return `il y a ${Math.floor(seconds / 86400)}j`;
 
   return formatDateTime(dateString);
+};
+
+const formatFieldLabel = (field: string): string => {
+  const labels: Record<string, string> = {
+    'title': 'Titre',
+    'status': 'Statut',
+    'priority': 'Priorité',
+    'due_date': 'Date limite',
+    'release_date': 'Date de sortie',
+    'date': 'Date',
+    'budget': 'Budget',
+    'spent': 'Dépensé',
+    'description': 'Description',
+    'summary': 'Résumé',
+  };
+  return labels[field] || field;
+};
+
+const formatFieldValue = (field: string, value: any): string => {
+  if (!value) return '-';
+  
+  if (field === 'due_date' || field === 'date' || field === 'release_date') {
+    return formatDate(value);
+  }
+  
+  if (field === 'budget' || field === 'spent') {
+    return `${value}€`;
+  }
+  
+  if (field === 'status') {
+    const statusLabels: Record<string, string> = {
+      'idea': 'Idée',
+      'pre_production': 'Pré-production',
+      'production': 'Production',
+      'post_production': 'Post-production',
+      'release': 'Sortie',
+      'released': 'Publiée',
+      'planned': 'Planifiée',
+      'cancelled': 'Annulée',
+      'todo': 'À faire',
+      'in_progress': 'En cours',
+      'review': 'En révision',
+      'done': 'Fait',
+    };
+    return statusLabels[value] || value;
+  }
+  
+  return String(value).slice(0, 50);
 };
 
 const groupActivitiesByDate = (activities: ActivityLogEntry[]): Record<string, ActivityLogEntry[]> => {

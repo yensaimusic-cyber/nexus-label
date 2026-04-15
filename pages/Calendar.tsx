@@ -363,11 +363,25 @@ export const Calendar: React.FC = () => {
       const updates: any = { title: editForm.title, date: editForm.date, summary: editForm.description, color: editForm.color };
       await supabase.from('meetings').update(updates).eq('id', meetingId);
 
-      // Log activity with changes
-      if (user && selectedEvent) {
+      const { data: meetingRow } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
+
+      // Log activity with changes - including project context
+      if (user && meetingRow) {
+        let projectTitle: string | undefined;
+        let projectId: string | undefined;
+        if (meetingRow.project_id) {
+          const { data: proj } = await supabase.from('projects').select('id, title').eq('id', meetingRow.project_id).single();
+          if (proj) {
+            projectTitle = proj.title;
+            projectId = proj.id;
+          }
+        }
+        
         await logMeetingActivity(user.id, 'updated', {
           id: meetingId,
           title: editForm.title,
+          projectId,
+          projectTitle,
         }, {
           old: {
             date: selectedEvent.date,
@@ -379,8 +393,6 @@ export const Calendar: React.FC = () => {
           },
         });
       }
-
-      const { data: meetingRow } = await supabase.from('meetings').select('*').eq('id', meetingId).single();
       if (meetingRow?.google_event_id && userId) {
         const updatesForGoogle: any = {
           summary: editForm.title,
@@ -603,13 +615,27 @@ export const Calendar: React.FC = () => {
         if (meetingRow?.google_event_id && userId) {
           try { await googleCalendarService.deleteEvent(userId, meetingRow.google_event_id); } catch (gErr) { console.error(gErr); }
         }
-        // Log activity
+        
+        // Log activity - including project context
         if (user && meetingRow) {
+          let projectTitle: string | undefined;
+          let projectId: string | undefined;
+          if (meetingRow.project_id) {
+            const { data: proj } = await supabase.from('projects').select('id, title').eq('id', meetingRow.project_id).single();
+            if (proj) {
+              projectTitle = proj.title;
+              projectId = proj.id;
+            }
+          }
+          
           await logMeetingActivity(user.id, 'deleted', {
             id: meetingId,
             title: meetingRow.title,
+            projectId,
+            projectTitle,
           });
         }
+        
         // delete meeting
         await supabase.from('meetings').delete().eq('id', meetingId);
         if (deleteLinked && meetingRow?.project_id) {
@@ -617,14 +643,19 @@ export const Calendar: React.FC = () => {
           await supabase.from('tasks').delete().eq('project_id', meetingRow.project_id);
         }
       } else if (selectedEvent.type === 'task') {
-        const { data: taskRow } = await supabase.from('tasks').select('*').eq('id', selectedEvent.id).single();
-        // Log activity
+        const { data: taskRow } = await supabase.from('tasks').select('*, project:projects(id, title, artist_id)').eq('id', selectedEvent.id).single();
+        
+        // Log activity - including project context
         if (user && taskRow) {
           await logTaskActivity(user.id, 'deleted', {
             id: selectedEvent.id,
             title: taskRow.title,
+            projectId: taskRow.project?.id,
+            projectTitle: taskRow.project?.title,
+            artistId: taskRow.project?.artist_id,
           });
         }
+        
         await supabase.from('tasks').delete().eq('id', selectedEvent.id);
         if (deleteLinked && linkedItems.some(i => i.type === 'project')) {
           const proj = linkedItems.find(i => i.type === 'project');
@@ -700,11 +731,23 @@ export const Calendar: React.FC = () => {
         const { data: inserted, error } = await supabase.from('meetings').insert([meetingPayload]).select().single();
         if (error) throw error;
         
-        // Log activity
-        if (user) {
+        // Log activity - including project context
+        if (user && inserted) {
+          let projectTitle: string | undefined;
+          let projectId: string | undefined;
+          if (inserted.project_id) {
+            const { data: proj } = await supabase.from('projects').select('id, title').eq('id', inserted.project_id).single();
+            if (proj) {
+              projectTitle = proj.title;
+              projectId = proj.id;
+            }
+          }
+          
           await logMeetingActivity(user.id, 'created', {
             id: inserted.id,
             title: inserted.title,
+            projectId,
+            projectTitle,
           });
         }
         
@@ -739,11 +782,26 @@ export const Calendar: React.FC = () => {
         const { data: insertedTask, error } = await supabase.from('tasks').insert([taskPayload]).select().single();
         if (error) throw error;
         
-        // Log activity
-        if (user) {
+        // Log activity - including project context
+        if (user && insertedTask) {
+          let projectTitle: string | undefined;
+          let projectId: string | undefined;
+          let artistId: string | undefined;
+          if (insertedTask.project_id) {
+            const { data: proj } = await supabase.from('projects').select('id, title, artist_id').eq('id', insertedTask.project_id).single();
+            if (proj) {
+              projectTitle = proj.title;
+              projectId = proj.id;
+              artistId = proj.artist_id;
+            }
+          }
+          
           await logTaskActivity(user.id, 'created', {
             id: insertedTask.id,
             title: insertedTask.title,
+            projectId,
+            projectTitle,
+            artistId,
           });
         }
         

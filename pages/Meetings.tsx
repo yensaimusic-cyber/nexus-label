@@ -73,11 +73,23 @@ export const Meetings: React.FC = () => {
         const { error } = await supabase.from('meetings').update(payload).eq('id', editingId);
         if (error) throw error;
         
-        // Log activity
+        // Log activity - including project context
         if (user) {
+          let projectTitle: string | undefined;
+          let projectId: string | undefined;
+          if (formData.project_id) {
+            const projData = projects.find(p => p.id === formData.project_id);
+            if (projData) {
+              projectTitle = projData.title;
+              projectId = projData.id;
+            }
+          }
+          
           await logMeetingActivity(user.id, 'updated', {
             id: editingId,
             title: formData.title || 'Réunion',
+            projectId,
+            projectTitle,
           });
         }
         
@@ -118,11 +130,23 @@ export const Meetings: React.FC = () => {
         const { data: inserted, error } = await supabase.from('meetings').insert([payload]).select().single();
         if (error) throw error;
         
-        // Log activity
+        // Log activity - including project context
         if (user && inserted) {
+          let projectTitle: string | undefined;
+          let projectId: string | undefined;
+          if (inserted.project_id) {
+            const projData = projects.find(p => p.id === inserted.project_id);
+            if (projData) {
+              projectTitle = projData.title;
+              projectId = projData.id;
+            }
+          }
+          
           await logMeetingActivity(user.id, 'created', {
             id: inserted.id,
             title: inserted.title || 'Réunion',
+            projectId,
+            projectTitle,
           });
         }
         
@@ -166,11 +190,23 @@ export const Meetings: React.FC = () => {
       const { error } = await supabase.from('meetings').delete().eq('id', id);
       if (error) throw error;
       
-      // Log activity
+      // Log activity - including project context
       if (user && meetingToDelete) {
+        let projectTitle: string | undefined;
+        let projectId: string | undefined;
+        if (meetingToDelete.project_id) {
+          const projData = projects.find(p => p.id === meetingToDelete.project_id);
+          if (projData) {
+            projectTitle = projData.title;
+            projectId = projData.id;
+          }
+        }
+        
         await logMeetingActivity(user.id, 'deleted', {
           id: meetingToDelete.id,
           title: meetingToDelete.title || 'Réunion',
+          projectId,
+          projectTitle,
         });
       }
       

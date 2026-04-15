@@ -8,6 +8,10 @@ export interface ActivityLogPayload {
   entity_id: string;
   entity_title: string;
   description: string;
+  project_id?: string;
+  project_title?: string;
+  artist_id?: string;
+  artist_name?: string;
   old_values?: Record<string, any>;
   new_values?: Record<string, any>;
 }
@@ -105,7 +109,12 @@ export const buildDetailedDescription = (
 export const logProjectActivity = async (
   userId: string,
   action: 'created' | 'updated' | 'deleted',
-  project: { id: string; title: string; artistName?: string },
+  project: { 
+    id: string; 
+    title: string; 
+    artistName?: string;
+    artistId?: string;
+  },
   changes?: { old: Record<string, any>; new: Record<string, any> }
 ) => {
   const projectTitle = project.artistName ? `${project.title} - ${project.artistName}` : project.title;
@@ -117,6 +126,8 @@ export const logProjectActivity = async (
     entity_type: 'project',
     entity_id: project.id,
     entity_title: projectTitle,
+    artist_id: project.artistId,
+    artist_name: project.artistName,
     description,
     old_values: changes?.old,
     new_values: changes?.new,
@@ -126,7 +137,14 @@ export const logProjectActivity = async (
 export const logSortieActivity = async (
   userId: string,
   action: 'created' | 'updated' | 'deleted',
-  sortie: { id: string; title: string },
+  sortie: { 
+    id: string; 
+    title: string;
+    projectId?: string;
+    projectTitle?: string;
+    artistId?: string;
+    artistName?: string;
+  },
   changes?: { old: Record<string, any>; new: Record<string, any> }
 ) => {
   const description = buildDetailedDescription(action, 'sortie', sortie.title, changes);
@@ -137,6 +155,10 @@ export const logSortieActivity = async (
     entity_type: 'sortie',
     entity_id: sortie.id,
     entity_title: sortie.title,
+    project_id: sortie.projectId,
+    project_title: sortie.projectTitle,
+    artist_id: sortie.artistId,
+    artist_name: sortie.artistName,
     description,
     old_values: changes?.old,
     new_values: changes?.new,
@@ -146,7 +168,12 @@ export const logSortieActivity = async (
 export const logMeetingActivity = async (
   userId: string,
   action: 'created' | 'updated' | 'deleted',
-  meeting: { id: string; title: string },
+  meeting: { 
+    id: string; 
+    title: string;
+    projectId?: string;
+    projectTitle?: string;
+  },
   changes?: { old: Record<string, any>; new: Record<string, any> }
 ) => {
   const description = buildDetailedDescription(action, 'meeting', meeting.title, changes);
@@ -157,6 +184,8 @@ export const logMeetingActivity = async (
     entity_type: 'meeting',
     entity_id: meeting.id,
     entity_title: meeting.title,
+    project_id: meeting.projectId,
+    project_title: meeting.projectTitle,
     description,
     old_values: changes?.old,
     new_values: changes?.new,
@@ -166,7 +195,14 @@ export const logMeetingActivity = async (
 export const logTaskActivity = async (
   userId: string,
   action: 'created' | 'updated' | 'deleted',
-  task: { id: string; title: string },
+  task: { 
+    id: string; 
+    title: string;
+    projectId?: string;
+    projectTitle?: string;
+    artistId?: string;
+    artistName?: string;
+  },
   changes?: { old: Record<string, any>; new: Record<string, any> }
 ) => {
   const description = buildDetailedDescription(action, 'task', task.title, changes);
@@ -177,6 +213,10 @@ export const logTaskActivity = async (
     entity_type: 'task',
     entity_id: task.id,
     entity_title: task.title,
+    project_id: task.projectId,
+    project_title: task.projectTitle,
+    artist_id: task.artistId,
+    artist_name: task.artistName,
     description,
     old_values: changes?.old,
     new_values: changes?.new,

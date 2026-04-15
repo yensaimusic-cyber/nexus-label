@@ -10,6 +10,10 @@ export interface ActivityLogEntry {
   entity_id: string;
   entity_title: string;
   description: string;
+  project_id?: string;
+  project_title?: string;
+  artist_id?: string;
+  artist_name?: string;
   old_values?: Record<string, any>;
   new_values?: Record<string, any>;
   created_at: string;

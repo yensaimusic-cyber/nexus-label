@@ -192,6 +192,7 @@ export const ArtistDetail: React.FC = () => {
           id: data.id,
           title: data.title,
           artistName: artist.stage_name,
+          artistId: id,
         });
       }
       
