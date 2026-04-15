@@ -31,23 +31,36 @@ export const logActivity = async (payload: ActivityLogPayload): Promise<void> =>
 // Helper function to create detailed change descriptions
 const createChangeDescription = (field: string, oldValue: any, newValue: any): string => {
   if (field === 'release_date' || field === 'date') {
-    return `${field === 'date' ? 'Date' : 'Date de sortie'} modifiée: ${formatDate(oldValue)} → ${formatDate(newValue)}`;
+    return `📅 ${field === 'date' ? 'Date' : 'Date de sortie'}: ${formatDate(oldValue)} → ${formatDate(newValue)}`;
   } else if (field === 'status') {
     const statusLabels: Record<string, string> = {
-      'idea': 'Idée',
-      'pre_production': 'Pré-production',
-      'production': 'Production',
-      'post_production': 'Post-production',
-      'release': 'Sortie',
-      'released': 'Publiée',
-      'planned': 'Planifiée',
-      'cancelled': 'Annulée',
+      'idea': '💭 Idée',
+      'pre_production': '📋 Pré-production',
+      'production': '🎙️ Production',
+      'post_production': '🎚️ Post-production',
+      'release': '🚀 Sortie',
+      'released': '✅ Publiée',
+      'planned': '⏳ Planifiée',
+      'cancelled': '❌ Annulée',
+      'todo': '📝 À faire',
+      'done': '✅ Validée',
+      'in_progress': '⏳ En cours',
     };
-    return `Statut modifié: ${statusLabels[oldValue] || oldValue} → ${statusLabels[newValue] || newValue}`;
+    return `${statusLabels[oldValue] || oldValue} → ${statusLabels[newValue] || newValue}`;
   } else if (field === 'title') {
-    return `Titre modifié: "${oldValue}" → "${newValue}"`;
+    return `📝 Titre: "${oldValue}" → "${newValue}"`;
+  } else if (field === 'budget') {
+    return `💰 Budget: ${oldValue}€ → ${newValue}€`;
+  } else if (field === 'priority') {
+    const priorityLabels: Record<string, string> = {
+      'low': '🟢 Basse',
+      'medium': '🟡 Normale',
+      'high': '🔴 Haute',
+      'urgent': '🚨 Urgente',
+    };
+    return `Priorité: ${priorityLabels[oldValue] || oldValue} → ${priorityLabels[newValue] || newValue}`;
   }
-  return `${field} modifié: ${oldValue} → ${newValue}`;
+  return `${field}: ${oldValue} → ${newValue}`;
 };
 
 // Helper function to build detailed description from multiple changes
@@ -57,48 +70,81 @@ export const buildDetailedDescription = (
   title: string,
   changes?: { old: Record<string, any>; new: Record<string, any> }
 ): string => {
-  // Custom messages for better readability
+  let description = '';
+
+  // Smart task descriptions
+  if (entity === 'task' && changes?.new?.status && changes?.old?.status) {
+    if (changes.old.status === 'todo' && changes.new.status === 'done') {
+      return `✅ Tâche validée: "${title}"`;
+    } else if (changes.old.status === 'done' && changes.new.status !== 'done') {
+      return `🔄 Tâche réouverte: "${title}"`;
+    }
+  }
+
+  // Smart project descriptions
+  if (entity === 'project' && changes?.new?.status && changes?.old?.status) {
+    const projectStatus = {
+      'idea': 'en idée',
+      'pre_production': 'en pré-production',
+      'production': 'en production',
+      'post_production': 'en post-production',
+      'release': 'en sortie',
+      'released': 'publié',
+    };
+    if (changes.old.status !== changes.new.status) {
+      return `🎵 Projet "${title}" ${projectStatus[changes.new.status] || changes.new.status}`;
+    }
+  }
+
+  // Smart sortie descriptions
+  if (entity === 'sortie' && changes?.new?.status && changes?.old?.status) {
+    if (changes.old.status === 'planned' && changes.new.status === 'released') {
+      return `🎉 Sortie "${title}" publiée!`;
+    }
+  }
+
+  // Default messages for better readability
   const messages: Record<string, Record<'created' | 'updated' | 'deleted', string>> = {
     task: {
-      created: `Une tâche a été rajoutée`,
-      updated: `La tâche "${title}" a été modifiée`,
-      deleted: `La tâche "${title}" a été supprimée`,
+      created: `📝 Tâche créée: "${title}"`,
+      updated: `📝 Tâche modifiée: "${title}"`,
+      deleted: `🗑️ Tâche supprimée: "${title}"`,
     },
     meeting: {
-      created: `Une nouvelle note de réunion a été rajoutée`,
-      updated: `La réunion "${title}" a été modifiée`,
-      deleted: `La réunion "${title}" a été supprimée`,
+      created: `📞 Réunion notée: "${title}"`,
+      updated: `📞 Réunion modifiée: "${title}"`,
+      deleted: `🗑️ Réunion supprimée: "${title}"`,
     },
     project: {
-      created: `Un nouveau projet a été créé`,
-      updated: `Le projet "${title}" a été modifié`,
-      deleted: `Le projet "${title}" a été supprimé`,
+      created: `🎵 Nouveau projet: "${title}"`,
+      updated: `🎵 Projet modifié: "${title}"`,
+      deleted: `🗑️ Projet supprimé: "${title}"`,
     },
     sortie: {
-      created: `Une nouvelle sortie a été planifiée`,
-      updated: `La sortie "${title}" a été modifiée`,
-      deleted: `La sortie "${title}" a été supprimée`,
+      created: `🚀 Sortie planifiée: "${title}"`,
+      updated: `🚀 Sortie modifiée: "${title}"`,
+      deleted: `🗑️ Sortie supprimée: "${title}"`,
     },
     artist: {
-      created: `Un nouvel artiste a été ajouté au roster`,
-      updated: `Le profil de "${title}" a été modifié`,
-      deleted: `L'artiste "${title}" a été supprimé`,
+      created: `🎤 Nouvel artiste: "${title}"`,
+      updated: `🎤 Profil modifié: "${title}"`,
+      deleted: `🗑️ Artiste supprimé: "${title}"`,
     },
   };
 
-  let description = messages[entity]?.[action] || `${entity} ${action}: ${title}`;
+  description = messages[entity]?.[action] || `${entity} ${action}: ${title}`;
 
-  // Add change details if available
+  // Add detailed change information if available
   if (changes && changes.old && changes.new && action === 'updated') {
     const changedFields = Object.keys(changes.new).filter(
-      (key) => changes.old[key] !== changes.new[key]
+      (key) => changes.old[key] !== changes.new[key] && key !== 'status'
     );
 
     if (changedFields.length > 0) {
       const changeDetails = changedFields
         .map((field) => createChangeDescription(field, changes.old[field], changes.new[field]))
         .join(' • ');
-      description += ` (${changeDetails})`;
+      description += ` | ${changeDetails}`;
     }
   }
 
