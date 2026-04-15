@@ -6,8 +6,8 @@ import {
   ArrowRight, Disc, Zap
 } from 'lucide-react';
 import { Card } from '../../ui/Card';
-import { Project, STATUS_LABELS, ProjectStatus } from '../../types';
-import { formatDate } from '../../lib/utils';
+import { Project, STATUS_LABELS, ProjectStatus } from '../../../types';
+import { formatDate } from '../../../lib/utils';
 
 interface ArtistRoadmapProps {
   projects: Project[];
