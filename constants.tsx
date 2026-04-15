@@ -16,7 +16,8 @@ import {
   MessageSquareText,
   Briefcase,
   UserCheck,
-  Activity
+  Activity,
+  Sparkles
 } from 'lucide-react';
 
 export const COLORS = {
@@ -36,6 +37,7 @@ export const NAVIGATION = [
   { name: 'Artistes', icon: <Users size={20} />, path: '/artists' },
   { name: 'Projets', icon: <Disc size={20} />, path: '/projects' },
   { name: 'Sorties', icon: <Rocket size={20} />, path: '/sorties' },
+  { name: 'Événements', icon: <Sparkles size={20} />, path: '/events' },
   { name: 'Tâches', icon: <CheckSquare size={20} />, path: '/tasks' },
   { name: 'Réunions', icon: <MessageSquareText size={20} />, path: '/meetings' },
   { name: 'Calendrier', icon: <Calendar size={20} />, path: '/calendar' },

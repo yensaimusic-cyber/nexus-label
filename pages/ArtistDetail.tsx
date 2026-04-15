@@ -17,6 +17,7 @@ import { uploadFile } from '../lib/storage';
 import { useAuth } from '../hooks/useAuth';
 import { logProjectActivity } from '../lib/activityLogger';
 import { Artist, Project, ArtistAsset, ArtistTeamMember, ArtistStatus, ProjectType, ProjectStatus, STATUS_LABELS } from '../types';
+import { ArtistRoadmap } from '../components/features/artists/ArtistRoadmap';
 
 export const ArtistDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -30,7 +31,7 @@ export const ArtistDetail: React.FC = () => {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [linkedProfile, setLinkedProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'projets' | 'equipe' | 'assets' | 'reunions'>('projets');
+  const [activeTab, setActiveTab] = useState<'projets' | 'equipe' | 'assets' | 'reunions' | 'roadmap'>('projets');
   
   // Modals
   const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
@@ -375,6 +376,7 @@ export const ArtistDetail: React.FC = () => {
         {/* Navigation Tabs */}
         <div className="flex overflow-x-auto custom-scrollbar gap-2 p-1.5 glass rounded-[28px] w-full lg:w-fit shadow-2xl sticky top-24 z-30">
           {[
+            { id: 'roadmap', label: 'Roadmap', icon: <Music2 size={16} /> },
             { id: 'projets', label: 'Discographie', icon: <Disc size={16} /> },
             { id: 'equipe', label: 'Management', icon: <Users size={16} /> },
             { id: 'assets', label: 'Vault / Assets', icon: <Briefcase size={16} /> },
@@ -391,6 +393,12 @@ export const ArtistDetail: React.FC = () => {
         </div>
 
         <AnimatePresence mode="wait">
+          {activeTab === 'roadmap' && (
+            <motion.div key="roadmap" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+              <ArtistRoadmap projects={projects} />
+            </motion.div>
+          )}
+
           {activeTab === 'projets' && (
             <motion.div key="projets" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
               {projects.map(p => (

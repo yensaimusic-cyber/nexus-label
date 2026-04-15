@@ -12,6 +12,7 @@ import { Artists } from './pages/Artists';
 import { ArtistDetail } from './pages/ArtistDetail';
 import { Tasks } from './pages/Tasks';
 import { Calendar } from './pages/Calendar';
+import { Events } from './pages/Events';
 import { Team } from './pages/Team';
 import { Meetings } from './pages/Meetings';
 import Management from './pages/Management';
@@ -95,6 +96,7 @@ const App: React.FC = () => {
                 <Route path="/artists" element={<ProtectedRoute><PageWrapper><Artists /></PageWrapper></ProtectedRoute>} />
                 <Route path="/artists/:id" element={<ProtectedRoute><PageWrapper><ArtistDetail /></PageWrapper></ProtectedRoute>} />
                 <Route path="/tasks" element={<ProtectedRoute><PageWrapper><Tasks /></PageWrapper></ProtectedRoute>} />
+                <Route path="/events" element={<ProtectedRoute><PageWrapper><Events /></PageWrapper></ProtectedRoute>} />
                 <Route path="/meetings" element={<ProtectedRoute><PageWrapper><Meetings /></PageWrapper></ProtectedRoute>} />
                 <Route path="/calendar" element={<ProtectedRoute><PageWrapper><Calendar /></PageWrapper></ProtectedRoute>} />
                 <Route path="/resources" element={<ProtectedRoute><PageWrapper><Resources /></PageWrapper></ProtectedRoute>} />
