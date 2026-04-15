@@ -321,17 +321,27 @@ export const Events: React.FC = () => {
                 )}
               </div>
             </div>
-            <div className="flex-shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex-shrink-0 flex items-center gap-2 pointer-events-auto z-50 relative">
               <button
-                onClick={() => handleOpenModal(event)}
-                className="p-2 hover:bg-nexus-surface rounded transition-colors"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleOpenModal(event);
+                }}
+                className="p-2 hover:bg-nexus-surface rounded transition-colors pointer-events-auto z-50 relative"
                 title="Modifier"
               >
                 <Edit2 size={16} className="text-blue-400" />
               </button>
               <button
-                onClick={() => handleDelete(event)}
-                className="p-2 hover:bg-nexus-surface rounded transition-colors"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleDelete(event);
+                }}
+                className="p-2 hover:bg-nexus-surface rounded transition-colors pointer-events-auto z-50 relative"
                 title="Supprimer"
               >
                 <Trash2 size={16} className="text-red-400" />
