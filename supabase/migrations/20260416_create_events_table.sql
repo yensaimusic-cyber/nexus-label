@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS events (
   date DATE NOT NULL,
   time TIME,
   description TEXT,
-  artist_id UUID REFERENCES artists(id) ON DELETE CASCADE,
+  team_member_id UUID REFERENCES artist_team_members(id) ON DELETE SET NULL,
   created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMP DEFAULT now(),
   updated_at TIMESTAMP DEFAULT now()
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS events (
 
 -- Create indexes for faster queries
 CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
-CREATE INDEX IF NOT EXISTS idx_events_artist_id ON events(artist_id);
+CREATE INDEX IF NOT EXISTS idx_events_team_member_id ON events(team_member_id);
 CREATE INDEX IF NOT EXISTS idx_events_created_by ON events(created_by);
 CREATE INDEX IF NOT EXISTS idx_events_event_type ON events(event_type);
 

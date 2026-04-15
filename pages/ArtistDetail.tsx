@@ -395,7 +395,7 @@ export const ArtistDetail: React.FC = () => {
         <AnimatePresence mode="wait">
           {activeTab === 'roadmap' && (
             <motion.div key="roadmap" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <ArtistRoadmap projects={projects} />
+              <ArtistRoadmap projects={projects} artistId={id || ''} />
             </motion.div>
           )}
 

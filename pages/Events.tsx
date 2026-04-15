@@ -1,9 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
 import { 
   Plus, Search, Loader2, Trash2, Edit2, Calendar, Music, Zap, 
-  Users, CheckSquare, MessageSquareText, Disc, Filter, X
+  Users, MessageSquareText, Disc
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -13,33 +12,27 @@ import { supabase } from '../lib/supabase';
 import { useToast } from '../components/ui/Toast';
 import { useAuth } from '../hooks/useAuth';
 import { formatDate } from '../lib/utils';
-import { Project, Task } from '../types';
 
 type EventType = 'concert' | 'open_mic' | 'freestyle' | 'workshop' | 'promo' | 'showcase' | 'festival' | 'soundcheck';
 type AggregatedEvent = {
   id: string;
   title: string;
-  type: 'task' | 'meeting' | 'sortie' | 'custom';
+  type: 'custom';
   eventType?: EventType;
   date: string;
   time?: string;
   description?: string;
   artist?: string;
-  status?: string;
-  priority?: string;
-  assignee?: any;
-  project?: any;
+  teamMember?: any;
   metadata?: any;
 };
 
 export const Events: React.FC = () => {
   const [loading, setLoading] = useState(true);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [meetings, setMeetings] = useState<any[]>([]);
-  const [sorties, setSorties] = useState<any[]>([]);
   const [customEvents, setCustomEvents] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'task' | 'meeting' | 'sortie' | 'custom'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'custom'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,14 +45,14 @@ export const Events: React.FC = () => {
     date: string;
     time?: string;
     description?: string;
-    artist?: string;
+    teamMemberId?: string;
   }>({
     title: '',
     eventType: 'concert',
     date: new Date().toISOString().split('T')[0],
     time: '',
     description: '',
-    artist: '',
+    teamMemberId: '',
   });
 
   const eventTypeLabels: Record<EventType, string> = {
@@ -93,47 +86,28 @@ export const Events: React.FC = () => {
   const loadEvents = async () => {
     try {
       setLoading(true);
-      // Load tasks
-      const tasksData = await supabase
-        .from('tasks')
-        .select(`
-          id, title, description, status, priority, due_date, assigned_to,
-          project:projects(id, title, artist_id, artist:artists(stage_name))
-        `)
-        .order('due_date', { ascending: true });
-
-      if (tasksData.error) throw tasksData.error;
-      setTasks(tasksData.data as any);
-
-      // Load meetings
-      const meetingsData = await supabase
-        .from('meetings')
-        .select('*')
-        .order('date', { ascending: true });
-
-      if (meetingsData.error) throw meetingsData.error;
-      setMeetings(meetingsData.data || []);
-
-      // Load sorties (releases)
-      const sortiesData = await supabase
-        .from('sorties')
-        .select('*')
-        .order('release_date', { ascending: true });
-
-      if (sortiesData.error) throw sortiesData.error;
-      setSorties(sortiesData.data || []);
 
       // Load custom events
       const eventsData = await supabase
         .from('events')
         .select(`
-          id, title, event_type, date, time, description, artist_id,
-          artist:artists(stage_name)
+          id, title, event_type, date, time, description, 
+          team_member_id, team_member:artist_team_members(id, name, role, profile:profiles(id, full_name)),
+          created_at
         `)
         .order('date', { ascending: true });
 
       if (eventsData.error && eventsData.error.code !== 'PGRST116') throw eventsData.error;
       setCustomEvents(eventsData.data || []);
+
+      // Load team members for dropdown
+      const membersData = await supabase
+        .from('artist_team_members')
+        .select('id, name, role, profile:profiles(id, full_name)')
+        .order('name', { ascending: true });
+
+      if (membersData.error) throw membersData.error;
+      setTeamMembers(membersData.data || []);
     } catch (err: any) {
       console.error('Error loading events:', err);
       toast.error('Erreur lors du chargement des événements');
@@ -145,49 +119,7 @@ export const Events: React.FC = () => {
   const aggregatedEvents: AggregatedEvent[] = useMemo(() => {
     const all: AggregatedEvent[] = [];
 
-    // Add tasks
-    tasks.forEach((task: Task) => {
-      all.push({
-        id: `task-${task.id}`,
-        title: task.title,
-        type: 'task',
-        date: task.due_date,
-        description: task.description,
-        status: task.status,
-        priority: task.priority,
-        project: task.project,
-        assignee: task.assignee,
-        metadata: { originalId: task.id },
-      });
-    });
-
-    // Add meetings
-    meetings.forEach((meeting: any) => {
-      all.push({
-        id: `meeting-${meeting.id}`,
-        title: meeting.title,
-        type: 'meeting',
-        date: meeting.date,
-        time: meeting.time,
-        description: meeting.summary,
-        metadata: { originalId: meeting.id, attendees: meeting.attendees },
-      });
-    });
-
-    // Add sorties
-    sorties.forEach((sortie: any) => {
-      all.push({
-        id: `sortie-${sortie.id}`,
-        title: sortie.title,
-        type: 'sortie',
-        date: sortie.release_date,
-        description: sortie.description,
-        status: sortie.status,
-        metadata: { originalId: sortie.id, platforms: sortie.platforms },
-      });
-    });
-
-    // Add custom events
+    // Add custom events only
     customEvents.forEach((event: any) => {
       all.push({
         id: `custom-${event.id}`,
@@ -197,7 +129,7 @@ export const Events: React.FC = () => {
         date: event.date,
         time: event.time,
         description: event.description,
-        artist: event.artist?.stage_name,
+        teamMember: event.team_member,
         metadata: { originalId: event.id },
       });
     });
@@ -205,19 +137,14 @@ export const Events: React.FC = () => {
     return all
       .filter(
         event =>
-          (filterType === 'all' || event.type === filterType) &&
-          (search === '' ||
-            event.title.toLowerCase().includes(search.toLowerCase()) ||
-            event.description?.toLowerCase().includes(search.toLowerCase()) ||
-            event.artist?.toLowerCase().includes(search.toLowerCase()))
+          search === '' ||
+          event.title.toLowerCase().includes(search.toLowerCase()) ||
+          event.description?.toLowerCase().includes(search.toLowerCase())
       )
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [tasks, meetings, sorties, customEvents, search, filterType]);
+  }, [customEvents, search]);
 
   const handleOpenModal = (event?: AggregatedEvent) => {
-    if (event && event.type !== 'custom') {
-      return; // Can't edit non-custom events from here
-    }
     if (event && event.type === 'custom') {
       const customEvent = customEvents.find((e: any) => e.id === event.metadata.originalId);
       if (customEvent) {
@@ -228,7 +155,7 @@ export const Events: React.FC = () => {
           date: customEvent.date,
           time: customEvent.time || '',
           description: customEvent.description || '',
-          artist: customEvent.artist_id || '',
+          teamMemberId: customEvent.team_member_id || '',
         });
       }
     } else {
@@ -239,7 +166,7 @@ export const Events: React.FC = () => {
         date: new Date().toISOString().split('T')[0],
         time: '',
         description: '',
-        artist: '',
+        teamMemberId: '',
       });
     }
     setIsModalOpen(true);
@@ -265,7 +192,7 @@ export const Events: React.FC = () => {
             date: formData.date,
             time: formData.time || null,
             description: formData.description || null,
-            artist_id: formData.artist || null,
+            team_member_id: formData.teamMemberId || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingEvent.id);
@@ -281,7 +208,7 @@ export const Events: React.FC = () => {
             date: formData.date,
             time: formData.time || null,
             description: formData.description || null,
-            artist_id: formData.artist || null,
+            team_member_id: formData.teamMemberId || null,
             created_by: user?.id,
             created_at: new Date().toISOString(),
           },
@@ -299,7 +226,7 @@ export const Events: React.FC = () => {
         date: new Date().toISOString().split('T')[0],
         time: '',
         description: '',
-        artist: '',
+        teamMemberId: '',
       });
       await loadEvents();
     } catch (err: any) {
@@ -334,27 +261,14 @@ export const Events: React.FC = () => {
 
   const renderEventCard = (event: AggregatedEvent) => {
     const getEventColor = (): string => {
-      if (event.type === 'task') {
-        if (event.priority === 'urgent' || event.priority === 'overdue') return 'border-red-500/50 bg-red-500/5';
-        if (event.priority === 'high') return 'border-orange-500/50 bg-orange-500/5';
-        return 'border-blue-500/50 bg-blue-500/5';
-      }
-      if (event.type === 'meeting') return 'border-purple-500/50 bg-purple-500/5';
-      if (event.type === 'sortie') return 'border-green-500/50 bg-green-500/5';
       return 'border-cyan-500/50 bg-cyan-500/5';
     };
 
     const getEventIcon = (): React.ReactNode => {
-      if (event.type === 'task') return <CheckSquare size={18} className="text-blue-400" />;
-      if (event.type === 'meeting') return <Users size={18} className="text-purple-400" />;
-      if (event.type === 'sortie') return <Disc size={18} className="text-green-400" />;
       return event.eventType ? eventTypeIcons[event.eventType] : <Music size={18} className="text-cyan-400" />;
     };
 
     const getEventTypeLabel = (): string => {
-      if (event.type === 'task') return 'Tâche';
-      if (event.type === 'meeting') return 'Réunion';
-      if (event.type === 'sortie') return 'Sortie';
       return event.eventType ? eventTypeLabels[event.eventType] : 'Événement';
     };
 
@@ -399,46 +313,30 @@ export const Events: React.FC = () => {
                   {formatDate(event.date)}
                   {event.time && ` at ${event.time}`}
                 </span>
-                {event.project && (
-                  <Link
-                    to={`/projects/${event.project.id}`}
-                    className="text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1"
-                  >
-                    <Music size={14} />
-                    {event.project.title}
-                  </Link>
-                )}
-                {event.artist && (
+                {event.teamMember && (
                   <span className="text-cyan-300 flex items-center gap-1">
                     <Users size={14} />
-                    {event.artist}
-                  </span>
-                )}
-                {event.status && (
-                  <span className="text-nexus-light/50">
-                    Status: {event.status}
+                    {event.teamMember.profile?.full_name || event.teamMember.name}
                   </span>
                 )}
               </div>
             </div>
-            {event.type === 'custom' && (
-              <div className="flex-shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={() => handleOpenModal(event)}
-                  className="p-2 hover:bg-nexus-surface rounded transition-colors"
-                  title="Modifier"
-                >
-                  <Edit2 size={16} className="text-blue-400" />
-                </button>
-                <button
-                  onClick={() => handleDelete(event)}
-                  className="p-2 hover:bg-nexus-surface rounded transition-colors"
-                  title="Supprimer"
-                >
-                  <Trash2 size={16} className="text-red-400" />
-                </button>
-              </div>
-            )}
+            <div className="flex-shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => handleOpenModal(event)}
+                className="p-2 hover:bg-nexus-surface rounded transition-colors"
+                title="Modifier"
+              >
+                <Edit2 size={16} className="text-blue-400" />
+              </button>
+              <button
+                onClick={() => handleDelete(event)}
+                className="p-2 hover:bg-nexus-surface rounded transition-colors"
+                title="Supprimer"
+              >
+                <Trash2 size={16} className="text-red-400" />
+              </button>
+            </div>
           </div>
         </Card>
       </motion.div>
@@ -482,30 +380,6 @@ export const Events: React.FC = () => {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-nexus-surface border border-nexus-light/20 rounded-lg text-white placeholder-nexus-light/50 focus:outline-none focus:border-nexus-cyan"
             />
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {(['all', 'task', 'meeting', 'sortie', 'custom'] as const).map(type => (
-              <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                  filterType === type
-                    ? 'bg-nexus-cyan text-nexus-dark font-semibold'
-                    : 'bg-nexus-surface border border-nexus-light/20 text-white hover:border-nexus-cyan'
-                }`}
-              >
-                <Filter size={16} />
-                {type === 'all'
-                  ? 'Tous'
-                  : type === 'task'
-                  ? 'Tâches'
-                  : type === 'meeting'
-                  ? 'Réunions'
-                  : type === 'sortie'
-                  ? 'Sorties'
-                  : 'Personnalisés'}
-              </button>
-            ))}
           </div>
         </div>
       </div>
@@ -588,6 +462,22 @@ export const Events: React.FC = () => {
               onChange={(e) => setFormData({ ...formData, time: e.target.value })}
               className="w-full px-4 py-2 bg-nexus-surface border border-nexus-light/20 rounded-lg text-white focus:outline-none focus:border-nexus-cyan"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">Membre de l'équipe (optionnel)</label>
+            <select
+              value={formData.teamMemberId || ''}
+              onChange={(e) => setFormData({ ...formData, teamMemberId: e.target.value })}
+              className="w-full px-4 py-2 bg-nexus-surface border border-nexus-light/20 rounded-lg text-white focus:outline-none focus:border-nexus-cyan"
+            >
+              <option value="">-- Aucun(e) --</option>
+              {teamMembers.map(member => (
+                <option key={member.id} value={member.id}>
+                  {member.profile?.full_name || member.name} - {member.role}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

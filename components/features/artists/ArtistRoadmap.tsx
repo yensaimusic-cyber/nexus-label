@@ -1,20 +1,179 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
   Calendar, Music, TrendingUp, CheckCircle, Clock, AlertCircle,
-  ArrowRight, Disc, Zap
+  ArrowRight, Disc, Zap, Plus, Trash2, Edit2, Loader2
 } from 'lucide-react';
 import { Card } from '../../ui/Card';
+import { Button } from '../../ui/Button';
+import { Modal } from '../../ui/Modal';
+import { AdminOnly } from '../../AdminOnly';
+import { supabase } from '../../../lib/supabase';
+import { useToast } from '../../ui/Toast';
 import { Project, STATUS_LABELS, ProjectStatus } from '../../../types';
 import { formatDate } from '../../../lib/utils';
 
+type RoadmapItemType = 'milestone' | 'post' | 'event' | 'collaboration' | 'release' | 'other';
+type RoadmapItemStatus = 'planned' | 'in_progress' | 'completed' | 'cancelled';
+
+interface RoadmapItem {
+  id: string;
+  title: string;
+  description?: string;
+  item_type: RoadmapItemType;
+  date?: string;
+  status: RoadmapItemStatus;
+  priority: string;
+}
+
 interface ArtistRoadmapProps {
   projects: Project[];
+  artistId: string;
   sortiesStatus?: Record<string, any>;
 }
 
-export const ArtistRoadmap: React.FC<ArtistRoadmapProps> = ({ projects }) => {
+export const ArtistRoadmap: React.FC<ArtistRoadmapProps> = ({ projects, artistId }) => {
+  const [roadmapItems, setRoadmapItems] = useState<RoadmapItem[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<RoadmapItem | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const toast = useToast();
+
+  const [formData, setFormData] = useState<{
+    title: string;
+    description: string;
+    item_type: RoadmapItemType;
+    date: string;
+    status: RoadmapItemStatus;
+    priority: string;
+  }>({
+    title: '',
+    description: '',
+    item_type: 'milestone',
+    date: new Date().toISOString().split('T')[0],
+    status: 'planned',
+    priority: 'medium',
+  });
+
+  const itemTypeLabels: Record<RoadmapItemType, string> = {
+    milestone: '🎯 Milestone',
+    post: '📱 Post Réseaux',
+    event: '🎪 Événement',
+    collaboration: '🤝 Collaboration',
+    release: '🚀 Sortie',
+    other: '📌 Autre',
+  };
+
+  const itemStatusColors: Record<RoadmapItemStatus, string> = {
+    planned: 'bg-slate-500/10 border-slate-500/30 text-slate-300',
+    in_progress: 'bg-blue-500/10 border-blue-500/30 text-blue-300',
+    completed: 'bg-green-500/10 border-green-500/30 text-green-300',
+    cancelled: 'bg-red-500/10 border-red-500/30 text-red-300',
+  };
+
+  useEffect(() => {
+    loadRoadmapItems();
+  }, [artistId]);
+
+  const loadRoadmapItems = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('artist_roadmap_items')
+        .select('*')
+        .eq('artist_id', artistId)
+        .order('date', { ascending: true, nullsFirst: true });
+
+      if (error) throw error;
+      setRoadmapItems(data || []);
+    } catch (err: any) {
+      console.error('Error loading roadmap items:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOpenModal = (item?: RoadmapItem) => {
+    if (item) {
+      setEditingItem(item);
+      setFormData({
+        title: item.title,
+        description: item.description || '',
+        item_type: item.item_type,
+        date: item.date || new Date().toISOString().split('T')[0],
+        status: item.status,
+        priority: item.priority,
+      });
+    } else {
+      setEditingItem(null);
+      setFormData({
+        title: '',
+        description: '',
+        item_type: 'milestone',
+        date: new Date().toISOString().split('T')[0],
+        status: 'planned',
+        priority: 'medium',
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.title) {
+      toast.error('Le titre est obligatoire');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      if (editingItem) {
+        const { error } = await supabase
+          .from('artist_roadmap_items')
+          .update(formData)
+          .eq('id', editingItem.id);
+
+        if (error) throw error;
+        toast.success('Roadmap item mis à jour');
+      } else {
+        const { error } = await supabase
+          .from('artist_roadmap_items')
+          .insert([{ ...formData, artist_id: artistId }]);
+
+        if (error) throw error;
+        toast.success('Roadmap item créé');
+      }
+
+      setIsModalOpen(false);
+      setEditingItem(null);
+      await loadRoadmapItems();
+    } catch (err: any) {
+      console.error('Error:', err);
+      toast.error('Erreur: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cet item ?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('artist_roadmap_items')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Roadmap item supprimé');
+      await loadRoadmapItems();
+    } catch (err: any) {
+      toast.error('Erreur: ' + err.message);
+    }
+  };
   const statusOrder: ProjectStatus[] = [
     'idea',
     'pre_production',
@@ -317,6 +476,216 @@ export const ArtistRoadmap: React.FC<ArtistRoadmapProps> = ({ projects }) => {
           <p className="text-nexus-light/30 text-sm mt-2">Les projets apparaîtront ici une fois créés</p>
         </Card>
       )}
+
+      {/* Roadmap Items Section */}
+      <div className="pt-8 border-t border-nexus-light/20">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-white">📋 Road Map Personnalisée</h2>
+          <AdminOnly>
+            <Button
+              onClick={() => handleOpenModal()}
+              variant="primary"
+              size="md"
+              icon={<Plus size={18} />}
+            >
+              Ajouter un item
+            </Button>
+          </AdminOnly>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 size={32} className="text-nexus-cyan animate-spin" />
+          </div>
+        ) : roadmapItems.length === 0 ? (
+          <Card className="border border-nexus-light/10 bg-nexus-surface/50 p-8 text-center">
+            <p className="text-nexus-light/50">Aucun item pour le moment</p>
+            <AdminOnly>
+              <p className="text-nexus-light/30 text-sm mt-2">Créez votre première étape de la road map</p>
+            </AdminOnly>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            <AnimatePresence mode="popLayout">
+              {roadmapItems.map((item, idx) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3, delay: idx * 0.05 }}
+                >
+                  <Card className={`border ${itemStatusColors[item.status]} p-4 group hover:shadow-lg transition-all`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-2xl">{itemTypeLabels[item.item_type].split(' ')[0]}</span>
+                          <div>
+                            <h3 className="font-bold text-white">{item.title}</h3>
+                            <span className="text-xs px-2 py-1 rounded-full bg-nexus-surface/50 text-nexus-light/70">
+                              {itemTypeLabels[item.item_type].split(' ').slice(1).join(' ')}
+                            </span>
+                          </div>
+                        </div>
+                        {item.description && (
+                          <p className="text-sm text-nexus-light/70 mb-2">{item.description}</p>
+                        )}
+                        <div className="flex flex-wrap gap-3 text-xs text-nexus-light/60">
+                          {item.date && (
+                            <span className="flex items-center gap-1">
+                              <Calendar size={14} />
+                              {formatDate(item.date)}
+                            </span>
+                          )}
+                          <span className={`px-2 py-1 rounded capitalize ${
+                            item.priority === 'high' ? 'bg-red-500/20 text-red-300' :
+                            item.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
+                            'bg-blue-500/20 text-blue-300'
+                          }`}>
+                            {item.priority}
+                          </span>
+                        </div>
+                      </div>
+                      <AdminOnly>
+                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => handleOpenModal(item)}
+                            className="p-2 hover:bg-nexus-surface rounded transition-colors"
+                            title="Modifier"
+                          >
+                            <Edit2 size={16} className="text-blue-400" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="p-2 hover:bg-nexus-surface rounded transition-colors"
+                            title="Supprimer"
+                          >
+                            <Trash2 size={16} className="text-red-400" />
+                          </button>
+                        </div>
+                      </AdminOnly>
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+
+      {/* Modal for Adding/Editing Roadmap Items */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingItem(null);
+        }}
+        title={editingItem ? 'Modifier Road Map Item' : 'Ajouter Road Map Item'}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">Titre *</label>
+            <input
+              type="text"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="ex: Post Instagram du nouveau single"
+              className="w-full px-4 py-2 bg-nexus-surface border border-nexus-light/20 rounded-lg text-white placeholder-nexus-light/50 focus:outline-none focus:border-nexus-cyan"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Type</label>
+              <select
+                value={formData.item_type}
+                onChange={(e) => setFormData({ ...formData, item_type: e.target.value as RoadmapItemType })}
+                className="w-full px-4 py-2 bg-nexus-surface border border-nexus-light/20 rounded-lg text-white focus:outline-none focus:border-nexus-cyan"
+              >
+                {Object.entries(itemTypeLabels).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Statut</label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as RoadmapItemStatus })}
+                className="w-full px-4 py-2 bg-nexus-surface border border-nexus-light/20 rounded-lg text-white focus:outline-none focus:border-nexus-cyan"
+              >
+                <option value="planned">Planifié</option>
+                <option value="in_progress">En cours</option>
+                <option value="completed">Complété</option>
+                <option value="cancelled">Annulé</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Date</label>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                className="w-full px-4 py-2 bg-nexus-surface border border-nexus-light/20 rounded-lg text-white focus:outline-none focus:border-nexus-cyan"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Priorité</label>
+              <select
+                value={formData.priority}
+                onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                className="w-full px-4 py-2 bg-nexus-surface border border-nexus-light/20 rounded-lg text-white focus:outline-none focus:border-nexus-cyan"
+              >
+                <option value="low">Basse</option>
+                <option value="medium">Moyenne</option>
+                <option value="high">Haute</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Détails de ce que vous prévoyez..."
+              rows={3}
+              className="w-full px-4 py-2 bg-nexus-surface border border-nexus-light/20 rounded-lg text-white placeholder-nexus-light/50 focus:outline-none focus:border-nexus-cyan resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 justify-end pt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setIsModalOpen(false);
+                setEditingItem(null);
+              }}
+              disabled={isSubmitting}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={isSubmitting}
+              icon={isSubmitting ? <Loader2 size={20} className="animate-spin" /> : undefined}
+            >
+              {isSubmitting
+                ? 'Sauvegarde...'
+                : editingItem
+                ? 'Mettre à jour'
+                : 'Créer'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

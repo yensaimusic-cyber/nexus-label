@@ -53,24 +53,39 @@ export const buildDetailedDescription = (
   title: string,
   changes?: { old: Record<string, any>; new: Record<string, any> }
 ): string => {
-  const actionMap = {
-    created: 'créé',
-    updated: 'modifié',
-    deleted: 'supprimé',
+  // Custom messages for better readability
+  const messages: Record<string, Record<'created' | 'updated' | 'deleted', string>> = {
+    task: {
+      created: `Une tâche a été rajoutée`,
+      updated: `La tâche "${title}" a été modifiée`,
+      deleted: `La tâche "${title}" a été supprimée`,
+    },
+    meeting: {
+      created: `Une nouvelle note de réunion a été rajoutée`,
+      updated: `La réunion "${title}" a été modifiée`,
+      deleted: `La réunion "${title}" a été supprimée`,
+    },
+    project: {
+      created: `Un nouveau projet a été créé`,
+      updated: `Le projet "${title}" a été modifié`,
+      deleted: `Le projet "${title}" a été supprimé`,
+    },
+    sortie: {
+      created: `Une nouvelle sortie a été planifiée`,
+      updated: `La sortie "${title}" a été modifiée`,
+      deleted: `La sortie "${title}" a été supprimée`,
+    },
+    artist: {
+      created: `Un nouvel artiste a été ajouté au roster`,
+      updated: `Le profil de "${title}" a été modifié`,
+      deleted: `L'artiste "${title}" a été supprimé`,
+    },
   };
 
-  const entityMap: Record<string, string> = {
-    project: 'Projet',
-    sortie: 'Sortie',
-    meeting: 'Réunion',
-    task: 'Tâche',
-    artist: 'Artiste',
-  };
-
-  let description = `${entityMap[entity] || entity} ${actionMap[action]}: ${title}`;
+  let description = messages[entity]?.[action] || `${entity} ${action}: ${title}`;
 
   // Add change details if available
-  if (changes && changes.old && changes.new) {
+  if (changes && changes.old && changes.new && action === 'updated') {
     const changedFields = Object.keys(changes.new).filter(
       (key) => changes.old[key] !== changes.new[key]
     );
@@ -78,7 +93,7 @@ export const buildDetailedDescription = (
     if (changedFields.length > 0) {
       const changeDetails = changedFields
         .map((field) => createChangeDescription(field, changes.old[field], changes.new[field]))
-        .join(' | ');
+        .join(' • ');
       description += ` (${changeDetails})`;
     }
   }
