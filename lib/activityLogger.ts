@@ -103,79 +103,71 @@ export const buildDetailedDescription = (
     }
   }
 
-  // For updated actions, analyze what fields changed to provide specific messages
+  // For updated actions, always show specific field changes
   if (action === 'updated' && changes?.old && changes?.new) {
     const changedFields = Object.keys(changes.new).filter(
       (key) => changes.old[key] !== changes.new[key]
     );
 
-    // If only one field changed, provide specific message
-    if (changedFields.length === 1) {
-      const field = changedFields[0];
-      
-      if (field === 'due_date' || field === 'date') {
-        return `📅 Date déplacée: "${title}" | ${createChangeDescription(field, changes.old[field], changes.new[field])}`;
-      } else if (field === 'title') {
-        return `📝 Titre modifié: "${changes.old[field]}" → "${changes.new[field]}"`;
-      } else if (field === 'priority') {
-        return `🎯 Priorité changée: "${title}" | ${createChangeDescription(field, changes.old[field], changes.new[field])}`;
-      } else if (field === 'status') {
-        return `🔄 Statut changé: "${title}" | ${createChangeDescription(field, changes.old[field], changes.new[field])}`;
-      } else if (field === 'description' || field === 'summary') {
-        return `📝 Description mise à jour: "${title}"`;
-      } else if (field === 'budget') {
-        return `💰 Budget modifié: "${title}" | ${createChangeDescription(field, changes.old[field], changes.new[field])}`;
+    if (changedFields.length > 0) {
+      // Generate specific messages for single field changes
+      if (changedFields.length === 1) {
+        const field = changedFields[0];
+        
+        if (field === 'due_date' || field === 'date') {
+          return `📅 Date déplacée: "${title}" | ${createChangeDescription(field, changes.old[field], changes.new[field])}`;
+        } else if (field === 'title') {
+          return `📝 Titre modifié: "${changes.old[field]}" → "${changes.new[field]}"`;
+        } else if (field === 'priority') {
+          return `🎯 Priorité changée: "${title}" | ${createChangeDescription(field, changes.old[field], changes.new[field])}`;
+        } else if (field === 'status') {
+          return `🔄 Statut changé: "${title}" | ${createChangeDescription(field, changes.old[field], changes.new[field])}`;
+        } else if (field === 'description' || field === 'summary') {
+          return `📝 Description mise à jour: "${title}"`;
+        } else if (field === 'budget') {
+          return `💰 Budget modifié: "${title}" | ${createChangeDescription(field, changes.old[field], changes.new[field])}`;
+        } else {
+          return `✏️ ${field} modifié: "${title}" | ${createChangeDescription(field, changes.old[field], changes.new[field])}`;
+        }
+      } else {
+        // Multiple fields changed - show all details
+        const changeDetails = changedFields
+          .map((field) => createChangeDescription(field, changes.old[field], changes.new[field]))
+          .join(' • ');
+        return `✏️ Plusieurs modifications sur "${title}" | ${changeDetails}`;
       }
     }
   }
 
-  // Default messages for better readability
-  const messages: Record<string, Record<'created' | 'updated' | 'deleted', string>> = {
+  // Default messages for created and deleted actions
+  const messages: Record<string, Record<'created' | 'deleted', string>> = {
     task: {
       created: `📝 Tâche créée: "${title}"`,
-      updated: `📝 Tâche modifiée: "${title}"`,
       deleted: `🗑️ Tâche supprimée: "${title}"`,
     },
     meeting: {
       created: `📞 Réunion notée: "${title}"`,
-      updated: `📞 Réunion modifiée: "${title}"`,
       deleted: `🗑️ Réunion supprimée: "${title}"`,
     },
     project: {
       created: `🎵 Nouveau projet: "${title}"`,
-      updated: `🎵 Projet modifié: "${title}"`,
       deleted: `🗑️ Projet supprimé: "${title}"`,
     },
     sortie: {
       created: `🚀 Sortie planifiée: "${title}"`,
-      updated: `🚀 Sortie modifiée: "${title}"`,
       deleted: `🗑️ Sortie supprimée: "${title}"`,
     },
     artist: {
       created: `🎤 Nouvel artiste: "${title}"`,
-      updated: `🎤 Profil modifié: "${title}"`,
       deleted: `🗑️ Artiste supprimé: "${title}"`,
     },
   };
 
-  description = messages[entity]?.[action] || `${entity} ${action}: ${title}`;
-
-  // Add detailed change information if available and multiple fields changed
-  if (changes && changes.old && changes.new && action === 'updated') {
-    const changedFields = Object.keys(changes.new).filter(
-      (key) => changes.old[key] !== changes.new[key] && key !== 'status'
-    );
-
-    if (changedFields.length > 1) {
-      const changeDetails = changedFields
-        .map((field) => createChangeDescription(field, changes.old[field], changes.new[field]))
-        .join(' • ');
-      description += ` | ${changeDetails}`;
-    } else if (changedFields.length === 1) {
-      const field = changedFields[0];
-      const changeDetail = createChangeDescription(field, changes.old[field], changes.new[field]);
-      description += ` | ${changeDetail}`;
-    }
+  if (action === 'created' || action === 'deleted') {
+    description = messages[entity]?.[action] || `${entity} ${action}: ${title}`;
+  } else {
+    // Fallback for updated if no changes detected
+    description = `✏️ ${entity} modifié: "${title}"`;
   }
 
   return description;
