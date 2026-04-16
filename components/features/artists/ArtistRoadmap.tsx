@@ -25,6 +25,11 @@ interface RoadmapItem {
   date?: string;
   status: RoadmapItemStatus;
   priority: string;
+  project_id?: string;
+  project?: {
+    id: string;
+    title: string;
+  };
 }
 
 interface ArtistRoadmapProps {
@@ -48,6 +53,7 @@ export const ArtistRoadmap: React.FC<ArtistRoadmapProps> = ({ projects, artistId
     date: string;
     status: RoadmapItemStatus;
     priority: string;
+    project_id?: string;
   }>({
     title: '',
     description: '',
@@ -55,6 +61,7 @@ export const ArtistRoadmap: React.FC<ArtistRoadmapProps> = ({ projects, artistId
     date: new Date().toISOString().split('T')[0],
     status: 'planned',
     priority: 'medium',
+    project_id: '',
   });
 
   const itemTypeLabels: Record<RoadmapItemType, string> = {
@@ -82,7 +89,7 @@ export const ArtistRoadmap: React.FC<ArtistRoadmapProps> = ({ projects, artistId
       setIsLoading(true);
       const { data, error } = await supabase
         .from('artist_roadmap_items')
-        .select('*')
+        .select('*, project:projects(id, title)')
         .eq('artist_id', artistId)
         .order('date', { ascending: true, nullsFirst: true });
 
@@ -105,6 +112,7 @@ export const ArtistRoadmap: React.FC<ArtistRoadmapProps> = ({ projects, artistId
         date: item.date || new Date().toISOString().split('T')[0],
         status: item.status,
         priority: item.priority,
+        project_id: item.project_id || '',
       });
     } else {
       setEditingItem(null);
@@ -115,6 +123,7 @@ export const ArtistRoadmap: React.FC<ArtistRoadmapProps> = ({ projects, artistId
         date: new Date().toISOString().split('T')[0],
         status: 'planned',
         priority: 'medium',
+        project_id: '',
       });
     }
     setIsModalOpen(true);
@@ -530,6 +539,11 @@ export const ArtistRoadmap: React.FC<ArtistRoadmapProps> = ({ projects, artistId
                         {item.description && (
                           <p className="text-sm text-nexus-light/70 mb-2">{item.description}</p>
                         )}
+                        {item.project && (
+                          <div className="mb-2 text-xs px-2 py-1 rounded-lg bg-nexus-purple/20 border border-nexus-purple/30 text-nexus-cyan inline-block">
+                            📁 Projet: {item.project.title}
+                          </div>
+                        )}
                         <div className="flex flex-wrap gap-3 text-xs text-nexus-light/60">
                           {item.date && (
                             <span className="flex items-center gap-1">
@@ -667,6 +681,22 @@ export const ArtistRoadmap: React.FC<ArtistRoadmapProps> = ({ projects, artistId
               rows={3}
               className="w-full px-4 py-2 bg-nexus-surface border border-nexus-light/20 rounded-lg text-white placeholder-nexus-light/50 focus:outline-none focus:border-nexus-cyan resize-none"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">Lier à un Projet (optionnel)</label>
+            <select
+              value={formData.project_id || ''}
+              onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
+              className="w-full px-4 py-2 bg-nexus-surface border border-nexus-light/20 rounded-lg text-white focus:outline-none focus:border-nexus-cyan"
+            >
+              <option value="">-- Aucun projet --</option>
+              {projects.map(project => (
+                <option key={project.id} value={project.id}>
+                  {project.title}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex gap-3 justify-end pt-4">

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Disc, Users, Settings, 
   Plus, DollarSign, 
-  Trash2, Camera, Loader2, Save, FileAudio, Check, X, ClipboardList, Edit3, AlertTriangle, Mail, Phone, ExternalLink, Hash, Layers, UserPlus, Calendar
+  Trash2, Camera, Loader2, Save, FileAudio, Check, X, ClipboardList, Edit3, AlertTriangle, Mail, Phone, ExternalLink, Hash, Layers, UserPlus, Calendar, TrendingUp
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -28,8 +28,9 @@ export const ProjectDetail: React.FC = () => {
   const [meetings, setMeetings] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [allArtists, setAllArtists] = useState<any[]>([]);
+  const [roadmapItems, setRoadmapItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'tracks' | 'tasks' | 'collaboration' | 'meetings' | 'budget'>('tracks');
+  const [activeTab, setActiveTab] = useState<'tracks' | 'tasks' | 'collaboration' | 'meetings' | 'budget' | 'roadmap'>('tracks');
   
   // Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -58,14 +59,15 @@ export const ProjectDetail: React.FC = () => {
   const fetchProjectData = async () => {
     try {
       setLoading(true);
-      const [projRes, tracksRes, tasksRes, teamRes, meetingsRes, profilesRes, artistsRes] = await Promise.all([
+      const [projRes, tracksRes, tasksRes, teamRes, meetingsRes, profilesRes, artistsRes, roadmapRes] = await Promise.all([
         supabase.from('projects').select('*, artist:artists(*)').eq('id', id).single(),
         supabase.from('tracks').select('*').eq('project_id', id).order('created_at'),
         supabase.from('tasks').select('*, assignee:profiles(full_name, avatar_url)').eq('project_id', id).order('due_date'),
         supabase.from('project_team').select('*, profile:profiles(full_name, avatar_url, role)').eq('project_id', id),
         supabase.from('meetings').select('*').eq('project_id', id).order('date', { ascending: false }),
         supabase.from('profiles').select('id, full_name, role').order('full_name'),
-        supabase.from('artists').select('id, stage_name').order('stage_name')
+        supabase.from('artists').select('id, stage_name').order('stage_name'),
+        supabase.from('artist_roadmap_items').select('*').eq('project_id', id).order('date', { ascending: true, nullsFirst: true })
       ]);
 
       if (projRes.error) throw projRes.error;
@@ -77,6 +79,7 @@ export const ProjectDetail: React.FC = () => {
       setMeetings(meetingsRes.data || []);
       setProfiles(profilesRes.data || []);
       setAllArtists(artistsRes.data || []);
+      setRoadmapItems(roadmapRes.data || []);
     } catch (err: any) {
       console.error(err);
       navigate('/projects');
@@ -421,6 +424,7 @@ export const ProjectDetail: React.FC = () => {
         {[
           { id: 'tracks', label: 'Discographie', icon: <Disc size={16} /> },
           { id: 'tasks', label: 'Opérations', icon: <ClipboardList size={16} /> },
+          { id: 'roadmap', label: 'Roadmap', icon: <TrendingUp size={16} /> },
           { id: 'collaboration', label: 'Équipe Hub', icon: <Users size={16} /> },
           { id: 'meetings', label: 'Sessions / Meetings', icon: <Calendar size={16} /> },
           { id: 'budget', label: 'Budget', icon: <DollarSign size={16} /> }
@@ -504,6 +508,50 @@ export const ProjectDetail: React.FC = () => {
                   </Card>
                 ))}
                 {projectTasks.length === 0 && <div className="col-span-full py-24 text-center glass rounded-[40px] border-dashed border-white/10 opacity-20 italic">Aucune mission en cours.</div>}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'roadmap' && (
+            <div className="space-y-8">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-heading font-extrabold text-white">Roadmap du Projet</h3>
+              </div>
+              <div className="space-y-3">
+                {roadmapItems.length > 0 ? (
+                  roadmapItems.map(item => (
+                    <Card key={item.id} className="border border-nexus-light/20 p-4 hover:shadow-lg transition-all">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-bold text-white">{item.title}</h4>
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              item.status === 'planned' ? 'bg-slate-500/20 text-slate-300' :
+                              item.status === 'in_progress' ? 'bg-blue-500/20 text-blue-300' :
+                              item.status === 'completed' ? 'bg-green-500/20 text-green-300' :
+                              'bg-red-500/20 text-red-300'
+                            }`}>
+                              {item.status}
+                            </span>
+                          </div>
+                          {item.description && <p className="text-sm text-nexus-light/70 mb-2">{item.description}</p>}
+                          <div className="flex flex-wrap gap-3 text-xs text-nexus-light/60">
+                            {item.date && <span>📅 {new Date(item.date).toLocaleDateString()}</span>}
+                            <span className={`${
+                              item.priority === 'high' ? 'text-red-300' :
+                              item.priority === 'medium' ? 'text-yellow-300' :
+                              'text-blue-300'
+                            }`}>
+                              Priorité: {item.priority}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="py-16 text-center glass rounded-[40px] border-dashed border-white/10 opacity-20 italic">Aucun item roadmap pour ce projet</div>
+                )}
               </div>
             </div>
           )}

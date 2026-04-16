@@ -119,8 +119,23 @@ const ActivityCard: React.FC<{ activity: ActivityLogEntry; index: number }> = ({
             </span>
           </div>
 
-          {/* Main Description */}
-          <p className="text-sm text-white/70 mb-3 font-medium">{activity.description}</p>
+          {/* Main Description with Details */}
+          {activity.description && (
+            <>
+              {activity.description.includes('|') ? (
+                <div className="mb-3 space-y-2">
+                  <p className="text-sm text-white/70 font-medium">{activity.description.split('|')[0].trim()}</p>
+                  {activity.description.split('|').slice(1).map((detail, idx) => (
+                    <div key={idx} className="bg-white/5 border border-white/10 rounded p-2.5 ml-2">
+                      <p className="text-xs text-white font-medium leading-relaxed">{detail.trim()}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-white/70 mb-3 font-medium">{activity.description}</p>
+              )}
+            </>
+          )}
 
           {/* Context Information */}
           <div className="bg-white/5 border border-white/10 rounded-lg p-3 mb-3 space-y-2">
